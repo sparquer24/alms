@@ -793,25 +793,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hidePrint={true}
       />
 
-      <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]'>
-        <PageSubHeader
-          title={isRenewalView ? 'Renewal Application Details' : 'Fresh Application Details'}
-          breadcrumbs={[
-            { label: 'Inbox', href: '/inbox?type=all' },
-            { label: applicationId ? `Application #${applicationId}` : 'Details' },
-          ]}
-          metaBadge={application?.applicantName ? `Applicant: ${application.applicantName}` : undefined}
-          actions={
-            <SubHeaderButton
-              onClick={() => setShowPrintOptions(true)}
-              icon={<Printer className='w-3.5 h-3.5' />}
-            >
-              Print Form
-            </SubHeaderButton>
-          }
-        />
-
-        <div className='flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6'>
+      <main className='flex-1 ml-0  overflow-auto flex flex-col pt-[64px] md:pt-[86px]'>    
+        <div className='flex-grow w-full mx-auto '>
           {/* Success Message - Fixed Position at Top */}
           {successMessage && (
             <div className='fixed top-4 right-4 z-50 max-w-md animate-slide-in'>
