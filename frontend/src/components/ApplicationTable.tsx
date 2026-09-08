@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useImperativeHandle } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApplicationData } from '../types';
 import styles from './ApplicationTable.module.css';
@@ -61,7 +61,12 @@ function getIsViewed(app: ApplicationData): boolean {
   return Boolean((app as any).isViewed);
 }
 
-interface ApplicationTableProps {
+export interface ApplicationTableRef {
+  exportExcel: () => Promise<void>;
+  isExporting: boolean;
+}
+
+export interface ApplicationTableProps {
   users?: UserData[];
   isLoading?: boolean;
   statusIdFilter?: string;
@@ -71,20 +76,34 @@ interface ApplicationTableProps {
   showActionColumn?: boolean;
   selectedFormType?: 'fresh' | 'renewal';
   onSelectedFormTypeChange?: (value: 'fresh' | 'renewal') => void;
+  // External SubHeader integration props:
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+  applicationTypeFilter?: string;
+  onApplicationTypeFilterChange?: (filter: string) => void;
+  hideControls?: boolean;
 }
 
-const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
-  ({
-    users: _users,
-    applications,
-    filteredApplications,
-    isLoading = false,
-    statusIdFilter: _statusIdFilter,
-    pageType,
-    showActionColumn = true,
-    selectedFormType,
-    onSelectedFormTypeChange,
-  }) => {
+const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableProps>(
+  (
+    {
+      users: _users,
+      applications,
+      filteredApplications,
+      isLoading = false,
+      statusIdFilter: _statusIdFilter,
+      pageType,
+      showActionColumn = true,
+      selectedFormType,
+      onSelectedFormTypeChange,
+      searchQuery: externalSearchQuery,
+      onSearchQueryChange,
+      applicationTypeFilter: externalApplicationTypeFilter,
+      onApplicationTypeFilterChange,
+      hideControls = false,
+    },
+    ref
+  ) => {
     // Get applications from context
     const { applications: contextApplications } = useApplications();
 
@@ -93,10 +112,15 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     const isSentPage = pageType === 'sent';
     const isRenewalPage = pageType === 'renewal';
 
-    // Local search state
-    const [searchQuery, setSearchQuery] = useState<string>('');
-    // Application type filter state: 'All' | 'Fresh' | 'Renewal'
-    const [applicationTypeFilter, setApplicationTypeFilter] = React.useState<string>('All');
+    // Local search state fallback
+    const [localSearchQuery, setLocalSearchQuery] = useState<string>('');
+    const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : localSearchQuery;
+    const setSearchQuery = onSearchQueryChange || setLocalSearchQuery;
+
+    // Application type filter state fallback: 'All' | 'Fresh' | 'Renewal' | 'Cancel'
+    const [localApplicationTypeFilter, setLocalApplicationTypeFilter] = React.useState<string>('All');
+    const applicationTypeFilter = externalApplicationTypeFilter !== undefined ? externalApplicationTypeFilter : localApplicationTypeFilter;
+    const setApplicationTypeFilter = onApplicationTypeFilterChange || setLocalApplicationTypeFilter;
 
     // Determine base applications list in this order: filtered -> prop -> context -> empty array
     const baseApplications = React.useMemo(
@@ -376,6 +400,16 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       }
     }, [effectiveApplications, exportingExcel, formatDateTime, tableColumns]);
 
+    // Expose exportExcel and isExporting via ref for PageSubHeader integration
+    useImperativeHandle(
+      ref,
+      () => ({
+        exportExcel: handleExportExcel,
+        isExporting: exportingExcel,
+      }),
+      [handleExportExcel, exportingExcel]
+    );
+
     if (isLoading) {
       return <TableSkeleton rows={8} columns={6} />;
     }
@@ -387,8 +421,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
         {errorMessage && <Message type='error' message={errorMessage} />}
 
-        {/* Controls (search + export) stay above the scrollable table, never scroll away */}
-        <div className='flex-none px-4 pt-4 pb-2 bg-white'>
+        {/* Controls (search + export) stay above the scrollable table when hideControls is false */}
+        {!hideControls && (
+          <div className='flex-none px-4 pt-4 pb-2 bg-white'>
           <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
             <div className='relative w-full sm:w-72'>
               <input
@@ -489,6 +524,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             </div>
           </div>
         </div>
+        )}
 
         <div className={`${styles.tableWrapper} w-full min-w-0 flex-1 min-h-0 overflow-y-auto`}>
           <table className='w-full table-fixed border-separate border-spacing-0'>
@@ -559,6 +595,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     );
   }
 );
+
+ApplicationTable.displayName = 'ApplicationTable';
 
 const Message: React.FC<{ type: 'success' | 'error'; message: string }> = ({ type, message }) => {
   const typeClasses =

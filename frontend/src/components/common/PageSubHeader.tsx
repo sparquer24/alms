@@ -49,14 +49,16 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
 
   const effectiveRole = normalizeRole(userRole);
   const isSuperAdmin = effectiveRole === 'SUPER_ADMIN' || (pathname ? pathname.startsWith('/superAdmin') : false);
-  const defaultRoleLabel = roleLabel || (isSuperAdmin ? 'Super Admin' : 'Admin');
-  const defaultRoleHref = isSuperAdmin ? '/superAdmin/userManagement' : '/admin/userManagement';
+  const isAdmin = effectiveRole === 'ADMIN' || (pathname ? pathname.startsWith('/admin') : false);
+  const derivedRoleLabel = isSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : (userRole ? String(userRole).replace(/_/g, ' ') : 'User');
+  const defaultRoleLabel = roleLabel || derivedRoleLabel;
+  const defaultRoleHref = isSuperAdmin ? '/superAdmin/userManagement' : isAdmin ? '/admin/userManagement' : '/inbox?type=all';
 
   return (
     <div
       className={`sticky top-0 z-30 bg-[#0F2D52]/95 backdrop-blur-md text-white px-4 sm:px-6 lg:px-8 py-2.5 shadow-md border-b border-[#1E3A8A]/50 transition-all ${className}`}
     >
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="w-full mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Left Section: Breadcrumbs / Title */}
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-gray-300 min-w-0">
           {breadcrumbs && breadcrumbs.length > 0 ? (
@@ -247,5 +249,41 @@ export const SubHeaderSearch: React.FC<SubHeaderSearchProps> = ({
     </div>
   );
 };
+
+export interface SubHeaderSelectOption<T extends string = string> {
+  value: T;
+  label: string;
+}
+
+export interface SubHeaderSelectProps<T extends string = string> {
+  value: T;
+  onChange: (value: T) => void;
+  options: SubHeaderSelectOption<T>[];
+  className?: string;
+  ariaLabel?: string;
+}
+
+export function SubHeaderSelect<T extends string = string>({
+  value,
+  onChange,
+  options,
+  className = '',
+  ariaLabel = 'Filter',
+}: SubHeaderSelectProps<T>) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value as T)}
+      aria-label={ariaLabel}
+      className={`h-7 px-2.5 py-1 rounded-lg bg-[#0F2D52] border border-white/20 text-xs text-white font-medium focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all cursor-pointer shadow-xs ${className}`}
+    >
+      {options.map(opt => (
+        <option key={opt.value} value={opt.value} className="bg-[#0F2D52] text-white">
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 export default PageSubHeader;

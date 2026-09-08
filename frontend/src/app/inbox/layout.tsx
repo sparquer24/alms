@@ -43,30 +43,23 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
 
   return (
     <InboxProvider>
-      <div className='flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
+      <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
         <Suspense fallback={null}>
           <InboxBootloaderClient />
         </Suspense>
         <Suspense fallback={null}>
-
           <Sidebar onTableReload={undefined} />
-
         </Suspense>
 
         <Header />
 
-        <div className='flex-1 flex flex-col overflow-hidden ml-0 md:ml-66 mt-[64px] md:mt-[90px] h-[calc(100vh-64px)] md:h-[calc(100vh-90px)]'>
-          {/* This region is the only scrollable area — header/footer stay put, only its content (e.g. table rows) scrolls */}
-          <div className='flex-1 min-h-0 overflow-y-auto p-2 flex flex-col'>
-            <div className="w-full flex-1 min-h-0 flex flex-col">
-              {children}
-            </div>
+        <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]'>
+          <div className='flex-grow flex flex-col min-h-0'>
+            {children}
           </div>
           <Footer />
-        </div>
-
+        </main>
       </div>
-
     </InboxProvider>
   );
 }

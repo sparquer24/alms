@@ -416,11 +416,6 @@ export default function CancelRequestDetail({
         )}
     </div>
 
-    {/* Print-only layout for the Original License Details tab: mirrors the
-        Fresh/Renewal Application Detail print form instead of printing the
-        on-screen card layout (which produced a messy, unstructured printout).
-        Rendered as a sibling of the (print:hidden) on-screen card above so it
-        isn't hidden along with it. */}
     {activeTab === 'original' && (sourceAppData || licenseData) && (
       <OriginalLicenseDetailsPrint
         sourceAppData={sourceAppData}
@@ -591,7 +586,7 @@ function OriginalLicenseDetails({
             title='Print application details'
             disabled={!printReady}
           >
-            <Printer className='w-4.5 h-4.5 text-slate-500' />
+            <Printer className='w-4 h-4 text-slate-500' />
             {printReady ? 'Print Details' : 'Preparing…'}
           </button>
         </div>

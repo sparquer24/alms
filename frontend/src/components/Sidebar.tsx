@@ -76,12 +76,14 @@ const MenuItem = memo(({ icon, label, count, active, loading, onClick, onActivat
         }
       }}
     >
-      <span className='inline-flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0' aria-hidden='true'>
+      <span className={`inline-flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0 transition-colors ${active ? 'text-white' : 'text-gray-500'}`} aria-hidden='true'>
         {icon}
       </span>
       <span className='flex-1 truncate'>{label}</span>
       {count !== undefined && count > 0 && (
-        <span className='inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold text-white bg-indigo-500 rounded-full ml-2'>
+        <span className={`inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold rounded-full ml-2 transition-colors ${
+          active ? 'bg-white/20 text-white font-bold' : 'bg-[#0F2D52] text-white'
+        }`}>
           {count > 99 ? '99+' : count}
         </span>
       )}
@@ -120,7 +122,7 @@ const InboxSubMenuItem = memo(
 
     const className = useMemo(
       () =>
-        `flex items-center w-full px-3 py-1.5 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 ${active ? 'bg-[#001F54] text-white font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`,
+        `flex items-center w-full px-3 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 ${active ? 'bg-[#001F54] text-white font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`,
       [active]
     );
 
@@ -142,14 +144,16 @@ const InboxSubMenuItem = memo(
           }}
         >
           <span
-            className='inline-flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0'
+            className={`inline-flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0 transition-colors ${active ? 'text-white' : 'text-gray-500'}`}
             aria-hidden='true'
           >
             {icon}
           </span>
           <span className='flex-1 truncate'>{label}</span>
           {typeof count === 'number' && count > 0 && (
-            <span className='inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold text-white bg-indigo-500 rounded-full ml-2'>
+            <span className={`inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold rounded-full ml-2 transition-colors ${
+              active ? 'bg-white/20 text-white font-bold' : 'bg-[#0F2D52] text-white'
+            }`}>
               {count > 99 ? '99+' : count}
             </span>
           )}
@@ -1396,7 +1400,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className='w-4 h-4 flex-shrink-0'
+              className={`w-4 h-4 flex-shrink-0 ${pathname === '/dashboard' ? 'text-[#D4AF37]' : 'text-white'}`}
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
@@ -1404,7 +1408,14 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
             <span className='font-semibold text-sm truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
           </button>
         ) : (
-          <div className='bg-[#001F54] text-white px-3 py-2.5 flex items-center gap-2'>
+          <button
+            type='button'
+            onClick={() => {
+              const defaultHome = getRoleBasedRedirectPath(effectiveRole);
+              router.push(defaultHome);
+            }}
+            className='w-full text-left bg-[#0F2D52] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] px-3 py-2.5 flex items-center gap-2 shadow-inner transition-all cursor-pointer focus-visible:outline-none'
+          >
             <svg
               xmlns='http://www.w3.org/2000/svg'
               viewBox='0 0 24 24'
@@ -1413,13 +1424,13 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className='w-4 h-4 flex-shrink-0'
+              className='w-4 h-4 flex-shrink-0 text-[#D4AF37]'
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
             </svg>
-            <span className='font-semibold text-sm truncate'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
-          </div>
+            <span className='font-semibold text-sm truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
+          </button>
         )}
 
         <nav className='flex-1 overflow-y-auto py-2 px-2'>

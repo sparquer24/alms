@@ -246,19 +246,18 @@ export default function CancelFormDetailClient() {
   const showApplicationProcessingSection = activeTab === 'info';
 
   return (
-    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)] print:min-h-0 print:bg-white'>
-      <main className='w-full'>
-        <div className='w-full'>
-          <div className='space-y-6'>
-            <CancelRequestDetail
-              request={request}
-              licenseId={request.licenseId}
-              licenseNumber={request.licenseNumber}
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-              loading={cancelInfoLoading}
-              loadOriginal={originalLoaded}
-            />
+    <div className='flex flex-col flex-1 w-full'>
+
+      <div className='w-full mx-auto px-5'>
+        <CancelRequestDetail
+          request={request}
+          licenseId={request.licenseId}
+          licenseNumber={request.licenseNumber}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          loading={cancelInfoLoading}
+          loadOriginal={originalLoaded}
+        />
 
             {activeTab === 'info' && (
             <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden print:hidden'>
@@ -545,7 +544,5 @@ export default function CancelFormDetailClient() {
             )}
           </div>
         </div>
-      </main>
-    </div>
-  );
-}
+    );
+  }
