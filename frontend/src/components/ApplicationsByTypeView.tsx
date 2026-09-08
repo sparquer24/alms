@@ -65,6 +65,8 @@ const fetchRenewalApplications = async (submittedOnly: boolean): Promise<Applica
 
 const ORG_WIDE_PAGE_SIZE = 20;
 
+type FreshFormViewType = 'fresh' | 'renewal';
+
 const getPageTitle = (queryType: string, selectedFormType: FreshFormViewType) => {
   switch (queryType) {
     case 'all':
@@ -246,8 +248,6 @@ export default function ApplicationsByTypeView({
       void loadType(queryType).catch(() => {});
     }
   }, [isOrgWide, queryType, initialized, isAuthenticated, loadType]);
-
-type FreshFormViewType = 'fresh' | 'renewal';
 
   return (
     <div className='flex flex-col flex-1 min-h-0 w-full'>
