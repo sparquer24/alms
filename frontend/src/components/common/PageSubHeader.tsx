@@ -4,6 +4,7 @@ import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useLayout } from '@/config/layoutContext';
 import { normalizeRole } from '@/utils/roleUtils';
 import { Search, X } from 'lucide-react';
 
@@ -45,6 +46,7 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
   className = '',
 }) => {
   const { userRole } = useAuth();
+  const { headerHeight } = useLayout();
   const pathname = usePathname();
 
   const effectiveRole = normalizeRole(userRole);
@@ -56,7 +58,7 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
 
   return (
     <div
-      className={`sticky top-0 z-30 bg-[#0F2D52]/95 backdrop-blur-md text-white px-4 sm:px-6 lg:px-8 py-2.5 shadow-md border-b border-[#1E3A8A]/50 transition-all ${className}`}
+      className={`sticky top-1.5 z-30 bg-[#0F2D52]/95 backdrop-blur-md text-white px-4 sm:px-6 lg:px-8 py-2.5 shadow-md border-b border-[#1E3A8A]/50 transition-all ${className}`}
     >
       <div className="w-full mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Left Section: Breadcrumbs / Title */}

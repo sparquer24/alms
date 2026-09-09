@@ -13,6 +13,9 @@ export const ROLE_CODES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
   ADMIN: 'ADMIN',
   ZS: 'ZS',
-  RANGE: 'RANGE'
+  RANGE: 'RANGE',
+  DCP: 'DCP',
+  JTCP: 'JTCP',
+  CP: 'CP'
 } as const;
 

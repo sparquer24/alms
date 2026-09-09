@@ -616,7 +616,7 @@ export default function FlowMappingContent() {
 
   return (
     <AdminErrorBoundary>
-      <div className="flex flex-col flex-grow">
+      <div className="flex flex-col flex-grow min-h-0">
         <PageSubHeader
           title="Workflow Flow Mapping"
           metaBadge={effectiveStateName ? `${effectiveStateName} Jurisdiction` : 'Global Jurisdiction'}
@@ -655,7 +655,7 @@ export default function FlowMappingContent() {
           }
         />
 
-        <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex-grow min-h-0 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* Main Form Card */}
         <AdminCard title='Configure Workflow Mapping'>
@@ -1321,42 +1321,25 @@ export default function FlowMappingContent() {
           </div>
         )}
 
-        {/* Information Cards */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: AdminSpacing.lg,
-          }}
-        >
-          <AdminCard title='How It Works' description='Understanding flow mapping'>
-            <ul
-              style={{
-                margin: 0,
-                paddingLeft: '20px',
-                color: colors.text.secondary,
-                fontSize: '13px',
-                lineHeight: '22px',
-              }}
-            >
+        {/* Information Cards - styled to match the Dashboard's info-card look
+            (white bg, rounded-xl, gray-200/80 border, shadow-sm, hover:shadow-md) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-md transition-all duration-200">
+            <h3 className="text-sm font-bold text-gray-900">How It Works</h3>
+            <p className="text-xs text-gray-500 mt-0.5 mb-3">Understanding flow mapping</p>
+            <ul className="m-0 pl-5 text-gray-600 text-xs leading-relaxed space-y-0.5">
               <li>Select a current role that will forward applications</li>
               <li>Choose one or multiple roles that can receive applications</li>
               <li>System automatically detects circular dependencies</li>
               <li>Save the mapping to apply it across the system</li>
               <li>View audit information for tracking changes</li>
             </ul>
-          </AdminCard>
+          </div>
 
-          <AdminCard title='Features' description='Available options'>
-            <ul
-              style={{
-                margin: 0,
-                paddingLeft: '20px',
-                color: colors.text.secondary,
-                fontSize: '13px',
-                lineHeight: '22px',
-              }}
-            >
+          <div className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-md transition-all duration-200">
+            <h3 className="text-sm font-bold text-gray-900">Features</h3>
+            <p className="text-xs text-gray-500 mt-0.5 mb-3">Available options</p>
+            <ul className="m-0 pl-5 text-gray-600 text-xs leading-relaxed space-y-0.5">
               <li>✓ Role-based workflow configuration</li>
               <li>✓ Circular dependency detection</li>
               <li>✓ Workflow visualization diagram</li>
@@ -1364,31 +1347,25 @@ export default function FlowMappingContent() {
               <li>✓ Reset mapping to empty state</li>
               <li>✓ Audit trail with user tracking</li>
             </ul>
-          </AdminCard>
+          </div>
 
-          <AdminCard title='Current Status' description='Active configuration'>
+          <div className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-md transition-all duration-200">
+            <h3 className="text-sm font-bold text-gray-900">Current Status</h3>
+            <p className="text-xs text-gray-500 mt-0.5 mb-3">Active configuration</p>
             {currentRole && currentFlowMapping ? (
-              <div style={{ color: colors.text.primary, fontSize: '13px' }}>
-                <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>
-                  From: <span style={{ color: colors.status.success }}>{currentRole.label}</span>
+              <div className="text-xs text-gray-700">
+                <p className="m-0 mb-2 font-semibold">
+                  From: <span className="text-emerald-600">{currentRole.label}</span>
                 </p>
-                <p style={{ margin: '0 0 8px 0', color: colors.text.secondary }}>
+                <p className="m-0 mb-2 text-gray-500">
                   To {nextRoles.length > 0 ? `:` : `: None selected`}
                 </p>
                 {nextRoles.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <div className="flex flex-wrap gap-1.5">
                     {nextRoles.map(role => (
                       <span
                         key={role.value}
-                        style={{
-                          display: 'inline-block',
-                          backgroundColor: colors.status.info,
-                          color: '#ffffff',
-                          padding: '4px 12px',
-                          borderRadius: AdminBorderRadius.md,
-                          fontSize: '12px',
-                          fontWeight: 500,
-                        }}
+                        className="inline-block bg-blue-600 text-white px-2.5 py-1 rounded-md text-[11px] font-medium"
                       >
                         {role.role?.code || ''}
                       </span>
@@ -1397,11 +1374,11 @@ export default function FlowMappingContent() {
                 )}
               </div>
             ) : (
-              <p style={{ color: colors.text.secondary, margin: 0, fontSize: '13px' }}>
+              <p className="text-gray-500 m-0 text-xs">
                 No role selected. Please select a role to view its configuration.
               </p>
             )}
-          </AdminCard>
+          </div>
         </div>
         </div>
       </div>

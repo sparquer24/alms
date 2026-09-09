@@ -104,17 +104,18 @@ export const RoleTable: React.FC<RoleTableProps> = ({
   }
 
   return (
-    <div style={{ overflow: 'x-auto' }}>
+    <div style={{ overflowX: 'auto' }}>
+      {/* Roles are paginated (bounded row count), so this never needs its own
+          scrollbar - the sticky thead is just future-proofing in case that changes. */}
+      <div style={{ overflow: 'hidden', borderRadius: AdminBorderRadius.lg }}>
       <table
         style={{
           width: '100%',
           borderCollapse: 'collapse',
           backgroundColor: colors.surface,
-          borderRadius: AdminBorderRadius.lg,
-          overflow: 'hidden',
         }}
       >
-        <thead>
+        <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
           <tr
             style={{
               backgroundColor: colors.background,
@@ -374,6 +375,7 @@ export const RoleTable: React.FC<RoleTableProps> = ({
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* Pagination */}
       {totalPages > 1 && (

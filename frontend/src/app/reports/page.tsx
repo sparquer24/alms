@@ -127,7 +127,7 @@ export default function ReportsPage() {
       <Sidebar onStatusSelect={setSelectedStatusKey} />
       <Header />
 
-      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]">
         <PageSubHeader
           title="My Reports & Analytics"
           metaBadge={selectedStatusKey ? `Filtered by: ${selectedStatusKey}` : undefined}

@@ -7,6 +7,7 @@ import {
   PageSubHeader,
   SubHeaderButton,
   SubHeaderPills,
+  SubHeaderSearch,
 } from '@/components/common/PageSubHeader';
 import { AdminErrorBoundary } from '@/components/admin';
 import { AdminRoleService } from '@/services/admin/roles';
@@ -20,6 +21,9 @@ export default function ActionMappingContent() {
   // Selected Role & Application Type State
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [selectedAppType, setSelectedAppType] = useState<string>('FRESH');
+
+  // Action search state
+  const [actionSearchQuery, setActionSearchQuery] = useState('');
 
   const appTypeOptions = [
     { value: 'FRESH', label: 'Fresh' },
@@ -81,6 +85,18 @@ export default function ActionMappingContent() {
       return Array.isArray(response) ? response : [];
     },
   });
+
+  // Filter actions by search query (name or code)
+  const filteredActionsData = useMemo(() => {
+    if (!actionsData) return actionsData;
+    if (!actionSearchQuery.trim()) return actionsData;
+    const query = actionSearchQuery.toLowerCase();
+    return actionsData.filter(
+      (action: Action) =>
+        action.name.toLowerCase().includes(query) ||
+        action.code.toLowerCase().includes(query)
+    );
+  }, [actionsData, actionSearchQuery]);
 
   // Fetch Mappings for Selected Role + Application Type
   const { data: mappingsData, isLoading: isLoadingMappings } = useQuery({
@@ -172,7 +188,7 @@ export default function ActionMappingContent() {
 
   return (
     <AdminErrorBoundary>
-      <div className="flex flex-col flex-grow">
+      <div className="flex flex-col flex-grow min-h-0">
         <PageSubHeader
           title="Workflow Action Mapping"
           metaBadge={selectedRole ? `Role: ${selectedRole.name}` : 'Select a Role'}
@@ -195,6 +211,13 @@ export default function ActionMappingContent() {
                   ))}
                 </select>
               </div>
+
+              {/* Action Search */}
+              <SubHeaderSearch
+                value={actionSearchQuery}
+                onChange={setActionSearchQuery}
+                placeholder="Search actions by name..."
+              />
 
               {/* Application Type Pills */}
               <SubHeaderPills
@@ -220,17 +243,17 @@ export default function ActionMappingContent() {
         />
 
         {/* Main Content Area */}
-        <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex-grow min-h-0 flex flex-col max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {notification.visible && (
-            <div className={`p-4 rounded-lg flex justify-between items-center ${notification.type === 'success' ? 'bg-green-100 border border-green-300 text-green-800' : 'bg-red-100 border border-red-300 text-red-800'}`}>
+            <div className={`p-4 rounded-lg flex justify-between items-center flex-shrink-0 ${notification.type === 'success' ? 'bg-green-100 border border-green-300 text-green-800' : 'bg-red-100 border border-red-300 text-red-800'}`}>
               <span>{notification.message}</span>
               <button onClick={() => setNotification(prev => ({ ...prev, visible: false }))} className='text-lg font-bold'>&times;</button>
             </div>
           )}
 
           {selectedRoleId ? (
-            <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
-              <div className='p-6 border-b border-slate-200'>
+            <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex-1 min-h-0 flex flex-col'>
+              <div className='p-6 border-b border-slate-200 flex-shrink-0'>
                 <h2 className='text-xl font-semibold text-slate-800'>Available Actions</h2>
                 <p className='text-slate-500 mt-1 text-sm'>Toggle the switches to grant or revoke actions for the selected role and application type.</p>
               </div>
@@ -238,56 +261,61 @@ export default function ActionMappingContent() {
               {isLoadingActions || isLoadingMappings ? (
                 <div className='p-8 text-center text-slate-500'>Loading actions...</div>
               ) : (
-                <div className='p-0'>
-                  <table className='w-full text-left border-collapse'>
-                    <thead>
-                      <tr className='bg-slate-50 border-b border-slate-200'>
-                        <th className='p-4 font-semibold text-slate-600 text-sm'>Action Name</th>
-                        <th className='p-4 font-semibold text-slate-600 text-sm'>Code</th>
-                        <th className='p-4 font-semibold text-slate-600 text-sm w-40'>Allowed By</th>
-                        <th className='p-4 font-semibold text-slate-600 text-sm w-32 text-center'>Access</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {actionsData?.map((action: Action) => {
-                        const mapping = actionStatusMap.get(action.id);
-                        const isEnabled = mapping ? mapping.isActive : false;
-                        
-                        return (
-                          <tr key={action.id} className='border-b border-slate-100 hover:bg-slate-50'>
-                            <td className='p-4 font-medium text-slate-800'>{action.name}</td>
-                            <td className='p-4 text-slate-500 text-sm'>
-                              <span className='bg-slate-100 px-2 py-1 rounded text-xs font-mono'>{action.code}</span>
-                            </td>
-                            <td className='p-4 text-sm text-slate-600'>
-                              {isEnabled && mapping?.allowedBy?.username ? (
-                                <span className='text-slate-700'>{mapping.allowedBy.username}</span>
-                              ) : (
-                                <span className='text-slate-400'>—</span>
-                              )}
-                            </td>
-                            <td className='p-4 text-center'>
-                              <button
-                                onClick={() => handleToggle(action.id, mapping)}
-                                disabled={toggleMappingMutation.isPending}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${toggleMappingMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`}
-                                />
-                              </button>
+                <div className='overflow-x-auto flex-1 min-h-0 flex flex-col'>
+                  {/* Table header stays fixed while rows scroll within the card's available height */}
+                  <div className='flex-1 min-h-0 overflow-y-auto isolate'>
+                    <table className='w-full text-left border-collapse'>
+                      <thead className='sticky top-0 z-10'>
+                        <tr className='bg-slate-50 border-b border-slate-200'>
+                          <th className='p-4 font-semibold text-slate-600 text-sm'>Action Name</th>
+                          <th className='p-4 font-semibold text-slate-600 text-sm'>Code</th>
+                          <th className='p-4 font-semibold text-slate-600 text-sm w-40'>Allowed By</th>
+                          <th className='p-4 font-semibold text-slate-600 text-sm w-32 text-center'>Access</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredActionsData?.map((action: Action) => {
+                          const mapping = actionStatusMap.get(action.id);
+                          const isEnabled = mapping ? mapping.isActive : false;
+
+                          return (
+                            <tr key={action.id} className='border-b border-slate-100 hover:bg-slate-50'>
+                              <td className='p-4 font-medium text-slate-800'>{action.name}</td>
+                              <td className='p-4 text-slate-500 text-sm'>
+                                <span className='bg-slate-100 px-2 py-1 rounded text-xs font-mono'>{action.code}</span>
+                              </td>
+                              <td className='p-4 text-sm text-slate-600'>
+                                {isEnabled && mapping?.allowedBy?.username ? (
+                                  <span className='text-slate-700'>{mapping.allowedBy.username}</span>
+                                ) : (
+                                  <span className='text-slate-400'>—</span>
+                                )}
+                              </td>
+                              <td className='p-4 text-center'>
+                                <button
+                                  onClick={() => handleToggle(action.id, mapping)}
+                                  disabled={toggleMappingMutation.isPending}
+                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${toggleMappingMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                >
+                                  <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                                  />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                        {filteredActionsData?.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className='p-8 text-center text-slate-500'>
+                              {actionSearchQuery ? `No actions found matching "${actionSearchQuery}".` : 'No actions found in the system.'}
                             </td>
                           </tr>
-                        );
-                      })}
-                      
-                      {actionsData?.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className='p-8 text-center text-slate-500'>No actions found in the system.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -303,12 +331,12 @@ export default function ActionMappingContent() {
               {isLoadingRoles ? (
                 <div className="text-sm text-slate-400 py-4">Loading available roles...</div>
               ) : (
-                <div className='grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-left'>
                   {rolesData?.map((role: any) => (
                     <button
                       key={role.id}
                       onClick={() => setSelectedRoleId(role.id)}
-                      className='flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-[#001F54] hover:bg-slate-50 transition-all text-sm font-medium text-slate-800 group cursor-pointer'
+                      className='flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#001F54]/40 hover:scale-[1.02] active:scale-[0.98] text-sm font-medium text-slate-800 group cursor-pointer'
                     >
                       <span className="group-hover:text-[#001F54] transition-colors">{role.name}</span>
                       <span className='text-xs font-mono text-slate-400 group-hover:text-[#001F54] group-hover:bg-blue-50 bg-slate-100 px-2 py-0.5 rounded transition-colors'>

@@ -284,7 +284,7 @@ export default function RoleMappingPage() {
 
   return (
     <AdminErrorBoundary>
-      <div className="flex flex-col flex-grow">
+      <div className="flex flex-col flex-grow min-h-0">
         <PageSubHeader
           title="Role Management"
           metaBadge={`${roles.length} Total Role${roles.length !== 1 ? 's' : ''}`}
@@ -335,7 +335,7 @@ export default function RoleMappingPage() {
         />
 
         {/* Main Content */}
-        <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex-grow min-h-0 flex flex-col max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Error Alert */}
           {fetchError && (
             <AdminErrorAlert

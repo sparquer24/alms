@@ -4,11 +4,12 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, Download, Plus } from 'lucide-react';
+import { ArrowLeft, Download, Plus, Eye } from 'lucide-react';
 import {
   PageSubHeader,
   SubHeaderButton,
   SubHeaderSearch,
+  SubHeaderSelect,
 } from '@/components/common/PageSubHeader';
 import {
   AdminCard,
@@ -189,6 +190,11 @@ export default function LocationsManagementContent() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Sort & date range filter state
+  const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'newest' | 'oldest'>('name_asc');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
   // Reset form
   const resetForm = () => {
     setFormData({ name: '' });
@@ -258,13 +264,42 @@ export default function LocationsManagementContent() {
       (parentId !== undefined && parentId !== null),
   });
 
-  // Filtered items based on search query
+  // Filtered + sorted items based on search query, date range and sort order
   const items = useMemo(() => {
-    if (!searchQuery.trim()) return allItems;
-    return allItems.filter(item =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [allItems, searchQuery]);
+    let result = allItems;
+
+    if (searchQuery.trim()) {
+      result = result.filter(item =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    if (dateFrom) {
+      const fromTime = new Date(dateFrom).getTime();
+      result = result.filter(item => new Date(item.createdAt).getTime() >= fromTime);
+    }
+
+    if (dateTo) {
+      const toTime = new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 - 1;
+      result = result.filter(item => new Date(item.createdAt).getTime() <= toTime);
+    }
+
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'name_desc':
+          return b.name.localeCompare(a.name);
+        case 'newest':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'name_asc':
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
+    return result;
+  }, [allItems, searchQuery, dateFrom, dateTo, sortBy]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -387,13 +422,13 @@ export default function LocationsManagementContent() {
 
   // Export to Excel
   const handleExportExcel = () => {
-    if (allItems.length === 0) {
+    if (items.length === 0) {
       toast.error('No data to export');
       return;
     }
 
-    const exportData = allItems.map(item => ({
-      ID: item.id,
+    const exportData = items.map((item, idx) => ({
+      'S.No': idx + 1,
       Name: item.name,
       'Created At': new Date(item.createdAt).toLocaleDateString(),
       'Updated At': new Date(item.updatedAt).toLocaleDateString(),
@@ -424,7 +459,7 @@ export default function LocationsManagementContent() {
   const canNavigateToChild = currentLevel !== 'station' && items.length > 0;
 
   return (
-    <div className="flex flex-col flex-grow">
+    <div className="flex flex-col flex-grow min-h-0">
       <PageSubHeader
         title="Locations Management"
         metaBadge={`${levelConfig.label}: ${items.length} Record${items.length !== 1 ? 's' : ''}`}
@@ -434,7 +469,36 @@ export default function LocationsManagementContent() {
             <SubHeaderSearch
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder={`Search ${levelConfig.label.toLowerCase()}...`}
+              placeholder={`Search ${levelConfig.label.toLowerCase()} by name...`}
+            />
+
+            {/* Sort */}
+            <SubHeaderSelect
+              value={sortBy}
+              onChange={setSortBy}
+              ariaLabel="Sort"
+              options={[
+                { value: 'name_asc', label: 'Name (A-Z)' },
+                { value: 'name_desc', label: 'Name (Z-A)' },
+                { value: 'newest', label: 'Newest First' },
+                { value: 'oldest', label: 'Oldest First' },
+              ]}
+            />
+
+            {/* Date Range Filter */}
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              title="From date"
+              className="h-7 px-2 py-1 rounded-lg bg-[#0F2D52] border border-white/20 text-xs text-white font-medium focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all cursor-pointer shadow-xs"
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              title="To date"
+              className="h-7 px-2 py-1 rounded-lg bg-[#0F2D52] border border-white/20 text-xs text-white font-medium focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all cursor-pointer shadow-xs"
             />
 
             {/* Excel Download */}
@@ -474,7 +538,7 @@ export default function LocationsManagementContent() {
         }
       />
 
-      <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="flex-grow min-h-0 flex flex-col max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Breadcrumb Hierarchy Trail */}
         {breadcrumbPath.length > 1 && (
           <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 text-xs shadow-xs">
@@ -500,7 +564,7 @@ export default function LocationsManagementContent() {
         {error && <AdminErrorAlert message={(error as Error).message} title={''} />}
 
         {/* Main Content Card */}
-        <AdminCard title={levelConfig.label}>
+        <AdminCard title={levelConfig.label} fill={!isLoading && items.length > 0}>
         
         {/* Search Results Info */}
         {searchQuery && (
@@ -530,9 +594,11 @@ export default function LocationsManagementContent() {
 
         {/* Data Table */}
         {!isLoading && items.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            {/* Table header stays fixed while rows scroll within the card's available height */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', isolation: 'isolate' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr
                   style={{
                     backgroundColor: colors.surface,
@@ -540,7 +606,7 @@ export default function LocationsManagementContent() {
                   }}
                 >
                   <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
-                    ID
+                    S.No
                   </th>
                   <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
                     Name
@@ -567,7 +633,7 @@ export default function LocationsManagementContent() {
                     }}
                     onClick={() => canNavigateToChild && handleNavigateToChild(item)}
                   >
-                    <td style={{ padding: AdminSpacing.md }}>{item.id}</td>
+                    <td style={{ padding: AdminSpacing.md }}>{idx + 1}</td>
                     <td style={{ padding: AdminSpacing.md, fontWeight: 500 }}>{item.name}</td>
                     <td style={{ padding: AdminSpacing.md, color: colors.text.secondary }}>
                       {new Date(item.createdAt).toLocaleDateString()}
@@ -576,6 +642,32 @@ export default function LocationsManagementContent() {
                       {new Date(item.updatedAt).toLocaleDateString()}
                     </td>
                     <td style={{ padding: AdminSpacing.md, textAlign: 'center' }}>
+                      {canNavigateToChild && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleNavigateToChild(item);
+                          }}
+                          title={`View ${HIERARCHY_ORDER[HIERARCHY_ORDER.indexOf(currentLevel) + 1] ? LOCATION_HIERARCHY[HIERARCHY_ORDER[HIERARCHY_ORDER.indexOf(currentLevel) + 1]].label : ''}`}
+                          style={{
+                            padding: '6px 10px',
+                            marginRight: '8px',
+                            backgroundColor: colors.surface,
+                            color: colors.text.primary,
+                            border: `1px solid ${colors.border}`,
+                            borderRadius: AdminBorderRadius.sm,
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          View
+                        </button>
+                      )}
                       <button
                         onClick={e => {
                           e.stopPropagation();
@@ -620,6 +712,7 @@ export default function LocationsManagementContent() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
         </AdminCard>

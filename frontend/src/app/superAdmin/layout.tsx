@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { LayoutProvider } from '@/config/layoutContext';
+import { LayoutProvider, useLayout } from '@/config/layoutContext';
 import { normalizeRole } from '@/utils/roleUtils';
 import Footer from '@/components/Footer';
 
@@ -66,16 +66,27 @@ export default function SuperAdminLayout({ children }: { children: any }) {
 
   return (
     <LayoutProvider>
-      <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
-        <Sidebar />
-        <Header />
-        <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]'>
-          <div className="flex-grow">
-            {children}
-          </div>
-          <Footer />
-        </main>
-      </div>
+      <SuperAdminLayoutBody>{children}</SuperAdminLayoutBody>
     </LayoutProvider>
+  );
+}
+
+function SuperAdminLayoutBody({ children }: { children: any }) {
+  const { headerHeight } = useLayout();
+
+  return (
+    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
+      <Sidebar />
+      <Header />
+      <main
+        className='isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
+        <div className="flex-grow min-h-0 flex flex-col">
+          {children}
+        </div>
+        <Footer />
+      </main>
+    </div>
   );
 }

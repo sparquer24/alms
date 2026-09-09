@@ -30,7 +30,7 @@ export const PendingApplicationsSection: React.FC<{
           marginBottom: AdminSpacing.md,
         }}
       >
-        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'black' }}>
+        <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'black' }}>
           Pending Applications
         </h2>
         <button

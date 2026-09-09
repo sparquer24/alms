@@ -26,7 +26,7 @@ import LicenseService from '@/services/licenseService';
 import { LicenseData, LicenseStatistics } from '@/types';
 import { normalizeRole } from '@/utils/roleUtils';
 import { getRoleBasedRedirectPath } from '@/config/roleRedirections';
-import { useLayout } from '@/config/layoutContext';
+import { LayoutProvider, useLayout } from '@/config/layoutContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { PageSubHeader, SubHeaderButton, SubHeaderSearch, SubHeaderPills, SubHeaderSelect } from '@/components/common/PageSubHeader';
@@ -192,7 +192,7 @@ function LicenseManagementContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userRole, isAuthenticated, isLoading, initialized } = useAuth();
-  const { setShowSidebar } = useLayout();
+  const { setShowSidebar, headerHeight } = useLayout();
   const [checked, setChecked] = useState(false);
 
   const initialTab = (() => {
@@ -534,7 +534,10 @@ function LicenseManagementContent() {
     <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white print:h-auto print:overflow-visible'>
       <Header showCreateForm showBackButton />
 
-      <main className='flex-1 ml-0 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px] print:ml-0 print:pt-0'>
+      <main
+        className='isolate flex-1 ml-0 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px] print:ml-0 print:pt-0'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
         <PageSubHeader
           title="License Management"
           metaBadge={`${total || stats?.total || 0} Total Records`}
@@ -672,7 +675,7 @@ function LicenseManagementContent() {
                       setPurposeFilter(val);
                       setPage(1);
                     }}
-                    options={[{ value: '', label: 'All Purposes' }, ...PURPOSE_OPTIONS]}
+                    options={PURPOSE_OPTIONS}
                   />
 
                   {/* Refresh Button */}
@@ -863,7 +866,7 @@ function LicenseManagementContent() {
                 </div>
               )}
 
-              <div className='flex-1 min-h-0 overflow-auto'>
+              <div className='flex-1 min-h-0 overflow-auto isolate'>
                 <table className='min-w-[1200px] w-full border-separate border-spacing-0 text-sm'>
                   <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                     <tr>
@@ -950,7 +953,7 @@ function LicenseManagementContent() {
                 </div>
               )}
 
-              <div className='flex-1 min-h-0 overflow-x-auto overflow-y-hidden'>
+              <div className='flex-1 min-h-0 overflow-x-auto overflow-y-hidden isolate'>
                 <table className='min-w-[1900px] w-full border-separate border-spacing-0 text-sm'>
                   <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                     <tr>
@@ -1302,8 +1305,10 @@ function LicenseManagementContent() {
 
 export default function LicenseManagementPage() {
   return (
-    <Suspense fallback={null}>
-      <LicenseManagementContent />
-    </Suspense>
+    <LayoutProvider>
+      <Suspense fallback={null}>
+        <LicenseManagementContent />
+      </Suspense>
+    </LayoutProvider>
   );
 }

@@ -237,6 +237,8 @@ export class PublicService {
         typeFilter?: string,
         stateId?: number,
         roleCode?: string,
+        districtId?: number,
+        zoneId?: number,
     ) {
         try {
             const now = new Date();
@@ -252,22 +254,44 @@ export class PublicService {
                 dateFilter = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
             }
 
-            const isStateScoped = Boolean(stateId && roleCode !== ROLE_CODES.SUPER_ADMIN);
+            // Location-hierarchy scoping: ZS/DCP see their zone, JTCP/CP see their
+            // district, ADMIN sees their state, SUPER_ADMIN is unscoped.
+            const isZoneScoped = Boolean(zoneId && (roleCode === ROLE_CODES.ZS || roleCode === ROLE_CODES.DCP));
+            const isDistrictScoped = !isZoneScoped && Boolean(districtId && (roleCode === ROLE_CODES.JTCP || roleCode === ROLE_CODES.CP));
+            const isStateScoped = !isZoneScoped && !isDistrictScoped && Boolean(stateId && roleCode !== ROLE_CODES.SUPER_ADMIN);
+            const isScoped = isZoneScoped || isDistrictScoped || isStateScoped;
+
+            const addressScope: any = isZoneScoped
+                ? { zoneId }
+                : isDistrictScoped
+                    ? { districtId }
+                    : isStateScoped
+                        ? { stateId }
+                        : {};
+            const licenseScopeField = isZoneScoped ? 'presentZoneId' : isDistrictScoped ? 'presentDistrictId' : 'presentStateId';
+            const requesterScopeField = isZoneScoped ? 'zoneId' : isDistrictScoped ? 'districtId' : 'stateId';
+            const scopeValue = isZoneScoped ? zoneId : isDistrictScoped ? districtId : stateId;
 
             const freshWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
             const renewalWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
             const cancelWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
             const licenseWhere: any = {};
 
+            // CancelFormRequests has no districtId/zoneId column of its own, so it is
+            // scoped only through its Licenses and requester (Users) relations.
+            const cancelOrConditions: any[] = [
+                { Licenses: { [licenseScopeField]: scopeValue } },
+                { requester: { [requesterScopeField]: scopeValue } },
+            ];
             if (isStateScoped) {
-                freshWhere.permanentAddress = { stateId };
-                renewalWhere.permanentAddress = { stateId };
-                cancelWhere.OR = [
-                    { stateId: stateId },
-                    { Licenses: { presentStateId: stateId } },
-                    { requester: { stateId: stateId } },
-                ];
-                licenseWhere.presentStateId = stateId;
+                cancelOrConditions.unshift({ stateId: scopeValue });
+            }
+
+            if (isScoped) {
+                freshWhere.permanentAddress = addressScope;
+                renewalWhere.permanentAddress = addressScope;
+                cancelWhere.OR = cancelOrConditions;
+                licenseWhere[licenseScopeField] = scopeValue;
             }
 
             const [
@@ -351,8 +375,8 @@ export class PublicService {
 
             // Real average processing turnaround calculation
             const completedFreshWhere: any = { OR: [{ isApproved: true }, { isRejected: true }] };
-            if (isStateScoped) {
-                completedFreshWhere.permanentAddress = { stateId };
+            if (isScoped) {
+                completedFreshWhere.permanentAddress = addressScope;
             }
 
             const completedFresh = await prisma.freshLicenseApplicationPersonalDetails.findMany({
@@ -368,7 +392,7 @@ export class PublicService {
             }
 
             // Real Biometric compliance rate
-            const biometricsWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
+            const biometricsWhere: any = isScoped ? { application: { permanentAddress: addressScope } } : {};
             const totalBiometrics = await prisma.fLAFBiometricDatas.count({ where: biometricsWhere }).catch(() => 0);
             const biometricComplianceRate = totalFresh > 0 ? Number(((totalBiometrics / totalFresh) * 100).toFixed(1)) : 0;
 
@@ -410,14 +434,10 @@ export class PublicService {
                     const trendRenewalWhere: any = { createdAt: { gte: m.start, lt: m.end } };
                     const trendCancelWhere: any = { createdAt: { gte: m.start, lt: m.end } };
 
-                    if (isStateScoped) {
-                        trendFreshWhere.permanentAddress = { stateId };
-                        trendRenewalWhere.permanentAddress = { stateId };
-                        trendCancelWhere.OR = [
-                            { stateId: stateId },
-                            { Licenses: { presentStateId: stateId } },
-                            { requester: { stateId: stateId } },
-                        ];
+                    if (isScoped) {
+                        trendFreshWhere.permanentAddress = addressScope;
+                        trendRenewalWhere.permanentAddress = addressScope;
+                        trendCancelWhere.OR = cancelOrConditions;
                     }
 
                     const [freshCount, renewalCount, cancelCount, approvedFresh, approvedRenewal] = await Promise.all([
@@ -444,24 +464,20 @@ export class PublicService {
             const totalAppCount = totalApplications > 0 ? totalApplications : 1;
 
             let statusDistribution: any[] = [];
-            if (isStateScoped) {
+            if (isScoped) {
                 const statuses = await prisma.statuses.findMany({
                     include: {
                         applications: {
-                            where: { permanentAddress: { stateId } },
+                            where: { permanentAddress: addressScope },
                             select: { id: true },
                         },
                         renewalApplications: {
-                            where: { permanentAddress: { stateId } },
+                            where: { permanentAddress: addressScope },
                             select: { id: true },
                         },
                         cancelFormRequests: {
                             where: {
-                                OR: [
-                                    { stateId: stateId },
-                                    { Licenses: { presentStateId: stateId } },
-                                    { requester: { stateId: stateId } },
-                                ],
+                                OR: cancelOrConditions,
                             },
                             select: { id: true },
                         },
@@ -512,7 +528,7 @@ export class PublicService {
             }
 
             // Real weapon categories & purposes from License details
-            const appDetailsWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
+            const appDetailsWhere: any = isScoped ? { application: { permanentAddress: addressScope } } : {};
             const [freshLicenseDetails, renewalLicenseDetails] = await Promise.all([
                 prisma.fLAFLicenseDetails.findMany({
                     where: appDetailsWhere,
@@ -567,14 +583,26 @@ export class PublicService {
                     { purpose: 'Crop Protection & Agriculture', count: 0, percentage: 0, icon: 'Trees' },
                 ];
 
-            // Real Zonal Workloads from DB (filtered for state if scoped)
-            const zoneFilter: any = isStateScoped ? {
-                OR: [
-                    { RangeOffices: { district: { stateId } } },
-                    { addresses: { some: { stateId } } },
-                    { renewalAddresses: { some: { stateId } } },
-                ],
-            } : {};
+            // Real Zonal Workloads from DB (filtered by zone/district/state scope)
+            const zoneFilter: any = isZoneScoped
+                ? { id: zoneId }
+                : isDistrictScoped
+                    ? {
+                        OR: [
+                            { RangeOffices: { districtId } },
+                            { addresses: { some: { districtId } } },
+                            { renewalAddresses: { some: { districtId } } },
+                        ],
+                    }
+                    : isStateScoped
+                        ? {
+                            OR: [
+                                { RangeOffices: { district: { stateId } } },
+                                { addresses: { some: { stateId } } },
+                                { renewalAddresses: { some: { stateId } } },
+                            ],
+                        }
+                        : {};
 
             const zonesWithCounts = await prisma.zones.findMany({
                 where: zoneFilter,
@@ -582,10 +610,10 @@ export class PublicService {
                     id: true,
                     name: true,
                     divisions: { select: { id: true, name: true } },
-                    addresses: isStateScoped ? { where: { stateId }, select: { id: true } } : { select: { id: true } },
-                    renewalAddresses: isStateScoped ? { where: { stateId }, select: { id: true } } : { select: { id: true } },
+                    addresses: isScoped ? { where: addressScope, select: { id: true } } : { select: { id: true } },
+                    renewalAddresses: isScoped ? { where: addressScope, select: { id: true } } : { select: { id: true } },
                 },
-                take: isStateScoped ? 20 : 10,
+                take: isScoped ? 20 : 10,
             }).catch(() => []);
 
             const zoneLoads = zonesWithCounts.map((z) => {
@@ -601,14 +629,10 @@ export class PublicService {
             });
 
             // Real Live Activity Feed from workflow histories or recent applications
-            const historyWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
-            const cancelHistoryWhere: any = isStateScoped ? {
+            const historyWhere: any = isScoped ? { application: { permanentAddress: addressScope } } : {};
+            const cancelHistoryWhere: any = isScoped ? {
                 application: {
-                    OR: [
-                        { stateId: stateId },
-                        { Licenses: { presentStateId: stateId } },
-                        { requester: { stateId: stateId } },
-                    ],
+                    OR: cancelOrConditions,
                 },
             } : {};
 

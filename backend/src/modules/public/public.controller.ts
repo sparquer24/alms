@@ -28,6 +28,8 @@ export class PublicController {
     ) {
         try {
             let stateId: number | undefined;
+            let districtId: number | undefined;
+            let zoneId: number | undefined;
             let roleCode: string | undefined;
 
             const authHeader = req?.headers?.authorization;
@@ -38,7 +40,11 @@ export class PublicController {
                     try {
                         const decoded = jwt.verify(token, secret) as any;
                         const parsedStateId = decoded?.state_id ?? decoded?.stateId;
+                        const parsedDistrictId = decoded?.district_id ?? decoded?.districtId;
+                        const parsedZoneId = decoded?.zone_id ?? decoded?.zoneId;
                         stateId = parsedStateId ? Number(parsedStateId) : undefined;
+                        districtId = parsedDistrictId ? Number(parsedDistrictId) : undefined;
+                        zoneId = parsedZoneId ? Number(parsedZoneId) : undefined;
                         roleCode = decoded?.role_code || (typeof decoded?.role === 'string' ? decoded.role : decoded?.role?.code);
                     } catch (e) {
                         // ignore token verification error, fallback to public view
@@ -46,7 +52,7 @@ export class PublicController {
                 }
             }
 
-            const data = await this.publicService.getPublicDashboardOverview(timeRange, type, stateId, roleCode);
+            const data = await this.publicService.getPublicDashboardOverview(timeRange, type, stateId, roleCode, districtId, zoneId);
             return data;
         } catch (err: any) {
             throw new HttpException(

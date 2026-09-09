@@ -50,7 +50,7 @@ import { getRoleBasedRedirectPath } from '@/config/roleRedirections';
 import { Sidebar } from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { LayoutProvider } from '@/config/layoutContext';
+import { LayoutProvider, useLayout } from '@/config/layoutContext';
 import {
   PageSubHeader,
   SubHeaderButton,
@@ -91,6 +91,34 @@ const COLORS = {
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EF4444'];
 const WEAPON_COLORS = ['#0F2D52', '#2563EB', '#0D9488', '#D97706', '#DC2626'];
+
+// Roles allowed to view the universal dashboard. Backend scopes the data
+// server-side: ZS/DCP by zone, JTCP/CP by district, AS/ARMS_SUPDT/ADMIN by state.
+const DASHBOARD_ALLOWED_ROLES = ['ADMIN', 'SUPER_ADMIN', 'ZS', 'DCP', 'JTCP', 'CP', 'AS', 'ARMS_SUPDT'];
+
+const DASHBOARD_ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Admin',
+  ZS: 'Zonal Superintendent',
+  DCP: 'DCP',
+  JTCP: 'Joint CP',
+  CP: 'Commissioner of Police',
+  AS: 'Arms Superintendent',
+  ARMS_SUPDT: 'Arms Superintendent',
+};
+
+function DashboardMain({ children }: { children: React.ReactNode }) {
+  const { headerHeight } = useLayout();
+
+  return (
+    <main
+      className="isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]"
+      style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+    >
+      {children}
+    </main>
+  );
+}
 
 export default function UniversalDashboard() {
   const { user, userRole, userName, token, isLoading: authLoading, initialized: authInitialized } = useAuth();
@@ -177,7 +205,9 @@ export default function UniversalDashboard() {
     setMounted(true);
   }, []);
 
-  // ── Role-based Access Control Guard (ADMIN & SUPER_ADMIN only) ──
+  // ── Role-based Access Control Guard ──
+  // ADMIN/SUPER_ADMIN see unscoped or state-scoped data; ZS/DCP see zone-scoped
+  // data; JTCP/CP see district-scoped data (enforced server-side).
   useEffect(() => {
     if (!authInitialized || authLoading) return;
     if (authChecked) return;
@@ -192,7 +222,7 @@ export default function UniversalDashboard() {
       return;
     }
 
-    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'SUPER_ADMIN') {
+    if (!DASHBOARD_ALLOWED_ROLES.includes(effectiveRole)) {
       const redirectPath = getRoleBasedRedirectPath(effectiveRole);
       router.replace(redirectPath);
       return;
@@ -281,7 +311,7 @@ export default function UniversalDashboard() {
             breadcrumbs={[{ label: 'Admin' }, { label: 'Dashboard' }]}
             pageTitle="Executive Overview Dashboard"
           />
-          <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+          <DashboardMain>
             <PageSubHeader
               title="Executive Overview Dashboard"
               metaBadge="Loading Database Feed..."
@@ -293,17 +323,17 @@ export default function UniversalDashboard() {
                 </div>
               }
             />
-            <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div className="flex-grow max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5">
               <DashboardFullSkeleton />
             </div>
-          </main>
+          </DashboardMain>
         </div>
       </LayoutProvider>
     );
   }
 
   // Guard against unprivileged render while redirecting
-  if (!token || !effectiveRole || (effectiveRole !== 'ADMIN' && effectiveRole !== 'SUPER_ADMIN')) {
+  if (!token || !effectiveRole || !DASHBOARD_ALLOWED_ROLES.includes(effectiveRole)) {
     return null;
   }
 
@@ -318,14 +348,14 @@ export default function UniversalDashboard() {
         {/* Official Top Header with User Profile, Notifications & Role */}
         <Header
           breadcrumbs={[
-            { label: effectiveRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin' },
+            { label: DASHBOARD_ROLE_LABELS[effectiveRole] || effectiveRole },
             { label: 'Dashboard' },
           ]}
-          pageTitle={effectiveRole === 'SUPER_ADMIN' ? 'Super Admin Dashboard' : 'Admin Dashboard'}
+          pageTitle={`${DASHBOARD_ROLE_LABELS[effectiveRole] || effectiveRole} Dashboard`}
         />
 
         {/* Main Content Area with Header spacing */}
-        <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+        <DashboardMain>
 
           {/* Standardized Sticky Sub-header Navigation Bar */}
           <PageSubHeader
@@ -382,7 +412,7 @@ export default function UniversalDashboard() {
           />
 
           {/* Main Dashboard Content Area */}
-          <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
+          <div className="flex-grow max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
         
         {/* ─────────────────────────────────────────────────────────────
             1. CORE APPLICATION & LICENSING METRIC CARDS (INTERACTIVE)
@@ -390,7 +420,7 @@ export default function UniversalDashboard() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#0F2D52]" />
                 Core Application &amp; Licensing Metrics
               </h2>
@@ -407,7 +437,7 @@ export default function UniversalDashboard() {
           {loading && !summary ? (
             <DashboardKpiCardsSkeleton />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
               {/* Card 1: Total Applications */}
               <div
                 role="button"
@@ -420,7 +450,7 @@ export default function UniversalDashboard() {
                   subtitle: 'All application lifecycles across Fresh, Renewal, and Cancellation requests',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0F2D52]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0F2D52]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -485,7 +515,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Operational arms licenses currently in force within your jurisdiction',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -534,7 +564,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Applications successfully verified and granted license issuance',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -585,7 +615,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Applications undergoing multi-level verification and scrutiny',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -620,7 +650,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Durations from application submission to final administrative disposal',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -655,7 +685,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Fingerprint and iris authentication verification records under MHA Rule 11',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -703,9 +733,9 @@ export default function UniversalDashboard() {
         {loading && !data?.trend ? (
           <DashboardChartsSkeleton />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Main Chart: Volume Inflow Trends (2 cols on lg) */}
-            <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between pb-4 border-b border-gray-100 gap-3">
                   <div>
@@ -1241,7 +1271,7 @@ export default function UniversalDashboard() {
             </div>
 
             {/* Ratio Breakdown / Donut Chart (1 col on lg) */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                   <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
@@ -1327,9 +1357,9 @@ export default function UniversalDashboard() {
         {/* ─────────────────────────────────────────────────────────────
             5. WEAPON CATEGORIES & PURPOSE DISTRIBUTION
         ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Weapon Categories */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Target className="w-4 h-4 text-[#0F2D52]" />
@@ -1374,7 +1404,7 @@ export default function UniversalDashboard() {
           </div>
 
           {/* Purpose Breakdown */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-[#B8860B]" />
@@ -1413,7 +1443,7 @@ export default function UniversalDashboard() {
         {loading && !data?.recentActivities ? (
           <DashboardActivitySkeleton />
         ) : (
-          <section className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <section className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-blue-600" />
@@ -1457,7 +1487,7 @@ export default function UniversalDashboard() {
         <section className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-2">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-[#0F2D52]" />
                 Administrative Quick Actions &amp; Management Console
               </h3>
@@ -1533,7 +1563,7 @@ export default function UniversalDashboard() {
 
       {/* Standard Portal Footer */}
       <Footer />
-    </main>
+    </DashboardMain>
   </div>
 
       {/* Application Lookup Modal */}

@@ -175,7 +175,7 @@ export default function NotificationsPage() {
       <Sidebar />
       <Header />
 
-      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]">
         <PageSubHeader
           title="Notifications"
           metaBadge={unreadCount > 0 ? `${unreadCount} Unread` : undefined}

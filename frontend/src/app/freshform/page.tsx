@@ -145,7 +145,7 @@ function FreshFormContent() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]">
         <PageSubHeader
           title="Fresh Applications"
           metaBadge={filteredApplications.length > 0 ? `${filteredApplications.length} Application${filteredApplications.length !== 1 ? 's' : ''}` : undefined}

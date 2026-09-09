@@ -8,7 +8,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { analyticsService, AnalyticsFilters } from '@/services/analyticsService';
 import { LicenseService } from '@/services/licenseService';
 import { useAdminTheme } from '@/context/AdminThemeContext';
-import { AdminSpacing, AdminLayout } from '@/styles/admin-design-system';
 import { AdminErrorAlert, AdminErrorBoundary, AdminSectionSkeleton } from '@/components/admin';
 import FiltersHeader from './FiltersHeader';
 import ApplicationSummaryCards from './ApplicationSummaryCards';
@@ -16,7 +15,7 @@ import LicenseOverviewCards from './LicenseOverviewCards';
 import ApplicationsByTypeView from '@/components/ApplicationsByTypeView';
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'black' }}>{children}</h2>
+  <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'black' }}>{children}</h2>
 );
 
 /** Base analytics route (e.g. `/admin/analytics`) this panel is nested under. */
@@ -101,7 +100,7 @@ export default function ApplicationsOverviewPanel({ analyticsBasePath }: { analy
 
   return (
     <AdminErrorBoundary>
-      <div className="flex flex-col flex-grow">
+      <div className="flex flex-col flex-grow min-h-0">
         <FiltersHeader
           fromDate={fromDate}
           toDate={toDate}
@@ -118,7 +117,7 @@ export default function ApplicationsOverviewPanel({ analyticsBasePath }: { analy
           subtitle="Total applications and licenses at a glance"
         />
 
-        <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex-grow min-h-0 max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 space-y-4">
           <div className="flex gap-2 bg-white/60 backdrop-blur-sm p-1 rounded-xl border border-gray-200/80 w-fit">
             <Link
               href={analyticsBasePath}
@@ -170,7 +169,7 @@ export default function ApplicationsOverviewPanel({ analyticsBasePath }: { analy
               href={applicationsPath}
               style={{
                 display: 'inline-block',
-                marginBottom: AdminSpacing.md,
+                marginBottom: '8px',
                 fontSize: 14,
                 fontWeight: 600,
                 color: '#001F54',
@@ -195,9 +194,9 @@ export default function ApplicationsOverviewPanel({ analyticsBasePath }: { analy
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                  gap: AdminSpacing.lg,
-                  marginTop: AdminSpacing.md,
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gap: '10px',
+                  marginTop: '8px',
                 }}
               >
                 {isLoading ? (
@@ -213,14 +212,14 @@ export default function ApplicationsOverviewPanel({ analyticsBasePath }: { analy
             </div>
 
             {/* Total Licenses */}
-            <div style={{ marginTop: AdminSpacing.lg }}>
+            <div style={{ marginTop: '10px' }}>
               <SectionTitle>Total Licenses</SectionTitle>
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                  gap: AdminSpacing.lg,
-                  marginTop: AdminSpacing.md,
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gap: '10px',
+                  marginTop: '8px',
                 }}
               >
                 {licenseStatsLoading ? (

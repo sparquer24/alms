@@ -8,7 +8,6 @@ import { usePathname } from 'next/navigation';
 import { analyticsService, AnalyticsFilters } from '@/services/analyticsService';
 import { LicenseService } from '@/services/licenseService';
 import { useAdminTheme } from '@/context/AdminThemeContext';
-import { AdminSpacing, AdminLayout } from '@/styles/admin-design-system';
 import { AdminCard, AdminErrorAlert, AdminErrorBoundary, AdminSectionSkeleton } from '@/components/admin';
 import FiltersHeader from './FiltersHeader';
 import ApplicationSummaryCards from './ApplicationSummaryCards';
@@ -21,7 +20,7 @@ import ExpiringLicensesSection from './ExpiringLicensesSection';
 import RecentActivitySection from './RecentActivitySection';
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'black' }}>{children}</h2>
+  <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'black' }}>{children}</h2>
 );
 
 export default function AnalyticsDashboard({
@@ -156,7 +155,7 @@ export default function AnalyticsDashboard({
 
   return (
     <AdminErrorBoundary>
-      <div className="flex flex-col flex-grow">
+      <div className="flex flex-col flex-grow min-h-0">
         <FiltersHeader
           fromDate={fromDate}
           toDate={toDate}
@@ -171,7 +170,7 @@ export default function AnalyticsDashboard({
           isLoading={isLoading}
         />
 
-        <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex-grow min-h-0 max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 space-y-4">
           <div className="flex gap-2 bg-white/60 backdrop-blur-sm p-1 rounded-xl border border-gray-200/80 w-fit">
             <Link
               href={analyticsBasePath}
@@ -233,8 +232,8 @@ export default function AnalyticsDashboard({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: AdminSpacing.lg,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '10px',
           }}
         >
           {isLoading ? (
@@ -249,14 +248,14 @@ export default function AnalyticsDashboard({
         </div>
 
         {/* Application Analytics */}
-        <div style={{ marginTop: AdminSpacing.lg }}>
+        <div style={{ marginTop: '10px' }}>
           <SectionTitle>Application Analytics</SectionTitle>
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-              gap: AdminSpacing.lg,
-              marginTop: AdminSpacing.md,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '10px',
+              marginTop: '8px',
             }}
           >
             <AdminCard title='By Type'>
@@ -281,14 +280,14 @@ export default function AnalyticsDashboard({
         </div>
 
         {/* License Overview */}
-        <div style={{ marginTop: AdminSpacing.lg }}>
+        <div style={{ marginTop: '10px' }}>
           <SectionTitle>License Overview</SectionTitle>
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-              gap: AdminSpacing.lg,
-              marginTop: AdminSpacing.md,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '10px',
+              marginTop: '8px',
             }}
           >
             {licenseStatsLoading ? (
@@ -301,7 +300,7 @@ export default function AnalyticsDashboard({
               <LicenseOverviewCards stats={licenseStats} colors={colors} />
             )}
           </div>
-          <div style={{ marginTop: AdminSpacing.lg, maxWidth: 640 }}>
+          <div style={{ marginTop: '8px', maxWidth: 640 }}>
             <AdminCard title='License Status'>
               <LicenseStatusChart stats={licenseStats} colors={colors} loading={licenseStatsLoading} />
             </AdminCard>
@@ -309,7 +308,7 @@ export default function AnalyticsDashboard({
         </div>
 
         {/* Pending Applications */}
-        <div style={{ marginTop: AdminSpacing.lg }}>
+        <div style={{ marginTop: '10px' }}>
           <PendingApplicationsSection
             applications={pendingApplications}
             loading={pendingLoading}
@@ -318,7 +317,7 @@ export default function AnalyticsDashboard({
         </div>
 
         {/* Expiring Licenses */}
-        <div style={{ marginTop: AdminSpacing.lg }}>
+        <div style={{ marginTop: '10px' }}>
           <ExpiringLicensesSection
             licenses={expiringLicenses}
             loading={expiringLoading}
@@ -327,7 +326,7 @@ export default function AnalyticsDashboard({
         </div>
 
         {/* Recent Activity */}
-        <div style={{ marginTop: AdminSpacing.lg }}>
+        <div style={{ marginTop: '10px' }}>
           <RecentActivitySection
             applications={recentApplications}
             licenses={recentLicenses}

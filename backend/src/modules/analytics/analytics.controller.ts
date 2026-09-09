@@ -67,9 +67,10 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate, stateId, roleCode, zoneId);
+            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate, stateId, roleCode, zoneId, districtId);
 
             return {
                 success: true,
@@ -133,9 +134,10 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getRoleLoad(fromDate, toDate, stateId, roleCode, zoneId);
+            const data = await this.analyticsService.getRoleLoad(fromDate, toDate, stateId, roleCode, zoneId, districtId);
 
             return {
                 success: true,
@@ -199,9 +201,10 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getApplicationStates(fromDate, toDate, stateId, roleCode, zoneId);
+            const data = await this.analyticsService.getApplicationStates(fromDate, toDate, stateId, roleCode, zoneId, districtId);
 
             return {
                 success: true,
@@ -267,9 +270,10 @@ export class AnalyticsController {
             const roleId = user?.roleId;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode, zoneId);
+            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode, zoneId, districtId);
 
             return {
                 success: true,
@@ -350,9 +354,10 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId, type);
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId, type, districtId);
 
             const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
 

@@ -600,7 +600,7 @@ export default function UserManagementContent() {
   const skeletonRows = Array.from({ length: 6 });
 
   return (
-    <div className='flex flex-col flex-grow'>
+    <div className='flex flex-col flex-grow min-h-0'>
       <PageSubHeader
         title="User Management"
         metaBadge={`${filteredUsers.length} Active User${filteredUsers.length !== 1 ? 's' : ''}`}
@@ -659,7 +659,7 @@ export default function UserManagementContent() {
         }
       />
 
-      <div className='flex-grow max-w-7xl 2xl:max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6'>
+      <div className='flex-grow min-h-0 flex flex-col max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6'>
 
           {/* Error Alert */}
           {error && (
@@ -681,8 +681,8 @@ export default function UserManagementContent() {
           )}
 
           {/* Users Table */}
-          <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
-            <div className='px-6 py-4 border-b border-slate-200 bg-slate-50'>
+          <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex-1 min-h-0 flex flex-col'>
+            <div className='px-6 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0'>
               <div className='flex items-center justify-between'>
                 <h2 className='text-lg font-semibold text-slate-800'>Users</h2>
                 <span className='text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full'>
@@ -690,9 +690,9 @@ export default function UserManagementContent() {
                 </span>
               </div>
             </div>
-            <div className='overflow-x-auto'>
-              {/* Keep table header fixed while rows scroll - wrap table in a scrollable container */}
-              <div className='max-h-[60vh] overflow-y-auto'>
+            <div className='overflow-x-auto flex-1 min-h-0 flex flex-col'>
+              {/* Table header stays fixed while rows scroll within the card's available height */}
+              <div className='flex-1 min-h-0 overflow-y-auto isolate'>
                 <table className='w-full table-fixed'>
                   <thead className='bg-slate-50 border-b border-slate-200 sticky top-0 z-10'>
                     <tr>

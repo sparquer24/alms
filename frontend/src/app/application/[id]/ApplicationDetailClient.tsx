@@ -793,7 +793,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hidePrint={true}
       />
 
-      <main className='flex-1 ml-0  overflow-auto flex flex-col pt-[64px] md:pt-[86px]'>    
+      <main className='flex-1 ml-0  overflow-auto flex flex-col pt-[64px] md:pt-[78px]'>    
         <div className='flex-grow w-full mx-auto '>
           {/* Success Message - Fixed Position at Top */}
           {successMessage && (

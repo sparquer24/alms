@@ -30,7 +30,8 @@ export const ApplicationStatusChart: React.FC<{
   const data = [
     { name: 'Approved', value: approved, href: '/inbox?type=approved', fill: colors.status.success },
     { name: 'Pending', value: pending, href: '/inbox?type=pending', fill: colors.status.warning },
-    { name: 'Rejected', value: rejected, href: undefined, fill: colors.status.error },
+    // REJECT and RETURN are a single merged status (statusMap.ts: returned: ['REJECT', 'RETURN']).
+    { name: 'Rejected', value: rejected, href: '/inbox?type=returned', fill: colors.status.error },
   ];
 
   return (

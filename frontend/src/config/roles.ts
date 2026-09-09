@@ -115,6 +115,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
   const roleSpecificMenuDefaults: Record<string, MenuItem[]> = {
     // Field Operational Roles
     'ZS': [
+      { name: 'dashboard' },
       { name: 'freshform', statusIds: [9] },
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11, 1, 9] },
@@ -133,12 +134,14 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'sent', statusIds: [11, 1] },
     ],
     'DCP': [
+      { name: 'dashboard' },
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
     ],
 
     // Administrative & Support Roles
     'AS': [
+      { name: 'dashboard' },
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11, 1] },
     ],
@@ -151,16 +154,19 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'sent', statusIds: [11, 3] },
     ],
     'JTCP': [
+      { name: 'dashboard' },
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
       { name: 'analytics' },
     ],
     'CP': [
+      { name: 'dashboard' },
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
       { name: 'analytics' },
     ],
     'ARMS_SUPDT': [
+      { name: 'dashboard' },
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11, 1] },
     ],

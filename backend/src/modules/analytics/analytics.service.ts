@@ -13,6 +13,66 @@ import { ROLE_CODES } from '../../constants/auth';
 @Injectable()
 export class AnalyticsService {
     /**
+     * Location-hierarchy scope for a request: ZS/DCP scope by zone, JTCP/CP scope
+     * by district, other roles (e.g. ADMIN) scope by state, SUPER_ADMIN is unscoped.
+     */
+    private buildLocationWhere(
+        roleCode?: string,
+        stateId?: number,
+        districtId?: number,
+        zoneId?: number,
+    ): { zoneId?: number } | { districtId?: number } | { stateId?: number } | undefined {
+        if (roleCode === ROLE_CODES.SUPER_ADMIN) {
+            return undefined;
+        }
+        if ((roleCode === ROLE_CODES.ZS || roleCode === ROLE_CODES.DCP) && zoneId) {
+            return { zoneId };
+        }
+        if ((roleCode === ROLE_CODES.JTCP || roleCode === ROLE_CODES.CP) && districtId) {
+            return { districtId };
+        }
+        if (stateId) {
+            return { stateId };
+        }
+        return undefined;
+    }
+
+    /**
+     * CancelFormRequests has no districtId/zoneId column of its own, so district/zone
+     * scoping goes through its Licenses and requester (Users) relations.
+     */
+    private buildCancelOrConditions(
+        roleCode?: string,
+        stateId?: number,
+        districtId?: number,
+        zoneId?: number,
+    ): any[] | undefined {
+        if (roleCode === ROLE_CODES.SUPER_ADMIN) {
+            return undefined;
+        }
+        if ((roleCode === ROLE_CODES.ZS || roleCode === ROLE_CODES.DCP) && zoneId) {
+            return [
+                { Licenses: { presentZoneId: zoneId } },
+                { requester: { zoneId } },
+            ];
+        }
+        if ((roleCode === ROLE_CODES.JTCP || roleCode === ROLE_CODES.CP) && districtId) {
+            return [
+                { Licenses: { presentDistrictId: districtId } },
+                { requester: { districtId } },
+            ];
+        }
+        if (stateId) {
+            return [
+                { stateId: stateId },
+                { Licenses: { presentStateId: stateId } },
+                { requester: { stateId: stateId } },
+            ];
+        }
+        return undefined;
+    }
+
+    /**
      * Get applications aggregated by ISO week (Fresh, Renewal, and Cancel)
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
@@ -22,6 +82,7 @@ export class AnalyticsService {
         stateId?: number,
         roleCode?: string,
         zoneId?: number,
+        districtId?: number,
     ): Promise<ApplicationsDataDto[]> {
         try {
             const where: any = {};
@@ -39,44 +100,33 @@ export class AnalyticsService {
 
             // Filtering rules:
             // - SUPER_ADMIN bypasses filters
-            // - ZS users see applications for their Zone (when zoneId provided)
-            // - ADMIN (and others) can be filtered by stateId
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    where.permanentAddress = { stateId };
-                }
+            // - ZS/DCP scope by zone, JTCP/CP scope by district, others by state
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.permanentAddress = locationWhere;
             }
 
             // Build separate where clauses for the three address types
             const renewalWhere: any = {};
             const cancelWhere: any = {};
-            
+
             // Copy date filtering to renewal
             if (where.createdAt) {
                 renewalWhere.createdAt = { ...where.createdAt };
             }
 
-            // Apply state/zone filters to renewal
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    renewalWhere.permanentAddress = { stateId };
-                }
+            // Apply the same location scope to renewal
+            if (locationWhere) {
+                renewalWhere.permanentAddress = locationWhere;
             }
 
-            // For cancel, filter by createdAt and state
+            // For cancel, filter by createdAt and location scope
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
-                cancelWhere.OR = [
-                    { stateId: stateId },
-                    { Licenses: { presentStateId: stateId } },
-                    { requester: { stateId: stateId } },
-                ];
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            if (cancelOrConditions) {
+                cancelWhere.OR = cancelOrConditions;
             }
 
             // Fetch all three types of applications within date range
@@ -148,6 +198,7 @@ export class AnalyticsService {
         stateId?: number,
         roleCode?: string,
         zoneId?: number,
+        districtId?: number,
     ): Promise<RoleLoadDataDto[]> {
         try {
             const where: any = {
@@ -167,12 +218,9 @@ export class AnalyticsService {
                 }
             }
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    where.permanentAddress = { stateId };
-                }
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.permanentAddress = locationWhere;
             }
 
             // Build separate where clauses for renewal
@@ -180,12 +228,8 @@ export class AnalyticsService {
             if (where.createdAt) {
                 renewalWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    renewalWhere.permanentAddress = { stateId };
-                }
+            if (locationWhere) {
+                renewalWhere.permanentAddress = locationWhere;
             }
 
             // Get applications with their assigned roles (Fresh & Renewal)
@@ -261,6 +305,7 @@ export class AnalyticsService {
         stateId?: number,
         roleCode?: string,
         zoneId?: number,
+        districtId?: number,
     ): Promise<StateDataDto[]> {
         try {
             const where: any = {};
@@ -276,12 +321,9 @@ export class AnalyticsService {
                 }
             }
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    where.permanentAddress = { stateId };
-                }
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.permanentAddress = locationWhere;
             }
 
             // Build separate where clauses for renewal
@@ -289,25 +331,18 @@ export class AnalyticsService {
             if (where.createdAt) {
                 renewalWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    renewalWhere.permanentAddress = { stateId };
-                }
+            if (locationWhere) {
+                renewalWhere.permanentAddress = locationWhere;
             }
 
-            // For cancel, filter by date and state
+            // For cancel, filter by date and location scope
             const cancelWhere: any = {};
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
-                cancelWhere.OR = [
-                    { stateId: stateId },
-                    { Licenses: { presentStateId: stateId } },
-                    { requester: { stateId: stateId } },
-                ];
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            if (cancelOrConditions) {
+                cancelWhere.OR = cancelOrConditions;
             }
 
             // Get all applications with their status
@@ -400,6 +435,7 @@ export class AnalyticsService {
         stateId?: number,
         roleCode?: string,
         zoneId?: number,
+        districtId?: number,
     ): Promise<AdminActivityDto[]> {
         try {
             const where: any = {};
@@ -415,12 +451,9 @@ export class AnalyticsService {
                 }
             }
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.application = { permanentAddress: { zoneId } };
-                } else if (stateId) {
-                    where.application = { permanentAddress: { stateId } };
-                }
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.application = { permanentAddress: locationWhere };
             }
 
             // Build similar where clause for renewal
@@ -428,12 +461,8 @@ export class AnalyticsService {
             if (where.createdAt) {
                 renewalWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.application = { permanentAddress: { zoneId } };
-                } else if (stateId) {
-                    renewalWhere.application = { permanentAddress: { stateId } };
-                }
+            if (locationWhere) {
+                renewalWhere.application = { permanentAddress: locationWhere };
             }
 
             // For cancel, build similar where clause
@@ -441,14 +470,9 @@ export class AnalyticsService {
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
-                cancelWhere.application = {
-                    OR: [
-                        { stateId: stateId },
-                        { Licenses: { presentStateId: stateId } },
-                        { requester: { stateId: stateId } },
-                    ],
-                };
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            if (cancelOrConditions) {
+                cancelWhere.application = { OR: cancelOrConditions };
             }
 
             // Fetch workflow history for all three types
@@ -614,16 +638,13 @@ export class AnalyticsService {
      * Includes Fresh, Renewal, and Cancel applications
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
-    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number, type?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number, type?: string, districtId?: number): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
         try {
             const where: any = {};
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    where.permanentAddress = { stateId };
-                }
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.permanentAddress = locationWhere;
             }
 
             if (status) {
@@ -679,12 +700,8 @@ export class AnalyticsService {
                 }
             }
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    renewalWhere.permanentAddress = { stateId };
-                }
+            if (locationWhere) {
+                renewalWhere.permanentAddress = locationWhere;
             }
 
             if (where.createdAt) {
@@ -696,12 +713,9 @@ export class AnalyticsService {
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
-                cancelWhere.OR = [
-                    { stateId: stateId },
-                    { Licenses: { presentStateId: stateId } },
-                    { requester: { stateId: stateId } },
-                ];
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            if (cancelOrConditions) {
+                cancelWhere.OR = cancelOrConditions;
             }
 
             // Count total matching records from the requested source(s)

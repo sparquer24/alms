@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { BadgeCheck, ChevronLeft } from 'lucide-react';
 import { useLayout } from '../config/layoutContext';
@@ -54,7 +54,8 @@ const Header = (props: HeaderProps) => {
     showBackButton,
     applicationTypeLabel,
   } = props;
-  const { showHeader, showSidebar } = useLayout();
+  const { showHeader, showSidebar, setHeaderHeight } = useLayout();
+  const headerRef = useRef<HTMLElement>(null);
   const { userName, isLoading, user, userRole: hookUserRole } = useAuth();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const { unreadCount } = useNotifications();
@@ -134,6 +135,28 @@ const Header = (props: HeaderProps) => {
     if (!isLoading && name) setDisplayName(name);
   }, [userName, user, isLoading, hookUserRole]);
 
+  // Keep the shared layout context in sync with the header's real rendered
+  // height (it can grow when breadcrumbs wrap), so the sticky subheader and
+  // the main content's top offset always line up with the header instead of
+  // relying on a guessed pixel constant.
+  useEffect(() => {
+    if (!showHeader) {
+      setHeaderHeight(null);
+      return;
+    }
+    const node = headerRef.current;
+    if (!node) return;
+
+    // Use the header's bottom edge (not just its height) so the floating
+    // `top-4` offset used at the md breakpoint is included automatically.
+    const measure = () => setHeaderHeight(node.getBoundingClientRect().bottom);
+    measure();
+
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(node);
+    return () => resizeObserver.disconnect();
+  }, [showHeader, setHeaderHeight, effectiveBreadcrumbs, effectivePageTitle]);
+
   const hasValidUserName = !isLoading && typeof displayName === 'string' && displayName.length > 0;
   const handleDropdownClick = (type: (typeof APPLICATION_TYPES)[number]) => {
     setShowDropdown(false);
@@ -164,7 +187,8 @@ const Header = (props: HeaderProps) => {
 
   return (
     <header
-      className={`fixed top-0 md:top-4 right-0 md:right-4 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg md:rounded-2xl z-40 transition-all duration-300`}
+      ref={headerRef}
+      className={`fixed top-0 md:top-2 right-0 md:right-4 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg md:rounded-2xl z-40 transition-all duration-300`}
     >
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         {/* Left section: breadcrumbs / page title / create form */}

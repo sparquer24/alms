@@ -83,7 +83,7 @@ async function bootstrap() {
   const origins = corsEnv ? corsEnv.split(',').map(s => s.trim()).filter(Boolean) : defaultOrigins;
 
   app.enableCors({
-    origin: origins,
+    origin: "*",
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'authorization'],

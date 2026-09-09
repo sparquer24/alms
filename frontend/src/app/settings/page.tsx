@@ -123,7 +123,7 @@ export default function SettingsPage() {
       <Sidebar />
       <Header />
 
-      <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]'>
+      <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]'>
         <PageSubHeader
           title="User Profile & Settings"
           metaBadge={currentUser?.username ? `Logged in as: ${currentUser.username}` : undefined}
