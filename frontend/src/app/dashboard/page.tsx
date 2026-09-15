@@ -60,6 +60,7 @@ import {
   PublicDashboardData,
   SummaryKPIs,
 } from '@/services/publicDashboardService';
+import { analyticsService } from '@/services/analyticsService';
 
 import {
   DashboardCardDetailModal,
@@ -72,6 +73,12 @@ import {
   DashboardKpiCardsSkeleton,
   DashboardChartsSkeleton,
   DashboardActivitySkeleton,
+  ActionRequiredSection,
+  ApplicationFunnelSection,
+  AgingAnalysisSection,
+  ProcessingPerformanceSection,
+  MonthlyComparisonSection,
+  LicenseExpiryBucketsSection,
 } from '@/components/dashboard';
 
 // Color definitions matching the ALMS government palette
@@ -158,6 +165,20 @@ export default function UniversalDashboard() {
 
   // Active in-page drill-down tab
   const [activeDrillTab, setActiveDrillTab] = useState<DrillDownTab>('applications_all');
+
+  // ── Enhancement section state ──
+  const [actionItems, setActionItems] = useState<any[]>([]);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [funnelStages, setFunnelStages] = useState<any[]>([]);
+  const [funnelLoading, setFunnelLoading] = useState<boolean>(false);
+  const [agingBuckets, setAgingBuckets] = useState<any[]>([]);
+  const [agingLoading, setAgingLoading] = useState<boolean>(false);
+  const [processingPerf, setProcessingPerf] = useState<any>(null);
+  const [processingLoading, setProcessingLoading] = useState<boolean>(false);
+  const [monthlyData, setMonthlyData] = useState<any>(null);
+  const [monthlyLoading, setMonthlyLoading] = useState<boolean>(false);
+  const [expiryBuckets, setExpiryBuckets] = useState<any[]>([]);
+  const [expiryLoading, setExpiryLoading] = useState<boolean>(false);
 
   const openCardDetail = (
     category: CardCategoryType,
@@ -259,6 +280,29 @@ export default function UniversalDashboard() {
     }, 30000);
     return () => clearInterval(interval);
   }, [autoRefresh, authChecked, timeRange, appTypeFilter, fetchData]);
+
+  // ── Fetch enhancement section data once auth is checked ──
+  useEffect(() => {
+    if (!authChecked) return;
+    // Action Required
+    setActionLoading(true);
+    analyticsService.getActionRequired().then((d) => { setActionItems(d); setActionLoading(false); });
+    // Application Funnel
+    setFunnelLoading(true);
+    analyticsService.getApplicationFunnel().then((d) => { setFunnelStages(d); setFunnelLoading(false); });
+    // Aging Buckets
+    setAgingLoading(true);
+    analyticsService.getAgingBuckets().then((d) => { setAgingBuckets(d); setAgingLoading(false); });
+    // Processing Performance
+    setProcessingLoading(true);
+    analyticsService.getProcessingPerformance().then((d) => { setProcessingPerf(d); setProcessingLoading(false); });
+    // Monthly Comparison
+    setMonthlyLoading(true);
+    analyticsService.getMonthlyComparison().then((d) => { setMonthlyData(d); setMonthlyLoading(false); });
+    // License Expiry
+    setExpiryLoading(true);
+    analyticsService.getLicenseExpiryBuckets().then((d) => { setExpiryBuckets(d); setExpiryLoading(false); });
+  }, [authChecked]);
 
   const handleManualRefresh = () => {
     setRefreshing(true);
@@ -726,6 +770,40 @@ export default function UniversalDashboard() {
           )}
         </section>
 
+        {/* ─────────────────────────────────────────────────────────────
+            2. ACTION REQUIRED ALERT BANNER
+        ────────────────────────────────────────────────────────────── */}
+        <ActionRequiredSection
+          items={actionItems}
+          loading={actionLoading}
+          onItemClick={(key, label) => {
+            // Map action keys to modal configs
+            const MAP: Record<string, { category: CardCategoryType; status: string; drillTab: DrillDownTab }> = {
+              under_verification: { category: 'applications', status: 'PENDING', drillTab: 'applications_all' },
+              pending_over_15: { category: 'applications', status: 'PENDING', drillTab: 'applications_all' },
+              expiring_licenses: { category: 'licenses', status: 'ACTIVE', drillTab: 'licenses_expiring' },
+              awaiting_action: { category: 'applications', status: 'ALL', drillTab: 'applications_all' },
+              biometric_pending: { category: 'biometrics', status: 'ALL', drillTab: 'biometrics' },
+            };
+            const cfg = MAP[key];
+            if (cfg) openCardDetail(cfg.category, label, { drillTab: cfg.drillTab, initialStatus: cfg.status });
+          }}
+        />
+
+        {/* ─────────────────────────────────────────────────────────────
+            2B. APPLICATION FUNNEL + AGING + PROCESSING PERFORMANCE
+        ────────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-1">
+            <ApplicationFunnelSection stages={funnelStages} loading={funnelLoading} />
+          </div>
+          <div className="lg:col-span-1">
+            <AgingAnalysisSection buckets={agingBuckets} loading={agingLoading} />
+          </div>
+          <div className="lg:col-span-1">
+            <ProcessingPerformanceSection data={processingPerf} loading={processingLoading} />
+          </div>
+        </div>
 
         {/* ─────────────────────────────────────────────────────────────
             3. INTERACTIVE CHARTS & VISUAL ANALYTICS SECTION
@@ -1353,6 +1431,24 @@ export default function UniversalDashboard() {
             </div>
           </div>
         )}
+
+        {/* ─────────────────────────────────────────────────────────────
+            4B. MONTHLY COMPARISON + LICENSE EXPIRY BUCKETS
+        ────────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MonthlyComparisonSection data={monthlyData} loading={monthlyLoading} />
+          <LicenseExpiryBucketsSection
+            buckets={expiryBuckets}
+            loading={expiryLoading}
+            onBucketClick={(days, label) => {
+              openCardDetail('licenses', label, {
+                drillTab: 'licenses_expiring',
+                initialStatus: days === 0 ? 'EXPIRED' : 'ACTIVE',
+                expiringDays: days > 0 ? days : undefined,
+              });
+            }}
+          />
+        </div>
 
         {/* ─────────────────────────────────────────────────────────────
             5. WEAPON CATEGORIES & PURPOSE DISTRIBUTION

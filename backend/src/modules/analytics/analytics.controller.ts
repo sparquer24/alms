@@ -379,4 +379,65 @@ export class AnalyticsController {
             );
         }
     }
+
+    @Get('funnel')
+    @ApiOperation({ summary: 'Application Funnel — counts per lifecycle stage' })
+    async getApplicationFunnel(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getApplicationFunnel(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('aging')
+    @ApiOperation({ summary: 'Application Aging — pending apps grouped by age buckets' })
+    async getAgingBuckets(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getAgingBuckets(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('action-required')
+    @ApiOperation({ summary: 'Action Required — 5 key counts needing admin attention' })
+    async getActionRequired(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getActionRequired(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('license-expiry')
+    @ApiOperation({ summary: 'License Expiry Buckets — 30/60/90 days + expired' })
+    async getLicenseExpiryBuckets(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getLicenseExpiryBuckets(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('monthly-comparison')
+    @ApiOperation({ summary: 'Monthly Comparison — this month vs last month' })
+    async getMonthlyComparison(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getMonthlyComparison(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('processing-performance')
+    @ApiOperation({ summary: 'Processing Performance — avg days, median, SLA %, delayed' })
+    async getProcessingPerformance(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getProcessingPerformance(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
 }
+

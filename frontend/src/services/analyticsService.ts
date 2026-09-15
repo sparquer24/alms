@@ -280,6 +280,86 @@ class AnalyticsService {
             throw error;
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: Dashboard enhancement endpoints
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Application Funnel — counts per lifecycle stage */
+    async getApplicationFunnel(): Promise<{ stage: string; code: string; count: number; order: number }[]> {
+        try {
+            const response = await apiClient.get<{ success: boolean; data: any[] }>('/admin/analytics/funnel');
+            return response.data || [];
+        } catch (error) {
+            console.error('Error fetching application funnel:', error);
+            return [];
+        }
+    }
+
+    /** Application Aging — pending apps by bucket */
+    async getAgingBuckets(): Promise<{ label: string; minDays: number; maxDays: number; count: number }[]> {
+        try {
+            const response = await apiClient.get<{ success: boolean; data: any[] }>('/admin/analytics/aging');
+            return response.data || [];
+        } catch (error) {
+            console.error('Error fetching aging buckets:', error);
+            return [];
+        }
+    }
+
+    /** Action Required — 5 actionable counts */
+    async getActionRequired(): Promise<{ key: string; label: string; count: number; severity: 'critical' | 'warning' | 'info' }[]> {
+        try {
+            const response = await apiClient.get<{ success: boolean; data: any[] }>('/admin/analytics/action-required');
+            return response.data || [];
+        } catch (error) {
+            console.error('Error fetching action required:', error);
+            return [];
+        }
+    }
+
+    /** License Expiry Buckets — 30/60/90 days + expired */
+    async getLicenseExpiryBuckets(): Promise<{ label: string; days: number; count: number }[]> {
+        try {
+            const response = await apiClient.get<{ success: boolean; data: any[] }>('/admin/analytics/license-expiry');
+            return response.data || [];
+        } catch (error) {
+            console.error('Error fetching license expiry buckets:', error);
+            return [];
+        }
+    }
+
+    /** Monthly Comparison — this month vs last month */
+    async getMonthlyComparison(): Promise<{
+        thisMonth: { submitted: number; approved: number; rejected: number };
+        lastMonth: { submitted: number; approved: number; rejected: number };
+    }> {
+        try {
+            const response = await apiClient.get<{ success: boolean; data: any }>('/admin/analytics/monthly-comparison');
+            return response.data || { thisMonth: { submitted: 0, approved: 0, rejected: 0 }, lastMonth: { submitted: 0, approved: 0, rejected: 0 } };
+        } catch (error) {
+            console.error('Error fetching monthly comparison:', error);
+            return { thisMonth: { submitted: 0, approved: 0, rejected: 0 }, lastMonth: { submitted: 0, approved: 0, rejected: 0 } };
+        }
+    }
+
+    /** Processing Performance — avg/median days, SLA %, delayed count */
+    async getProcessingPerformance(): Promise<{
+        avgDays: number;
+        medianDays: number;
+        slaPercent: number;
+        delayedCount: number;
+        totalProcessed: number;
+    }> {
+        try {
+            const response = await apiClient.get<{ success: boolean; data: any }>('/admin/analytics/processing-performance');
+            return response.data || { avgDays: 0, medianDays: 0, slaPercent: 0, delayedCount: 0, totalProcessed: 0 };
+        } catch (error) {
+            console.error('Error fetching processing performance:', error);
+            return { avgDays: 0, medianDays: 0, slaPercent: 0, delayedCount: 0, totalProcessed: 0 };
+        }
+    }
 }
 
 export const analyticsService = new AnalyticsService();
+
