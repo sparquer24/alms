@@ -330,6 +330,12 @@ export class AnalyticsController {
         type: String,
         description: 'Optional application family filter: fresh | renewal | cancel. Omit for all.',
     })
+    @ApiQuery({
+        name: 'filter',
+        required: false,
+        type: String,
+        description: 'Optional Action Required card filter: under_verification | pending_over_15 | awaiting_action | biometric_pending. Applies the same criteria used to compute that card\'s count.',
+    })
     @ApiResponse({
         status: 200,
         description: 'Successfully retrieved applications details',
@@ -344,6 +350,7 @@ export class AnalyticsController {
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
         @Query('type') type?: string,
+        @Query('filter') filter?: string,
         @Req() req?: any,
     ): Promise<AnalyticsResponseDto<ApplicationRecordDto[]>> {
         try {
@@ -357,7 +364,7 @@ export class AnalyticsController {
             const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId, type, districtId);
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId, type, districtId, filter);
 
             const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
 

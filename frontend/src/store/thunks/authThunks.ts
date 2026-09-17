@@ -2,6 +2,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { AuthApi } from '../../config/APIClient';
 import { setCredentials, setLoading, setError, logout, setInitialized } from '../slices/authSlice';
 import { setCookie, getCookie, deleteCookie } from 'cookies-next';
+import { queryClient } from '../../lib/queryClient';
 
 const NUMERIC_ROLE_MAP: Record<string, string> = {
   '2': 'ZS',
@@ -297,6 +298,11 @@ export const logoutUser = createAsyncThunk(
 
       clearAuthCookies();
       dispatch(logout());
+      // Drop every cached query so a different user/role logging in next
+      // can't briefly see this session's cached data. A hard reload follows
+      // immediately below, which would also clear it, but clearing here is
+      // correct regardless of how logout is triggered in the future.
+      queryClient.clear();
 
       if (typeof window !== 'undefined') {
         window.location.assign('/login');
@@ -304,6 +310,7 @@ export const logoutUser = createAsyncThunk(
     } catch {
       dispatch(logout());
       clearAuthCookies();
+      queryClient.clear();
       if (typeof window !== 'undefined') {
         window.location.assign('/login');
       }

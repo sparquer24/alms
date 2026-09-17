@@ -1,18 +1,26 @@
-import { Controller, Get, Post, Param, Query, Body, NotFoundException, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Param, Query, Body, NotFoundException, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import * as jwt from 'jsonwebtoken';
 import { LicensesService } from './licenses.service';
+import { CommitLicenseImportDto, PreviewLicenseImportDto } from './dto/import-licenses.dto';
+import { AuthGuard } from '../../middleware/auth.middleware';
+import { Roles } from '../../decorators/roles.decorator';
+
+/** Roles allowed to import, mirroring LICENSE_ROLES on the License Management page. */
+const LICENSE_IMPORT_ROLES = ['ADMIN', 'SUPER_ADMIN', 'ZS', 'DCP', 'CP', 'JTCP', 'ARMS_SUPDT', 'ARMS_SEAT', 'ACO'];
 
 @ApiTags('Licenses')
 @Controller('licenses')
 export class LicensesController {
   constructor(private readonly licensesService: LicensesService) {}
 
-  private extractUserFromReq(req: any): { stateId?: number; roleCode?: string } {
+  private extractUserFromReq(req: any): { stateId?: number; districtId?: number; zoneId?: number; roleCode?: string } {
     if (req?.user) {
       const stateId = req.user.stateId ? Number(req.user.stateId) : undefined;
+      const districtId = req.user.districtId ? Number(req.user.districtId) : undefined;
+      const zoneId = req.user.zoneId ? Number(req.user.zoneId) : undefined;
       const roleCode = req.user.roleCode || (typeof req.user.role === 'string' ? req.user.role : req.user.role?.code);
-      return { stateId, roleCode };
+      return { stateId, districtId, zoneId, roleCode };
     }
     const authHeader = req?.headers?.authorization;
     if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
@@ -23,14 +31,35 @@ export class LicensesController {
           const decoded = jwt.verify(token, secret) as any;
           const parsedStateId = decoded?.state_id ?? decoded?.stateId;
           const stateId = parsedStateId ? Number(parsedStateId) : undefined;
+          const parsedDistrictId = decoded?.district_id ?? decoded?.districtId;
+          const districtId = parsedDistrictId ? Number(parsedDistrictId) : undefined;
+          const parsedZoneId = decoded?.zone_id ?? decoded?.zoneId;
+          const zoneId = parsedZoneId ? Number(parsedZoneId) : undefined;
           const roleCode = decoded?.role_code || (typeof decoded?.role === 'string' ? decoded.role : decoded?.role?.code);
-          return { stateId, roleCode };
+          return { stateId, districtId, zoneId, roleCode };
         } catch (e) {
           // ignore
         }
       }
     }
     return {};
+  }
+
+  /**
+   * Identity + jurisdiction for bulk import. The AuthGuard already resolved the
+   * user from the database, so imported rows are scoped to the state the login
+   * actually belongs to (and every imported license is attributed to that user).
+   */
+  private extractImportScope(req: any): { userId?: number; stateId?: number; roleCode?: string } {
+    const { stateId, roleCode } = this.extractUserFromReq(req);
+    const user = req?.user ?? {};
+    const rawUserId = user.user_id ?? user.userId ?? user.sub ?? user.id;
+    const parsedUserId = rawUserId !== undefined && rawUserId !== null ? Number(rawUserId) : undefined;
+    return {
+      userId: parsedUserId !== undefined && Number.isFinite(parsedUserId) ? parsedUserId : undefined,
+      stateId,
+      roleCode,
+    };
   }
 
   @Post('generate/:freshApplicationId')
@@ -40,6 +69,56 @@ export class LicensesController {
     @Body('issuedBy') issuedBy: string | number
   ) {
     return this.licensesService.generateLicensePdf(Number(freshApplicationId), Number(issuedBy));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bulk import. Static POST paths are declared before any parameterized route
+  // so /licenses/import never resolves as an :id lookup.
+  // ---------------------------------------------------------------------------
+
+  @Post('import/preview')
+  @UseGuards(AuthGuard)
+  @Roles(...LICENSE_IMPORT_ROLES)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Validate a bulk license import without saving anything',
+    description:
+      'Accepts parsed CSV/XLSX rows and returns a per-row report: required-field, enum, date, address-hierarchy and duplicate problems, plus what would actually be written. Nothing is persisted.',
+  })
+  async previewLicenseImport(@Body() body: PreviewLicenseImportDto, @Req() req: any) {
+    return this.licensesService.previewLicenseImport(body.rows, this.extractImportScope(req), {
+      strict: body.strict,
+    });
+  }
+
+  @Post('import')
+  @UseGuards(AuthGuard)
+  @Roles(...LICENSE_IMPORT_ROLES)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Import licenses in bulk',
+    description:
+      'Re-validates the rows server-side and creates the importable ones, reporting partial success per row. Every created license is tagged with a batch id so the whole batch can be rolled back.',
+  })
+  async importLicenses(@Body() body: CommitLicenseImportDto, @Req() req: any) {
+    return this.licensesService.commitLicenseImport(body.rows, this.extractImportScope(req), {
+      strict: body.strict,
+      onDuplicate: body.onDuplicate,
+      fileName: body.fileName,
+    });
+  }
+
+  @Post('import/rollback/:batchId')
+  @UseGuards(AuthGuard)
+  @Roles(...LICENSE_IMPORT_ROLES)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Roll back a bulk license import batch',
+    description:
+      'Deletes the licenses created by a single import batch. Licenses that have since been renewed, cancelled or referenced elsewhere are kept and reported back.',
+  })
+  async rollbackLicenseImport(@Param('batchId') batchId: string, @Req() req: any) {
+    return this.licensesService.rollbackLicenseImportBatch(batchId, this.extractImportScope(req));
   }
 
   // IMPORTANT: Static-path GET routes must come BEFORE parameterized :id routes
@@ -76,7 +155,7 @@ export class LicensesController {
     @Query('order') order?: 'asc' | 'desc',
     @Req() req?: any,
   ) {
-    const { stateId, roleCode } = this.extractUserFromReq(req);
+    const { stateId, districtId, zoneId, roleCode } = this.extractUserFromReq(req);
     return this.licensesService.getAllLicenses({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -92,6 +171,8 @@ export class LicensesController {
       orderBy,
       order,
       stateId,
+      districtId,
+      zoneId,
       roleCode,
     });
   }
@@ -99,8 +180,8 @@ export class LicensesController {
   @Get('dashboard')
   @ApiOperation({ summary: 'Get license dashboard counts and expiry buckets' })
   async getLicenseDashboard(@Req() req?: any) {
-    const { stateId, roleCode } = this.extractUserFromReq(req);
-    return this.licensesService.getLicenseStatistics(stateId, roleCode);
+    const { stateId, districtId, zoneId, roleCode } = this.extractUserFromReq(req);
+    return this.licensesService.getLicenseStatistics(stateId, roleCode, districtId, zoneId);
   }
 
   @Get('expiring')
@@ -115,7 +196,7 @@ export class LicensesController {
     @Query('renewedOnly') renewedOnly?: string,
     @Req() req?: any,
   ) {
-    const { stateId, roleCode } = this.extractUserFromReq(req);
+    const { stateId, districtId, zoneId, roleCode } = this.extractUserFromReq(req);
     return this.licensesService.getAllLicenses({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -127,6 +208,8 @@ export class LicensesController {
       orderBy: 'validTill',
       order: 'asc',
       stateId,
+      districtId,
+      zoneId,
       roleCode,
     });
   }
@@ -141,7 +224,7 @@ export class LicensesController {
     @Query('renewedOnly') renewedOnly?: string,
     @Req() req?: any,
   ) {
-    const { stateId, roleCode } = this.extractUserFromReq(req);
+    const { stateId, districtId, zoneId, roleCode } = this.extractUserFromReq(req);
     return this.licensesService.getAllLicenses({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -152,6 +235,8 @@ export class LicensesController {
       orderBy: 'validTill',
       order: 'desc',
       stateId,
+      districtId,
+      zoneId,
       roleCode,
     });
   }
@@ -159,8 +244,8 @@ export class LicensesController {
   @Get('stats/overview')
   @ApiOperation({ summary: 'Get license statistics (counts by status)' })
   async getLicenseStatistics(@Req() req?: any) {
-    const { stateId, roleCode } = this.extractUserFromReq(req);
-    return this.licensesService.getLicenseStatistics(stateId, roleCode);
+    const { stateId, districtId, zoneId, roleCode } = this.extractUserFromReq(req);
+    return this.licensesService.getLicenseStatistics(stateId, roleCode, districtId, zoneId);
   }
 
   @Get('audit/logs')
@@ -180,7 +265,7 @@ export class LicensesController {
     @Query('dateTo') dateTo?: string,
     @Req() req?: any,
   ) {
-    const { stateId, roleCode } = this.extractUserFromReq(req);
+    const { stateId, districtId, zoneId, roleCode } = this.extractUserFromReq(req);
     return this.licensesService.getLicenseAuditLogs({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -189,6 +274,8 @@ export class LicensesController {
       dateFrom,
       dateTo,
       stateId,
+      districtId,
+      zoneId,
       roleCode,
     });
   }

@@ -9,7 +9,7 @@ interface LandingFooterProps {
 
 export default function LandingFooter({ footer }: LandingFooterProps) {
   return (
-    <footer id="footer" className="bg-[#0F2D52] text-white">
+    <footer id="footer" className="relative bg-[#0F2D52]/75 backdrop-blur-sm border-t border-white/10 text-white">
       {/* Main footer */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid md:grid-cols-3 gap-12">
@@ -78,7 +78,7 @@ export default function LandingFooter({ footer }: LandingFooterProps) {
       </div>
 
       {/* Copyright bar */}
-      <div className="border-t border-white/5 bg-black/20">
+      <div className="border-t border-white/5 bg-black/20 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <p className="text-xs text-gray-500 text-center">
             &copy; {new Date().getFullYear()} {footer.systemName}. Internal Use Only.

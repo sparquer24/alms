@@ -79,7 +79,7 @@ function SuperAdminLayoutBody({ children }: { children: any }) {
       <Sidebar />
       <Header />
       <main
-        className='isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]'
+        className='isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]'
         style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <div className="flex-grow min-h-0 flex flex-col">

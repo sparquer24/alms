@@ -31,15 +31,25 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; i
   REJECTED: { label: 'Disallowed / Rejected', bg: 'bg-rose-50 text-rose-700 border-rose-200', text: 'text-rose-700', icon: AlertCircle },
 };
 
+const ACTION_FILTER_LABELS: Record<string, string> = {
+  under_verification: 'Under Verification',
+  pending_over_15: 'Pending > 15 Days',
+  awaiting_action: 'Awaiting Admin Action',
+  biometric_pending: 'Missing Biometric',
+};
+
 interface ApplicationsDetailTableProps {
   initialType?: string; // 'all' | 'fresh' | 'renewal' | 'cancel'
   initialStatus?: string; // 'ALL' | 'APPROVED' | 'PENDING' | 'REJECTED'
+  /** Action Required card key: under_verification | pending_over_15 | awaiting_action | biometric_pending */
+  actionFilter?: string;
   embedded?: boolean;
 }
 
 export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = ({
   initialType = 'all',
   initialStatus = 'ALL',
+  actionFilter,
   embedded = false,
 }) => {
   const [typeFilter, setTypeFilter] = useState<string>(initialType);
@@ -58,7 +68,10 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
     setLoading(true);
     try {
       const typeParam = typeFilter === 'all' ? undefined : typeFilter;
-      const statusParam = statusFilter === 'ALL' ? undefined : statusFilter;
+      // An Action Required card filter already encodes its own status criteria
+      // (e.g. "under verification" = pending + assigned) — the status pills are
+      // hidden in that case, so never send a conflicting status param alongside it.
+      const statusParam = actionFilter ? undefined : (statusFilter === 'ALL' ? undefined : statusFilter);
       const qParam = searchQuery.trim() ? searchQuery.trim() : undefined;
 
       const res = await analyticsService.getApplicationsDetails({
@@ -68,6 +81,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
         page,
         limit,
         sort: sortOrder,
+        filter: actionFilter,
       });
 
       if (res && res.data) {
@@ -86,7 +100,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, statusFilter, searchQuery, page, limit, sortOrder]);
+  }, [typeFilter, statusFilter, searchQuery, page, limit, sortOrder, actionFilter]);
 
   useEffect(() => {
     fetchApplications();
@@ -174,31 +188,39 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
             ))}
           </div>
 
-          {/* Status Pills */}
-          <div className="flex items-center rounded-lg bg-gray-100 p-1 text-xs font-semibold">
-            {[
-              { key: 'ALL', label: 'All Status' },
-              { key: 'PENDING', label: 'In Review' },
-              { key: 'APPROVED', label: 'Approved' },
-              { key: 'REJECTED', label: 'Disallowed' },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => {
-                  setStatusFilter(tab.key);
-                  setPage(1);
-                }}
-                className={`px-3 py-1.5 rounded-md transition-all ${
-                  statusFilter === tab.key
-                    ? 'bg-[#B8860B] text-white shadow-xs'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {/* Status Pills — hidden when drilling in from an Action Required card, since
+              that filter already carries its own fixed status criteria */}
+          {actionFilter ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#B8860B]/10 text-[#B8860B] border border-[#B8860B]/30">
+              <Clock className="w-3.5 h-3.5" />
+              {ACTION_FILTER_LABELS[actionFilter] || 'Filtered'}
+            </span>
+          ) : (
+            <div className="flex items-center rounded-lg bg-gray-100 p-1 text-xs font-semibold">
+              {[
+                { key: 'ALL', label: 'All Status' },
+                { key: 'PENDING', label: 'In Review' },
+                { key: 'APPROVED', label: 'Approved' },
+                { key: 'REJECTED', label: 'Disallowed' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(tab.key);
+                    setPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-md transition-all ${
+                    statusFilter === tab.key
+                      ? 'bg-[#B8860B] text-white shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Side: Search & Export Controls */}

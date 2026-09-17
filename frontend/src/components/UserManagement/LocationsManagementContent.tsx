@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { ArrowLeft, Download, Plus, Eye } from 'lucide-react';
@@ -56,6 +56,27 @@ type LocationEntity = State | District | RangeOffice | Zone | Division | PoliceS
 
 const HIERARCHY_ORDER: LocationLevel[] = ['state', 'district', 'range', 'zone', 'division', 'station'];
 
+// Query param that carries a given level's own id, i.e. the id a *child*
+// level uses to filter by this level as its parent (mirrors PARENT_PARAM_NAME
+// below, shifted by one position in the hierarchy).
+const LEVEL_OWN_ID_PARAM: Partial<Record<LocationLevel, string>> = {
+  state: 'stateId',
+  district: 'districtId',
+  range: 'rangeOfficeId',
+  zone: 'zoneId',
+  division: 'divisionId',
+};
+
+// Query param a given level uses to filter by its parent's id when fetching.
+const PARENT_PARAM_NAME: Record<LocationLevel, string> = {
+  state: '',
+  district: 'stateId',
+  range: 'districtId',
+  zone: 'rangeOfficeId',
+  division: 'zoneId',
+  station: 'divisionId',
+};
+
 const LOCATION_HIERARCHY: Record<
   LocationLevel,
   { label: string; singular: string; endpoint: string }
@@ -72,8 +93,48 @@ const LOCATION_HIERARCHY: Record<
   },
 };
 
+/**
+ * Resolve a single location entity by id, for hydrating breadcrumb names
+ * from URL-encoded ids (refresh / direct link / browser back-forward).
+ * Tries a direct GET /:id first, falling back to fetching the parent-scoped
+ * list and finding the matching id in case the API has no singular route.
+ */
+async function fetchLocationByIdSafe(
+  level: LocationLevel,
+  id: number,
+  parentId?: number
+): Promise<Location | null> {
+  const cfg = LOCATION_HIERARCHY[level];
+  try {
+    const res = await fetch(`${API_BASE_URL}/${cfg.endpoint}/${id}`);
+    if (res.ok) {
+      const json = await res.json();
+      const item = json?.data ?? json;
+      if (item?.id) return item;
+    }
+  } catch {}
+
+  try {
+    let url = `${API_BASE_URL}/${cfg.endpoint}`;
+    if (parentId != null) {
+      const paramName = PARENT_PARAM_NAME[level];
+      if (paramName) url += `?${paramName}=${parentId}`;
+    }
+    const res = await fetch(url);
+    if (res.ok) {
+      const json = await res.json();
+      const list = Array.isArray(json) ? json : json?.data || [];
+      return list.find((it: any) => it.id === id) || null;
+    }
+  } catch {}
+
+  return null;
+}
+
 export default function LocationsManagementContent() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { colors } = useAdminTheme();
   const { userRole, user } = useAuth();
@@ -132,15 +193,6 @@ export default function LocationsManagementContent() {
 
   // Navigation state - start with state by default, update based on role
   const [currentLevel, setCurrentLevel] = useState<LocationLevel>('state');
-  
-  // Update current level when role and user are loaded
-  useEffect(() => {
-    if (isAdmin && userStateId) {
-      setCurrentLevel('district');
-    } else if (isSuperAdmin) {
-      setCurrentLevel('state');
-    }
-  }, [isAdmin, isSuperAdmin, userStateId]);
   const [selectedPath, setSelectedPath] = useState<Record<LocationLevel, Location | null>>({
     state: null,
     district: null,
@@ -149,6 +201,107 @@ export default function LocationsManagementContent() {
     division: null,
     station: null,
   });
+
+  // Update current level when role and user are loaded — but only when the
+  // URL doesn't already encode a deep-linked/restored level (refresh, direct
+  // link, or browser back/forward should win over the role default).
+  useEffect(() => {
+    if (searchParams?.get('level')) return;
+    if (isAdmin && userStateId) {
+      setCurrentLevel('district');
+    } else if (isSuperAdmin) {
+      setCurrentLevel('state');
+    }
+  }, [isAdmin, isSuperAdmin, userStateId, searchParams]);
+
+  // Tracks whether the *next* searchParams change was caused by our own
+  // state->URL push below, so the URL->state hydration effect can ignore it.
+  const isInternalNavRef = useRef(false);
+  // Tracks whether we've resolved the initial level (from URL or role
+  // default) so the state->URL effect doesn't clobber a deep link before
+  // hydration has had a chance to run.
+  const hasHydratedRef = useRef(false);
+
+  const buildLocationsUrl = useCallback(
+    (level: LocationLevel, path: Record<LocationLevel, Location | null>) => {
+      const params = new URLSearchParams();
+      params.set('level', level);
+      const idx = HIERARCHY_ORDER.indexOf(level);
+      for (let i = 0; i < idx; i++) {
+        const ancestor = HIERARCHY_ORDER[i];
+        const paramName = LEVEL_OWN_ID_PARAM[ancestor];
+        const id = path[ancestor]?.id;
+        if (paramName && id != null) params.set(paramName, String(id));
+      }
+      return params.toString();
+    },
+    []
+  );
+
+  // URL -> state: hydrate currentLevel/selectedPath from the URL on mount,
+  // and whenever the URL changes from outside our own navigation (browser
+  // Back/Forward, a direct/refreshed link).
+  useEffect(() => {
+    if (isInternalNavRef.current) {
+      isInternalNavRef.current = false;
+      return;
+    }
+
+    const levelParam = searchParams?.get('level') as LocationLevel | null;
+    if (!levelParam || !HIERARCHY_ORDER.includes(levelParam)) {
+      hasHydratedRef.current = true;
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const idx = HIERARCHY_ORDER.indexOf(levelParam);
+      const newPath: Record<LocationLevel, Location | null> = {
+        state: null,
+        district: null,
+        range: null,
+        zone: null,
+        division: null,
+        station: null,
+      };
+      // ADMIN users don't pick a state explicitly — they're scoped to their
+      // own userStateId and their hierarchy starts at district. Seed the
+      // walk with that implicit parent instead of expecting a `stateId`
+      // query param that will never be there.
+      let parentId: number | undefined = isAdmin && userStateId ? userStateId : undefined;
+      for (let i = 0; i < idx; i++) {
+        const ancestor = HIERARCHY_ORDER[i];
+        if (ancestor === 'state' && isAdmin) continue;
+        const paramName = LEVEL_OWN_ID_PARAM[ancestor];
+        const idStr = paramName ? searchParams?.get(paramName) : null;
+        if (!idStr) break;
+        const item = await fetchLocationByIdSafe(ancestor, Number(idStr), parentId);
+        if (!item) break;
+        newPath[ancestor] = item;
+        parentId = item.id;
+      }
+      if (cancelled) return;
+      setSelectedPath(newPath);
+      setCurrentLevel(levelParam);
+      hasHydratedRef.current = true;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams?.toString()]);
+
+  // state -> URL: keep the address bar in sync so refresh/back/forward and
+  // shared links restore the exact same hierarchy level and selection.
+  useEffect(() => {
+    if (!hasHydratedRef.current) return;
+    const nextQuery = buildLocationsUrl(currentLevel, selectedPath);
+    const currentQuery = searchParams?.toString() ?? '';
+    if (nextQuery === currentQuery) return;
+    isInternalNavRef.current = true;
+    router.push(`${pathname}?${nextQuery}`, { scroll: false });
+  }, [currentLevel, selectedPath, buildLocationsUrl, pathname, router, searchParams]);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -229,15 +382,7 @@ export default function LocationsManagementContent() {
   if (isAdmin && currentLevel === 'district' && userStateId) {
     fetchUrl += `?stateId=${userStateId}`;
   } else if (parentId) {
-    const paramMap: Record<LocationLevel, string> = {
-      state: '',
-      district: 'stateId',
-      range: 'districtId',
-      zone: 'rangeOfficeId',
-      division: 'zoneId',
-      station: 'divisionId',
-    };
-    const paramName = paramMap[currentLevel];
+    const paramName = PARENT_PARAM_NAME[currentLevel];
     if (paramName) {
       fetchUrl += `?${paramName}=${parentId}`;
     }

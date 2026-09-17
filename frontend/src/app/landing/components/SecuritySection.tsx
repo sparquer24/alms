@@ -36,7 +36,7 @@ export default function SecuritySection({ title, description, features }: Securi
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="bg-white/5 rounded-xl border border-white/10 p-5 hover:bg-white/10 transition-colors hover:border-[#B8860B]/30"
+              className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-5 hover:bg-white/10 transition-colors hover:border-[#B8860B]/30 shadow-lg"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-9 h-9 rounded-lg bg-[#B8860B]/10 text-[#B8860B] flex items-center justify-center shrink-0">

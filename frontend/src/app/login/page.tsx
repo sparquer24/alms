@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '../../components/Footer';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
-import { navigateToDefaultMenu } from '../../utils/navigationUtils';
 
 const ImageFixed = Image as any;
 import { useDispatch, useSelector } from 'react-redux';
@@ -93,7 +92,7 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
 
 const LoadingSpinner: React.FC = () => (
   <svg
-    className='animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900'
+    className='animate-spin -ml-1 mr-3 h-5 w-5 text-[#0F2D52]'
     xmlns='http://www.w3.org/2000/svg'
     fill='none'
     viewBox='0 0 24 24'
@@ -121,6 +120,7 @@ const FormInput: React.FC<{
   showToggle?: boolean;
   showPassword?: boolean;
   onTogglePassword?: () => void;
+  icon?: React.ReactNode;
 }> = ({
   id,
   type,
@@ -134,11 +134,18 @@ const FormInput: React.FC<{
   showToggle = false,
   showPassword = false,
   onTogglePassword,
+  icon,
 }) => (
   <div className="relative">
     <label htmlFor={id} className="sr-only">
       {placeholder}
     </label>
+
+    {icon && (
+      <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-300 pointer-events-none">
+        {icon}
+      </span>
+    )}
 
     <input
       id={id}
@@ -146,9 +153,11 @@ const FormInput: React.FC<{
       type={type}
       autoComplete={autoComplete}
       required={required}
-      className={`appearance-none relative block w-full px-4 py-3 ${
-        showToggle ? "pr-12" : ""
-      } border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] sm:text-sm bg-white/90 transition-colors duration-200 ${className}`}
+      className={`appearance-none relative block w-full py-3 ${
+        icon ? "pl-11" : "pl-4"
+      } ${
+        showToggle ? "pr-11" : "pr-4"
+      } border border-white/25 rounded-lg placeholder-gray-300 text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/60 focus:border-[#D4AF37] sm:text-sm bg-white/10 backdrop-blur-sm transition-colors duration-200 ${className}`}
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -159,7 +168,7 @@ const FormInput: React.FC<{
       <button
         type="button"
         onClick={onTogglePassword}
-        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none"
+        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-300 hover:text-white focus:outline-none"
         aria-label={showPassword ? "Hide password" : "Show password"}
       >
         {showPassword ? (
@@ -203,6 +212,18 @@ const FormInput: React.FC<{
       </button>
     )}
   </div>
+);
+
+const UserIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 10-8 0v4h8z" />
+  </svg>
 );
 
 export const dynamic = 'force-dynamic';
@@ -273,23 +294,25 @@ function LoginContent() {
             dispatch(setError('No role assigned to your account.'));
             return;
           }
-          // Use navigateToDefaultMenu for dynamic role-based routing
-          // based on the user's role configuration menu items.
-          // Fall back to getRoleBasedRedirectPath if navigateToDefaultMenu fails.
-          const navigated = navigateToDefaultMenu(normalizedRole, router);
-          if (!navigated) {
-            const redirectPath = getRoleBasedRedirectPath(normalizedRole);
-            // For admin/superAdmin routes, use a full navigation so the Next.js middleware
-            // can verify the JWT in the edge runtime.
-            if (redirectPath.startsWith('/admin') || redirectPath.startsWith('/superAdmin')) {
-              setIsNavigating(true);
-              window.location.assign(redirectPath);
-            } else {
-              setIsNavigating(true);
-              router.push(redirectPath);
-            }
+          // Always use the same role -> path mapping as the rest of the app
+          // (dashboard's access guard, the "already authenticated" redirect
+          // above, and the Sidebar). Previously this used the user's first
+          // configured *menu item* instead, which came from the backend in
+          // whatever order it happened to list items — so a role meant to
+          // land on the dashboard could land on Inbox instead if that
+          // happened to be first in the menu list.
+          const redirectPath = getRoleBasedRedirectPath(normalizedRole);
+          try {
+            sessionStorage.setItem('loginRedirectApplied', 'true');
+          } catch (e) {}
+          // For admin/superAdmin routes, use a full navigation so the Next.js middleware
+          // can verify the JWT in the edge runtime.
+          if (redirectPath.startsWith('/admin') || redirectPath.startsWith('/superAdmin')) {
+            setIsNavigating(true);
+            window.location.assign(redirectPath);
           } else {
             setIsNavigating(true);
+            router.push(redirectPath);
           }
         }
       } catch {
@@ -310,7 +333,8 @@ function LoginContent() {
         disabled={isLoading}
         autoComplete='username'
         required
-        className='rounded-t-md uppercase'
+        className='uppercase'
+        icon={<UserIcon />}
       />
     ),
     [formData.username, isLoading, updateField]
@@ -327,10 +351,10 @@ function LoginContent() {
       disabled={isLoading}
       autoComplete="current-password"
       required
-      className="rounded-b-md"
       showToggle
       showPassword={showPassword}
       onTogglePassword={() => setShowPassword((prev) => !prev)}
+      icon={<LockIcon />}
     />
   ),
   [formData.password, isLoading, updateField, showPassword]
@@ -338,57 +362,62 @@ function LoginContent() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]"
+      className='min-h-screen flex flex-col relative overflow-hidden'
       role='main'
     >
       <div
-        className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]'
+        className='absolute inset-0 bg-gradient-to-b from-[#0F2D52]/70 via-[#0F2D52]/50 to-[#0F2D52]/80'
         aria-hidden='true'
       />
       <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
-        <div className={`max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300 ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}>
-          <div className='flex flex-col items-center'>
-            <div className='mb-6'>
+        <div className={`relative max-w-md w-full bg-white/10 p-8 sm:p-10 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-sm border border-white/25 transition-all duration-300 ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}>
+          <div className='absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#B8860B] via-[#D4AF37] to-[#B8860B]' />
+          <div
+            className='pointer-events-none absolute inset-0 rounded-2xl'
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 40%, rgba(255,255,255,0) 60%)',
+            }}
+          />
+
+          <div className='relative flex flex-col items-center'>
+            <div className='mb-5 h-20 w-20 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-lg ring-1 ring-white/30 ring-offset-2 ring-offset-transparent'>
               <ImageFixed
                 src={LOGO_IMAGE}
                 alt='ALMS Logo'
-                width={120}
-                height={120}
-                className='drop-shadow-md h-auto'
+                width={52}
+                height={52}
+                className='h-auto'
                 priority
               />
             </div>
-            <h1 className='mt-2 text-center text-3xl font-extrabold text-black'>
+            <h1 className='text-center text-2xl sm:text-3xl font-bold text-white leading-tight drop-shadow-sm'>
               Arms License Management System
             </h1>
-            <p className='mt-2 text-center text-sm text-gray-700'>
+            <p className='mt-2 text-center text-sm text-gray-200'>
               Sign in to access your dashboard
             </p>
-            <Link
-              href="/"
-              className="mt-4 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              ← Back to Home
-            </Link>
           </div>
 
-          {error && <ErrorMessage message={error} />}
-
-          <form className='mt-8 space-y-6' onSubmit={handleSubmit} noValidate>
-            <div className='rounded-md shadow-sm -space-y-px'>
-              {usernameInput}
-              {passwordInput}
+          {error && (
+            <div className='relative mt-6'>
+              <ErrorMessage message={error} />
             </div>
+          )}
 
-            <div>
+          <form className='relative mt-8 space-y-4' onSubmit={handleSubmit} noValidate>
+            {usernameInput}
+            {passwordInput}
+
+            <div className='pt-2'>
               <button
                 type='submit'
                 disabled={isLoading || !isFormValid}
-                className='group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all duration-200'
+                className='group relative w-full flex justify-center items-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-[#0F2D52] bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all duration-200'
                 aria-describedby={!isFormValid ? 'form-validation' : undefined}
               >
                 {isLoading && <LoadingSpinner />}
-                <span className='font-semibold'>{isLoading ? 'Signing in...' : 'Sign in'}</span>
+                <span>{isLoading ? 'Signing in...' : 'Sign in'}</span>
               </button>
               {!isFormValid && (
                 <div id='form-validation' className='sr-only'>
@@ -397,6 +426,15 @@ function LoginContent() {
               )}
             </div>
           </form>
+
+          <div className='relative mt-6 text-center'>
+            <Link
+              href="/"
+              className="text-sm text-gray-300 hover:text-white transition-colors"
+            >
+              ← Back to Home
+            </Link>
+          </div>
         </div>
       </div>
       <Footer variant='dark' className='relative z-10' />

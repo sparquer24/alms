@@ -638,7 +638,7 @@ export class AnalyticsService {
      * Includes Fresh, Renewal, and Cancel applications
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
-    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number, type?: string, districtId?: number): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number, type?: string, districtId?: number, actionFilter?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
         try {
             const where: any = {};
 
@@ -718,11 +718,54 @@ export class AnalyticsService {
                 cancelWhere.OR = cancelOrConditions;
             }
 
+            // Apply the same criteria the Action Required cards use, so drilling into
+            // a card shows exactly the records that were counted for it.
+            let includeCancelFamily = wantCancel;
+            const normalizedActionFilter = actionFilter ? String(actionFilter).toLowerCase() : undefined;
+            if (normalizedActionFilter === 'under_verification') {
+                where.isPending = true;
+                where.currentUserId = { not: null };
+                renewalWhere.isPending = true;
+                renewalWhere.currentUserId = { not: null };
+                includeCancelFamily = false;
+            } else if (normalizedActionFilter === 'pending_over_15') {
+                const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+                where.isPending = true;
+                where.createdAt = { ...where.createdAt, lte: fifteenDaysAgo };
+                renewalWhere.isPending = true;
+                renewalWhere.createdAt = { ...renewalWhere.createdAt, lte: fifteenDaysAgo };
+                cancelWhere.createdAt = { ...cancelWhere.createdAt, lte: fifteenDaysAgo };
+            } else if (normalizedActionFilter === 'awaiting_action') {
+                where.isSubmit = true;
+                where.isPending = false;
+                where.isApproved = false;
+                where.isRejected = false;
+                where.currentUserId = null;
+                renewalWhere.isSubmit = true;
+                renewalWhere.isPending = false;
+                renewalWhere.isApproved = false;
+                renewalWhere.isRejected = false;
+                renewalWhere.currentUserId = null;
+                includeCancelFamily = false;
+            } else if (normalizedActionFilter === 'biometric_pending') {
+                // Biometric compliance is only tracked on fresh applications.
+                where.isSubmit = true;
+                where.isApproved = false;
+                where.isRejected = false;
+                where.biometricData = null;
+                includeCancelFamily = false;
+            }
+
+            const wantCancelResolved = normalizedActionFilter === 'biometric_pending' ? false
+                : normalizedActionFilter ? includeCancelFamily
+                : wantCancel;
+            const wantRenewalResolved = normalizedActionFilter === 'biometric_pending' ? false : wantRenewal;
+
             // Count total matching records from the requested source(s)
             const [freshCount, renewalCount, cancelCount] = await Promise.all([
                 wantFresh ? prisma.freshLicenseApplicationPersonalDetails.count({ where }) : Promise.resolve(0),
-                wantRenewal ? prisma.renewalFormPersonalDetails.count({ where: renewalWhere }) : Promise.resolve(0),
-                wantCancel ? prisma.cancelFormRequests.count({ where: cancelWhere }) : Promise.resolve(0),
+                wantRenewalResolved ? prisma.renewalFormPersonalDetails.count({ where: renewalWhere }) : Promise.resolve(0),
+                wantCancelResolved ? prisma.cancelFormRequests.count({ where: cancelWhere }) : Promise.resolve(0),
             ]);
 
             const total = freshCount + renewalCount + cancelCount;
@@ -792,7 +835,7 @@ export class AnalyticsService {
                     skip,
                     take: take ?? 200,
                 }),
-                !wantRenewal ? Promise.resolve([]) : prisma.renewalFormPersonalDetails.findMany({
+                !wantRenewalResolved ? Promise.resolve([]) : prisma.renewalFormPersonalDetails.findMany({
                     where: renewalWhere,
                     select: {
                         id: true,
@@ -824,7 +867,7 @@ export class AnalyticsService {
                     skip,
                     take: take ?? 200,
                 }),
-                !wantCancel ? Promise.resolve([]) : prisma.cancelFormRequests.findMany({
+                !wantCancelResolved ? Promise.resolve([]) : prisma.cancelFormRequests.findMany({
                     where: cancelWhere,
                     select: {
                         id: true,

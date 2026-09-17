@@ -8,7 +8,7 @@ interface WorkflowSectionProps {
 
 export default function WorkflowSection({ workflow }: WorkflowSectionProps) {
   return (
-    <section id="workflow" className="py-20 bg-white">
+    <section id="workflow" className="py-20 bg-gradient-to-br from-[#0F2D52]/5 via-white to-[#B8860B]/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="inline-block px-3 py-1 text-xs font-semibold text-[#B8860B] bg-[#B8860B]/10 rounded-full uppercase tracking-wider mb-4">
@@ -89,7 +89,7 @@ export default function WorkflowSection({ workflow }: WorkflowSectionProps) {
                 return (
                   <div
                     key={title}
-                    className="flex items-start gap-4 p-4 bg-[#F8F9FA] rounded-lg hover:bg-[#0F2D52]/5 transition-colors"
+                    className="flex items-start gap-4 p-4 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg shadow-sm hover:bg-white/70 transition-colors"
                   >
                     <div className="w-6 h-6 rounded-full bg-[#B8860B]/10 text-[#B8860B] flex items-center justify-center shrink-0 mt-0.5">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

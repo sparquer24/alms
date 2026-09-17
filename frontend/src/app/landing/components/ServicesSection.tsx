@@ -31,7 +31,7 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export default function ServicesSection({ services }: ServicesSectionProps) {
   return (
-    <section id="services" className="py-20 bg-[#F8F9FA]">
+    <section id="services" className="py-20 bg-gradient-to-br from-[#0F2D52]/5 via-[#F8F9FA] to-[#B8860B]/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
@@ -51,7 +51,7 @@ export default function ServicesSection({ services }: ServicesSectionProps) {
           {services.map((service) => (
             <div
               key={service.id}
-              className="group bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-[#B8860B]/30 transition-all duration-300"
+              className="group bg-white/50 backdrop-blur-sm rounded-xl border border-white/60 p-6 shadow-sm hover:shadow-lg hover:bg-white/70 hover:border-[#B8860B]/30 transition-all duration-300"
             >
               <div className="w-14 h-14 rounded-lg bg-[#0F2D52]/5 text-[#0F2D52] flex items-center justify-center mb-5 group-hover:bg-[#0F2D52] group-hover:text-white transition-colors duration-300">
                 {iconMap[service.icon] || iconMap["new-license"]}

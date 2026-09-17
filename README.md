@@ -44,6 +44,8 @@ alms/
 ### Backend modules (`backend/src/modules`)
 `auth`, `user`, `roles`, `licenses`, `renewal`, `CancelForm`, `FreshLicenseApplicationForm`, `FLAWorkflow`, `flowMapping`, `verification`, `hearings`, `weapons`, `documents`, `biometric`, `actions`, `locations`, `notifications`, `analytics`, `audit`, `status`, `scheduler`, `health`, `public`
 
+The `licenses` module includes bulk license import (`dto/import-licenses.dto.ts` on the backend, `frontend/src/components/licenses/BulkLicenseImport.tsx` on the frontend) alongside standard CRUD.
+
 ### Frontend route groups (`frontend/src/app`)
 `admin`, `superAdmin`, `dashboard`, `application`, `forms`, `freshform`, `renewalApplication`, `cancelForm`, `inbox`, `licenses`, `notifications`, `reports`, `settings`, `login`, `reset-password`, `landing`, `public`, `api`
 

@@ -27,6 +27,8 @@ export interface CardModalConfig {
   initialType?: string; // for applications: 'all' | 'fresh' | 'renewal' | 'cancel'
   initialStatus?: string; // 'ALL' | 'APPROVED' | 'PENDING' | 'REJECTED' | 'ACTIVE' | 'EXPIRED'
   expiringDays?: number;
+  /** Action Required card key: under_verification | pending_over_15 | awaiting_action | biometric_pending */
+  actionFilter?: string;
 }
 
 interface DashboardCardDetailModalProps {
@@ -81,6 +83,11 @@ export const DashboardCardDetailModal: React.FC<DashboardCardDetailModalProps> =
   };
 
   const getCategoryTitle = () => {
+    // When drilling in from a specific Action Required card, keep its label as the
+    // heading (only while still on that same category tab) instead of the generic title.
+    if (activeCategory === config.category && config.actionFilter) {
+      return config.title;
+    }
     switch (activeCategory) {
       case 'applications':
         return 'Applications Master Directory';
@@ -193,6 +200,7 @@ export const DashboardCardDetailModal: React.FC<DashboardCardDetailModalProps> =
             <ApplicationsDetailTable
               initialType={config.initialType || 'all'}
               initialStatus={config.initialStatus || 'ALL'}
+              actionFilter={config.actionFilter}
               embedded={false}
             />
           )}

@@ -2,6 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -17,7 +18,6 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
-  Upload,
   XCircle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -30,6 +30,7 @@ import { LayoutProvider, useLayout } from '@/config/layoutContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { PageSubHeader, SubHeaderButton, SubHeaderSearch, SubHeaderPills, SubHeaderSelect } from '@/components/common/PageSubHeader';
+import BulkLicenseImport, { downloadLicenseImportTemplate } from '@/components/licenses/BulkLicenseImport';
 
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
 
@@ -128,6 +129,45 @@ const formatDateTime = (value?: string | null) => {
 const getFullName = (license: LicenseData | null | undefined) =>
   [license?.firstName, license?.middleName, license?.lastName].filter(Boolean).join(' ') || '-';
 
+const SOURCE_OPTIONS = [
+  { value: '', label: 'All Sources' },
+  { value: 'FRESH', label: 'Fresh Application' },
+  { value: 'RENEWAL', label: 'Renewal' },
+  { value: 'IMPORT', label: 'Imported' },
+  { value: 'CANCELLATION', label: 'Cancellation' },
+];
+
+/**
+ * `lastModifiedAppType` is the authoritative source marker written by the
+ * fresh/renewal/cancel/import flows themselves — unlike `freshApplicationId`,
+ * it doesn't misclassify renewal-only or cancelled licenses as "Imported".
+ */
+const getLicenseSource = (license: LicenseData): { label: string; badge: string } => {
+  const type = (license.lastModifiedAppType || '').toUpperCase();
+  switch (type) {
+    case 'IMPORT':
+      return { label: 'Imported', badge: 'bg-amber-100 text-amber-800' };
+    case 'RENEWAL':
+      return { label: 'Renewal', badge: 'bg-blue-100 text-blue-700' };
+    case 'CANCELLATION':
+      return { label: 'Cancellation', badge: 'bg-red-100 text-red-700' };
+    case 'FRESH':
+      return { label: 'Fresh Application', badge: 'bg-green-100 text-green-700' };
+    default:
+      return license.freshApplicationId
+        ? { label: 'Fresh Application', badge: 'bg-green-100 text-green-700' }
+        : { label: 'Imported', badge: 'bg-amber-100 text-amber-800' };
+  }
+};
+
+/**
+ * Prefer the name resolved by the API, then a raw name field, and only fall back
+ * to the stored id so a stale id (e.g. a district that no longer exists) is at
+ * least visible rather than silently blank.
+ */
+const locationValue = (name?: string | null, id?: number | null, label = 'Record') =>
+  name || (id != null ? `${label} #${id}` : undefined);
+
 const getExpiryState = (license: LicenseData) => {
   if (!license.validTill) return { };
   const today = new Date();
@@ -166,7 +206,7 @@ const mapLicenseToRow = (license: LicenseData) => ({
   'Expiry Date': formatDate(license.validTill),
   'License Status': license.status,
   'Current Workflow Status': license.workflowHistories?.[0]?.newStatus || license.status,
-  'Created From': license.freshApplicationId ? 'Fresh Application' : 'Imported',
+  'Created From': getLicenseSource(license).label,
   'Created Date': formatDate(license.createdAt),
   'Updated Date': formatDate(license.updatedAt),
 });
@@ -201,19 +241,15 @@ function LicenseManagementContent() {
   })();
 
   const [tab, setTab] = useState<LicenseTab>(initialTab);
-  const [licenses, setLicenses] = useState<LicenseData[]>([]);
-  const [stats, setStats] = useState<LicenseStatistics | null>(null);
   const [selectedLicense, setSelectedLicense] = useState<LicenseData | null>(null);
   const [auditRows, setAuditRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(searchParams?.get('search') || '');
   const [statusFilter, setStatusFilter] = useState(searchParams?.get('status') || '');
   const [purposeFilter, setPurposeFilter] = useState(searchParams?.get('purpose') || '');
+  const [sourceFilter, setSourceFilter] = useState(searchParams?.get('source') || '');
   const [expiringDays, setExpiringDays] = useState(Number(searchParams?.get('days')) || 90);
   const [renewedOnly, setRenewedOnly] = useState(searchParams?.get('renewed') === 'true');
   const [page, setPage] = useState(Number(searchParams?.get('page')) || 1);
-  const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState('validTill');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const limit = 10;
@@ -223,10 +259,6 @@ function LicenseManagementContent() {
   const [auditDateFrom, setAuditDateFrom] = useState(searchParams?.get('dateFrom') || '');
   const [auditDateTo, setAuditDateTo] = useState(searchParams?.get('dateTo') || '');
   const [auditPage, setAuditPage] = useState(Number(searchParams?.get('auditPage')) || 1);
-  const [auditLogRows, setAuditLogRows] = useState<any[]>([]);
-  const [auditLogTotal, setAuditLogTotal] = useState(0);
-  const [auditLogLoading, setAuditLogLoading] = useState(false);
-  const [auditLogError, setAuditLogError] = useState<string | null>(null);
   const auditLimit = 10;
 
   const role = useMemo(() => normalizeRole(userRole), [userRole]);
@@ -250,24 +282,37 @@ function LicenseManagementContent() {
     setChecked(true);
   }, [canAccess, checked, initialized, isAuthenticated, isLoading, router]);
 
-  const loadLicenses = useCallback(async () => {
-    if (!checked) return;
-    if (tab === 'import' || tab === 'audit') {
-      // These tabs don't render the license table, so skip the list fetch — the
-      // dashboard stat cards (fetched below) still need to stay current though.
-      LicenseService.getLicenseDashboard()
-        .then(dashboard => {
-          if (dashboard) setStats(dashboard);
-        })
-        .catch(() => {
-          setStats(prev => prev);
-        });
-      return;
-    }
-    try {
-      setLoading(true);
-      setError(null);
+  // License dashboard stat cards — independent of the list/tab so they don't
+  // get refetched on every page/filter change, only when actually stale.
+  const statsQuery = useQuery({
+    queryKey: ['licenseDashboard'],
+    queryFn: () => LicenseService.getLicenseDashboard(),
+    enabled: checked,
+    staleTime: 60_000,
+  });
+  const stats = statsQuery.data ?? null;
 
+  const licensesQueryKey = useMemo(
+    () => [
+      'licenses',
+      tab,
+      page,
+      limit,
+      search,
+      statusFilter,
+      purposeFilter,
+      sourceFilter,
+      renewedOnly,
+      sortBy,
+      sortOrder,
+      expiringDays,
+    ],
+    [tab, page, limit, search, statusFilter, purposeFilter, sourceFilter, renewedOnly, sortBy, sortOrder, expiringDays]
+  );
+
+  const licensesQuery = useQuery({
+    queryKey: licensesQueryKey,
+    queryFn: async () => {
       const list =
         tab === 'expiring'
           ? await LicenseService.getExpiringLicenses(expiringDays, {
@@ -291,39 +336,41 @@ function LicenseManagementContent() {
               search,
               status: statusFilter || undefined,
               purpose: purposeFilter || undefined,
+              createdFrom: sourceFilter || undefined,
               renewedOnly,
               orderBy: sortBy,
               order: sortOrder,
             });
+      return coerceLicenseList(list);
+    },
+    enabled: checked && tab !== 'import' && tab !== 'audit',
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
 
-      const normalizedList = coerceLicenseList(list);
-      setLicenses(normalizedList.data);
-      setTotal(normalizedList.total);
+  const licenses = licensesQuery.data?.data ?? [];
+  const total = licensesQuery.data?.total ?? 0;
+  const loading = licensesQuery.isLoading;
+  const error = licensesQuery.error
+    ? (licensesQuery.error as any)?.message || 'Failed to load licenses.'
+    : null;
 
-      LicenseService.getLicenseDashboard()
-        .then(dashboard => {
-          if (dashboard) setStats(dashboard);
-        })
-        .catch(() => {
-          setStats(prev => prev);
-        });
-    } catch (loadError: any) {
-      setError(loadError?.message || 'Failed to load licenses.');
-      setLicenses([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [checked, expiringDays, limit, page, purposeFilter, renewedOnly, search, sortBy, sortOrder, statusFilter, tab]);
+  // Manual refresh (Refresh button, post-bulk-import callback): force both
+  // the current license list and the stat cards to revalidate immediately.
+  const loadLicenses = useCallback(() => {
+    licensesQuery.refetch();
+    statsQuery.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => {
-    loadLicenses();
-  }, [loadLicenses]);
+  const auditQueryKey = useMemo(
+    () => ['licenseAuditLogs', auditPage, auditLimit, auditSearch, auditAction, auditDateFrom, auditDateTo],
+    [auditPage, auditLimit, auditSearch, auditAction, auditDateFrom, auditDateTo]
+  );
 
-  const loadAuditLogs = useCallback(async () => {
-    if (!checked || tab !== 'audit') return;
-    try {
-      setAuditLogLoading(true);
-      setAuditLogError(null);
+  const auditQuery = useQuery({
+    queryKey: auditQueryKey,
+    queryFn: async () => {
       const list = await LicenseService.getLicenseAuditLogs({
         page: auditPage,
         limit: auditLimit,
@@ -332,25 +379,25 @@ function LicenseManagementContent() {
         dateFrom: auditDateFrom || undefined,
         dateTo: auditDateTo || undefined,
       });
-      const normalized = coerceLicenseList(list);
-      setAuditLogRows(normalized.data);
-      setAuditLogTotal(normalized.total);
-    } catch (loadError: any) {
-      setAuditLogError(loadError?.message || 'Failed to load audit logs.');
-      setAuditLogRows([]);
-    } finally {
-      setAuditLogLoading(false);
-    }
-  }, [checked, tab, auditPage, auditLimit, auditSearch, auditAction, auditDateFrom, auditDateTo]);
+      return coerceLicenseList(list);
+    },
+    enabled: checked && tab === 'audit',
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    loadAuditLogs();
-  }, [loadAuditLogs]);
+  const auditLogRows = auditQuery.data?.data ?? [];
+  const auditLogTotal = auditQuery.data?.total ?? 0;
+  const auditLogLoading = auditQuery.isLoading;
+  const auditLogError = auditQuery.error
+    ? (auditQuery.error as any)?.message || 'Failed to load audit logs.'
+    : null;
 
   const buildLicensesUrl = (state: {
     tab: LicenseTab;
     status?: string;
     purpose?: string;
+    source?: string;
     renewed?: boolean;
     days?: number;
     search?: string;
@@ -372,6 +419,7 @@ function LicenseManagementContent() {
     } else {
       if (state.status) params.set('status', state.status);
       if (state.purpose) params.set('purpose', state.purpose);
+      if (state.source) params.set('source', state.source);
       if (state.renewed) params.set('renewed', 'true');
       if (state.tab === 'expiring' && state.days && state.days !== 90) params.set('days', String(state.days));
       if (state.search) params.set('search', state.search);
@@ -390,6 +438,7 @@ function LicenseManagementContent() {
       tab,
       status: statusFilter,
       purpose: purposeFilter,
+      source: sourceFilter,
       renewed: renewedOnly,
       days: expiringDays,
       search,
@@ -406,6 +455,7 @@ function LicenseManagementContent() {
     tab,
     statusFilter,
     purposeFilter,
+    sourceFilter,
     renewedOnly,
     expiringDays,
     search,
@@ -423,6 +473,7 @@ function LicenseManagementContent() {
     if (VALID_TABS.includes(nextTab)) setTab(nextTab);
     setStatusFilter(searchParams?.get('status') || '');
     setPurposeFilter(searchParams?.get('purpose') || '');
+    setSourceFilter(searchParams?.get('source') || '');
     setRenewedOnly(searchParams?.get('renewed') === 'true');
     setExpiringDays(Number(searchParams?.get('days')) || 90);
     setSearch(searchParams?.get('search') || '');
@@ -493,29 +544,9 @@ function LicenseManagementContent() {
     URL.revokeObjectURL(url);
   };
 
-  const downloadTemplate = () => {
-    const worksheet = XLSX.utils.json_to_sheet([
-      {
-        licenseNumber: '',
-        firstName: '',
-        lastName: '',
-        parentOrSpouseName: '',
-        mobileNumber: '',
-        email: '',
-        presentAddressLine: '',
-        district: '',
-        armsCategory: '',
-        ammunitionDescription: '',
-        needForLicense: '',
-        issueDate: '',
-        validTill: '',
-        status: 'ACTIVE',
-      },
-    ]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Template');
-    XLSX.writeFile(workbook, 'license-import-template.xlsx');
-  };
+  // The import template lives with the import panel so the columns it ships and
+  // the columns the panel documents can never drift apart.
+  const downloadTemplate = downloadLicenseImportTemplate;
 
   const printTable = () => window.print();
 
@@ -535,7 +566,7 @@ function LicenseManagementContent() {
       <Header showCreateForm showBackButton />
 
       <main
-        className='isolate flex-1 ml-0 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px] print:ml-0 print:pt-0'
+        className='isolate flex-1 ml-0 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px] print:ml-0 print:pt-0'
         style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <PageSubHeader
@@ -557,6 +588,7 @@ function LicenseManagementContent() {
                   setTab(nextTab);
                   setStatusFilter('');
                   setPurposeFilter('');
+                  setSourceFilter('');
                   setExpiringDays(90);
                   setRenewedOnly(false);
                   setPage(1);
@@ -677,6 +709,17 @@ function LicenseManagementContent() {
                     }}
                     options={PURPOSE_OPTIONS}
                   />
+
+                  {tab === 'all' && (
+                    <SubHeaderSelect
+                      value={sourceFilter}
+                      onChange={val => {
+                        setSourceFilter(val);
+                        setPage(1);
+                      }}
+                      options={SOURCE_OPTIONS}
+                    />
+                  )}
 
                   {/* Refresh Button */}
                   <SubHeaderButton
@@ -804,6 +847,7 @@ function LicenseManagementContent() {
                   setExpiringDays(card.days ?? 90);
                   setRenewedOnly(!!card.renewedOnly);
                   setPurposeFilter('');
+                  setSourceFilter('');
                   setSearch('');
                   setPage(1);
                   router.push(
@@ -839,25 +883,17 @@ function LicenseManagementContent() {
         </section>
         <section className='mt-2 flex-1 min-h-0 flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden print:flex-none'>
           {tab === 'import' ? (
-            <div className='flex-1 min-h-0 overflow-auto p-6'>
-              <div className='rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center'>
-                <Upload className='mx-auto h-10 w-10 text-gray-400' />
-                <h2 className='mt-3 text-lg font-semibold text-gray-900'>Bulk License Import</h2>
-                <p className='mx-auto mt-2 max-w-2xl text-sm text-gray-500'>
-                  CSV/XLSX import requires backend validation, duplicate detection, preview, partial
-                  success reporting, and rollback support. The template is available now; upload
-                  processing should be enabled when `POST /licenses/import` is implemented.
-                </p>
-                <button
-                  type='button'
-                  onClick={downloadTemplate}
-                  className='mt-5 inline-flex items-center gap-2 rounded-md bg-[#001F54] px-4 py-2 text-sm font-medium text-white hover:bg-[#012a73]'
-                >
-                  <Download className='h-4 w-4' />
-                  Download Template
-                </button>
-              </div>
-            </div>
+            <BulkLicenseImport
+              onChanged={() => loadLicenses()}
+              onViewLicenses={() => {
+                setTab('all');
+                setStatusFilter('');
+                setPurposeFilter('');
+                setRenewedOnly(false);
+                setPage(1);
+                router.push(buildLicensesUrl({ tab: 'all' }), { scroll: false });
+              }}
+            />
           ) : tab === 'audit' ? (
             <>
               {auditLogError && (
@@ -1021,6 +1057,7 @@ function LicenseManagementContent() {
                       licenses.map(license => {
                         const row = mapLicenseToRow(license);
                         const expiry = getExpiryState(license);
+                        const source = getLicenseSource(license);
                         return (
                           <tr
                             key={license.id}
@@ -1047,6 +1084,12 @@ function LicenseManagementContent() {
                                       {expiry.label}
                                     </span>
                                   </div>
+                                ) : col === 'Created From' ? (
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${source.badge}`}
+                                  >
+                                    {source.label}
+                                  </span>
                                 ) : (
                                   <span
                                     className='block truncate'
@@ -1196,21 +1239,27 @@ function LicenseManagementContent() {
                   ],
                 ],
                 [
-                  'Address Details',
+                  'Present Address',
                   [
-                    ['Current Address', selectedLicense.presentAddressLine],
-                    ['Permanent Address', selectedLicense.permanentAddressLine],
-                    [
-                      'District',
-                      (selectedLicense as any).presentDistrict?.name ||
-                        (selectedLicense as any).presentDistrictName ||
-                        (typeof (selectedLicense as any).presentDistrict === 'string'
-                          ? (selectedLicense as any).presentDistrict
-                          : undefined) ||
-                        ((selectedLicense as any).presentDistrictId != null
-                          ? `District #${(selectedLicense as any).presentDistrictId}`
-                          : undefined),
-                    ],
+                    ['Address', selectedLicense.presentAddressLine],
+                    ['State', locationValue(selectedLicense.presentStateName, selectedLicense.presentStateId, 'State')],
+                    ['District', locationValue(selectedLicense.presentDistrictName, selectedLicense.presentDistrictId, 'District')],
+                    ['Police Station', locationValue(selectedLicense.presentPoliceStationName, selectedLicense.presentPoliceStationId, 'Police Station')],
+                    ['Range Office', locationValue(selectedLicense.presentRangeOfficeName, selectedLicense.presentRangeOfficeId, 'Range Office')],
+                    ['Zone', locationValue(selectedLicense.presentZoneName, selectedLicense.presentZoneId, 'Zone')],
+                    ['Division', locationValue(selectedLicense.presentDivisionName, selectedLicense.presentDivisionId, 'Division')],
+                  ],
+                ],
+                [
+                  'Permanent Address',
+                  [
+                    ['Address', selectedLicense.permanentAddressLine],
+                    ['State', locationValue(selectedLicense.permanentStateName, selectedLicense.permanentStateId, 'State')],
+                    ['District', locationValue(selectedLicense.permanentDistrictName, selectedLicense.permanentDistrictId, 'District')],
+                    ['Police Station', locationValue(selectedLicense.permanentPoliceStationName, selectedLicense.permanentPoliceStationId, 'Police Station')],
+                    ['Range Office', locationValue(selectedLicense.permanentRangeOfficeName, selectedLicense.permanentRangeOfficeId, 'Range Office')],
+                    ['Zone', locationValue(selectedLicense.permanentZoneName, selectedLicense.permanentZoneId, 'Zone')],
+                    ['Division', locationValue(selectedLicense.permanentDivisionName, selectedLicense.permanentDivisionId, 'Division')],
                   ],
                 ],
                 [
@@ -1235,10 +1284,7 @@ function LicenseManagementContent() {
                     ['Expiry Date', formatDate(selectedLicense.validTill)],
                     ['Purpose', selectedLicense.needForLicense],
                     ['Status', selectedLicense.status],
-                    [
-                      'Created From',
-                      selectedLicense.freshApplicationId ? 'Fresh Application' : 'Imported',
-                    ],
+                    ['Created From', getLicenseSource(selectedLicense).label],
                   ],
                 ],
               ].map(([title, fields]) => (

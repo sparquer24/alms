@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { Provider } from 'react-redux';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '../lib/queryClient';
 import { store } from '../store/store';
 import { LayoutProvider } from '../config/layoutContext';
 import NotificationProvider from '../config/notificationContext';
@@ -17,17 +18,6 @@ import { GlobalActionProvider } from '../context/GlobalActionContext';
 
 
 
-
-// Create a client for React Query
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 10, // 10 minutes
-      retry: 1,
-    },
-  },
-});
 
 import { Toaster } from 'react-hot-toast';
 

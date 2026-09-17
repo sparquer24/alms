@@ -82,6 +82,8 @@ export interface ApplicationDetailsOptions {
     toDate?: string;
     /** Restrict to a single application family: fresh | renewal | cancel. Omit for all. */
     type?: string;
+    /** Action Required card key: under_verification | pending_over_15 | awaiting_action | biometric_pending. */
+    filter?: string;
 }
 
 export interface AnalyticsResponse<T> {
@@ -186,6 +188,7 @@ class AnalyticsService {
             if (options?.fromDate) params.append('fromDate', options.fromDate);
             if (options?.toDate) params.append('toDate', options.toDate);
             if (options?.type) params.append('type', options.type);
+            if (options?.filter) params.append('filter', options.filter);
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/applications/details${queryString ? `?${queryString}` : ''}`;

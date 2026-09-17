@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
   Shield,
@@ -119,7 +120,7 @@ function DashboardMain({ children }: { children: React.ReactNode }) {
 
   return (
     <main
-      className="isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]"
+      className="isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-hidden flex flex-col pt-[64px] md:pt-[78px]"
       style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
     >
       {children}
@@ -134,13 +135,10 @@ export default function UniversalDashboard() {
 
   const [mounted, setMounted] = useState<boolean>(false);
   const [authChecked, setAuthChecked] = useState<boolean>(false);
-  const [data, setData] = useState<PublicDashboardData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [timeRange, setTimeRange] = useState<string>('all');
   const [appTypeFilter, setAppTypeFilter] = useState<string>('all');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Search & Lookup State
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -166,19 +164,8 @@ export default function UniversalDashboard() {
   // Active in-page drill-down tab
   const [activeDrillTab, setActiveDrillTab] = useState<DrillDownTab>('applications_all');
 
-  // ── Enhancement section state ──
-  const [actionItems, setActionItems] = useState<any[]>([]);
-  const [actionLoading, setActionLoading] = useState<boolean>(false);
-  const [funnelStages, setFunnelStages] = useState<any[]>([]);
-  const [funnelLoading, setFunnelLoading] = useState<boolean>(false);
-  const [agingBuckets, setAgingBuckets] = useState<any[]>([]);
-  const [agingLoading, setAgingLoading] = useState<boolean>(false);
-  const [processingPerf, setProcessingPerf] = useState<any>(null);
-  const [processingLoading, setProcessingLoading] = useState<boolean>(false);
-  const [monthlyData, setMonthlyData] = useState<any>(null);
-  const [monthlyLoading, setMonthlyLoading] = useState<boolean>(false);
-  const [expiryBuckets, setExpiryBuckets] = useState<any[]>([]);
-  const [expiryLoading, setExpiryLoading] = useState<boolean>(false);
+  // ── Enhancement section data — cached via React Query, fetched once per
+  // authChecked session and served from cache on revisits within staleTime ──
 
   const openCardDetail = (
     category: CardCategoryType,
@@ -190,6 +177,7 @@ export default function UniversalDashboard() {
       initialStatus?: string;
       expiringDays?: number;
       drillTab?: DrillDownTab;
+      actionFilter?: string;
     }
   ) => {
     if (opts?.drillTab) {
@@ -210,6 +198,7 @@ export default function UniversalDashboard() {
       initialType: opts?.initialType || 'all',
       initialStatus: opts?.initialStatus || 'ALL',
       expiringDays: opts?.expiringDays,
+      actionFilter: opts?.actionFilter,
     });
   };
 
@@ -252,61 +241,79 @@ export default function UniversalDashboard() {
     setAuthChecked(true);
   }, [token, effectiveRole, authLoading, authInitialized, authChecked, router]);
 
-  // Fetch dashboard data
-  const fetchData = useCallback(async (range: string, type: string) => {
+  // Overview data — cached per (timeRange, appTypeFilter); background-polled
+  // every 30s while autoRefresh is on, without showing a loading spinner
+  // (isLoading is only true when there's no cached data to show yet).
+  const overviewQuery = useQuery({
+    queryKey: ['dashboardOverview', timeRange, appTypeFilter],
+    queryFn: () => publicDashboardService.getOverview(timeRange, appTypeFilter),
+    enabled: authChecked,
+    staleTime: 15_000,
+    refetchInterval: authChecked && autoRefresh ? 30_000 : false,
+  });
+  const data = overviewQuery.data ?? null;
+  const loading = overviewQuery.isLoading;
+  const lastUpdated = overviewQuery.dataUpdatedAt ? new Date(overviewQuery.dataUpdatedAt) : new Date();
+
+  // ── Enhancement section data — each cached independently so revisiting the
+  // dashboard within staleTime renders instantly from cache with no spinner ──
+  const actionRequiredQuery = useQuery({
+    queryKey: ['dashboard', 'actionRequired'],
+    queryFn: () => analyticsService.getActionRequired(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const funnelQuery = useQuery({
+    queryKey: ['dashboard', 'funnel'],
+    queryFn: () => analyticsService.getApplicationFunnel(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const agingQuery = useQuery({
+    queryKey: ['dashboard', 'aging'],
+    queryFn: () => analyticsService.getAgingBuckets(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const processingQuery = useQuery({
+    queryKey: ['dashboard', 'processing'],
+    queryFn: () => analyticsService.getProcessingPerformance(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const monthlyQuery = useQuery({
+    queryKey: ['dashboard', 'monthly'],
+    queryFn: () => analyticsService.getMonthlyComparison(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const expiryQuery = useQuery({
+    queryKey: ['dashboard', 'expiry'],
+    queryFn: () => analyticsService.getLicenseExpiryBuckets(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+
+  const actionItems = actionRequiredQuery.data ?? [];
+  const actionLoading = actionRequiredQuery.isLoading;
+  const funnelStages = funnelQuery.data ?? [];
+  const funnelLoading = funnelQuery.isLoading;
+  const agingBuckets = agingQuery.data ?? [];
+  const agingLoading = agingQuery.isLoading;
+  const processingPerf = processingQuery.data ?? null;
+  const processingLoading = processingQuery.isLoading;
+  const monthlyData = monthlyQuery.data ?? null;
+  const monthlyLoading = monthlyQuery.isLoading;
+  const expiryBuckets = expiryQuery.data ?? [];
+  const expiryLoading = expiryQuery.isLoading;
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
     try {
-      const res = await publicDashboardService.getOverview(range, type);
-      setData(res);
-      setLastUpdated(new Date());
-    } catch (err) {
-      console.error('Error fetching dashboard overview:', err);
+      await overviewQuery.refetch();
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (authChecked) {
-      fetchData(timeRange, appTypeFilter);
-    }
-  }, [authChecked, timeRange, appTypeFilter, fetchData]);
-
-  // Auto-refresh interval (every 30 seconds if enabled)
-  useEffect(() => {
-    if (!autoRefresh || !authChecked) return;
-    const interval = setInterval(() => {
-      fetchData(timeRange, appTypeFilter);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, authChecked, timeRange, appTypeFilter, fetchData]);
-
-  // ── Fetch enhancement section data once auth is checked ──
-  useEffect(() => {
-    if (!authChecked) return;
-    // Action Required
-    setActionLoading(true);
-    analyticsService.getActionRequired().then((d) => { setActionItems(d); setActionLoading(false); });
-    // Application Funnel
-    setFunnelLoading(true);
-    analyticsService.getApplicationFunnel().then((d) => { setFunnelStages(d); setFunnelLoading(false); });
-    // Aging Buckets
-    setAgingLoading(true);
-    analyticsService.getAgingBuckets().then((d) => { setAgingBuckets(d); setAgingLoading(false); });
-    // Processing Performance
-    setProcessingLoading(true);
-    analyticsService.getProcessingPerformance().then((d) => { setProcessingPerf(d); setProcessingLoading(false); });
-    // Monthly Comparison
-    setMonthlyLoading(true);
-    analyticsService.getMonthlyComparison().then((d) => { setMonthlyData(d); setMonthlyLoading(false); });
-    // License Expiry
-    setExpiryLoading(true);
-    analyticsService.getLicenseExpiryBuckets().then((d) => { setExpiryBuckets(d); setExpiryLoading(false); });
-  }, [authChecked]);
-
-  const handleManualRefresh = () => {
-    setRefreshing(true);
-    fetchData(timeRange, appTypeFilter);
   };
 
   const handleLookupSubmit = async (e: React.FormEvent) => {
@@ -456,7 +463,7 @@ export default function UniversalDashboard() {
           />
 
           {/* Main Dashboard Content Area */}
-          <div className="flex-grow max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
+          <div className="flex-grow min-h-0 overflow-y-auto max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
         
         {/* ─────────────────────────────────────────────────────────────
             1. CORE APPLICATION & LICENSING METRIC CARDS (INTERACTIVE)
@@ -778,15 +785,15 @@ export default function UniversalDashboard() {
           loading={actionLoading}
           onItemClick={(key, label) => {
             // Map action keys to modal configs
-            const MAP: Record<string, { category: CardCategoryType; status: string; drillTab: DrillDownTab }> = {
-              under_verification: { category: 'applications', status: 'PENDING', drillTab: 'applications_all' },
-              pending_over_15: { category: 'applications', status: 'PENDING', drillTab: 'applications_all' },
+            const MAP: Record<string, { category: CardCategoryType; status: string; drillTab: DrillDownTab; actionFilter?: string }> = {
+              under_verification: { category: 'applications', status: 'PENDING', drillTab: 'applications_all', actionFilter: 'under_verification' },
+              pending_over_15: { category: 'applications', status: 'PENDING', drillTab: 'applications_all', actionFilter: 'pending_over_15' },
               expiring_licenses: { category: 'licenses', status: 'ACTIVE', drillTab: 'licenses_expiring' },
-              awaiting_action: { category: 'applications', status: 'ALL', drillTab: 'applications_all' },
-              biometric_pending: { category: 'biometrics', status: 'ALL', drillTab: 'biometrics' },
+              awaiting_action: { category: 'applications', status: 'ALL', drillTab: 'applications_all', actionFilter: 'awaiting_action' },
+              biometric_pending: { category: 'applications', status: 'ALL', drillTab: 'applications_all', actionFilter: 'biometric_pending' },
             };
             const cfg = MAP[key];
-            if (cfg) openCardDetail(cfg.category, label, { drillTab: cfg.drillTab, initialStatus: cfg.status });
+            if (cfg) openCardDetail(cfg.category, label, { drillTab: cfg.drillTab, initialStatus: cfg.status, actionFilter: cfg.actionFilter });
           }}
         />
 
@@ -1576,85 +1583,6 @@ export default function UniversalDashboard() {
             </div>
           </section>
         )}
-
-        {/* ─────────────────────────────────────────────────────────────
-            7. ADMINISTRATIVE QUICK ACTIONS & MANAGEMENT CONSOLE
-        ────────────────────────────────────────────────────────────── */}
-        <section className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-2">
-            <div>
-              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Shield className="w-5 h-5 text-[#0F2D52]" />
-                Administrative Quick Actions &amp; Management Console
-              </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Direct statutory controls and configurations for authorized {effectiveRole === 'SUPER_ADMIN' ? 'Super Administrators' : 'Administrators'}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Action 1: User & Hierarchy Management */}
-            <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-blue-50/40 to-white hover:border-[#0F2D52]/30 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-lg bg-[#0F2D52] text-white flex items-center justify-center mb-3">
-                  <Users className="w-5 h-5" />
-                </div>
-                <h4 className="text-sm font-bold text-gray-900">User &amp; Hierarchy Management</h4>
-                <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Manage officer accounts, role assignments, zonal jurisdiction mapping, and permission access across all police divisions.
-                </p>
-              </div>
-              <Link
-                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/userManagement' : '/admin/userManagement'}
-                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#0F2D52] hover:text-[#B8860B] transition-colors"
-              >
-                <span>Open User Console</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-
-            {/* Action 2: Workflow Configuration */}
-            <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-amber-50/40 to-white hover:border-[#B8860B]/30 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-lg bg-[#B8860B] text-white flex items-center justify-center mb-3">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <h4 className="text-sm font-bold text-gray-900">Workflow &amp; Stage Mapping</h4>
-                <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Configure multi-level approval hierarchies, statutory enquiry workflows, and action transition rules for licensing applications.
-                </p>
-              </div>
-              <Link
-                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/flowMapping' : '/admin/workflows'}
-                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#B8860B] hover:text-[#A0750A] transition-colors"
-              >
-                <span>Configure Workflows</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-
-            {/* Action 3: Analytics & Detailed Reports */}
-            <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-purple-50/40 to-white hover:border-purple-300 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-lg bg-purple-700 text-white flex items-center justify-center mb-3">
-                  <TrendingUp className="w-5 h-5" />
-                </div>
-                <h4 className="text-sm font-bold text-gray-900">Advanced Analytics &amp; Reports</h4>
-                <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Generate comprehensive audit reports, SLA compliance matrices, and jurisdictional workload exports across all districts.
-                </p>
-              </div>
-              <Link
-                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/analytics' : '/admin/analytics'}
-                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:text-purple-900 transition-colors"
-              >
-                <span>View Analytics Portal</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </div>
-        </section>
       </div>
 
       {/* Standard Portal Footer */}

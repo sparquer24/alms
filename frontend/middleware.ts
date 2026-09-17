@@ -179,10 +179,16 @@ async function isAuthenticated(request: NextRequest): Promise<string | null> {
 
   if (!token) return null;
 
+  const secretStr = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET;
+  if (!secretStr) {
+    // Fail closed: never fall back to a well-known/committed secret. If this
+    // fires in production it means JWT_SECRET isn't configured for this
+    // deployment — fix the environment, don't restore a hardcoded fallback.
+    console.error('[middleware] JWT_SECRET is not configured — rejecting all tokens.');
+    return null;
+  }
+
   try {
-    const secretStr = process.env.JWT_SECRET ||
-      process.env.NEXT_PUBLIC_JWT_SECRET ||
-      '3097adb9893605ecbca993d05142aef1d4a92cd44f6ece72f32750f6697b82555d2634fa846a2ae78c2465d637b04568244fefaaf5e5f3514b92f357e43111d7';
     const secret = new TextEncoder().encode(secretStr);
     await jwtVerify(token, secret);
     return token;

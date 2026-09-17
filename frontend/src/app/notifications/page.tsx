@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Sidebar } from "../../components/Sidebar";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
@@ -24,7 +25,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   
   const { isAuthenticated, token, isLoading: authLoading } = useAuth();
-  const { setShowHeader, setShowSidebar } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
   const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications } = useNotifications();
 
   // Example notification to show as a sample response when there are no real notifications.
@@ -84,6 +85,7 @@ export default function NotificationsPage() {
         }
       }
     } catch (error) {
+      toast.error('Failed to load more notifications. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +177,10 @@ export default function NotificationsPage() {
       <Sidebar />
       <Header />
 
-      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]">
+      <main
+        className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]"
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
         <PageSubHeader
           title="Notifications"
           metaBadge={unreadCount > 0 ? `${unreadCount} Unread` : undefined}

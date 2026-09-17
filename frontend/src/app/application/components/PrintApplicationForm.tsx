@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { formatGender, formatApplicationType } from '../../../utils/formatters';
+import { resolveFileHref, getAuthToken } from '../../../services/fileHandler';
 
 interface PrintApplicationFormProps {
   application: any;
@@ -90,18 +91,36 @@ function PDFPreview({
           import.meta.url
         ).toString();
 
-        // Normalize URL - rewrite any URL containing '/files/' to use the local API files download proxy
-        let targetUrl = url;
-        if (url.includes('/files/')) {
-          const fileNameOnly = url.substring(url.indexOf('/files/') + '/files/'.length);
-          if (typeof window !== 'undefined') {
-            targetUrl = window.location.origin + '/api/files/download/' + fileNameOnly;
+        // Resolve the document to raw bytes ourselves instead of handing pdf.js a
+        // URL to fetch: uploaded documents are commonly stored as base64 `data:`
+        // URLs (see fileUploadService.uploadFileWithStorage), and server-hosted
+        // files require the same Bearer auth the rest of the app uses (see
+        // fileHandler.ts). Passing an unreachable/unauthenticated URL straight to
+        // pdfjsLib.getDocument({ url }) makes it fetch an error page instead of
+        // the PDF, which surfaces as "InvalidPDFException: Invalid PDF structure".
+        const trimmed = url.trim();
+        let pdfData: ArrayBuffer;
+        if (trimmed.startsWith('data:') || /^[A-Za-z0-9+/=]+$/.test(trimmed)) {
+          const base64 = trimmed.replace(/^data:.*;base64,/, '');
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
           }
-        } else if (typeof window !== 'undefined' && url.startsWith('/')) {
-          targetUrl = window.location.origin + url;
+          pdfData = bytes.buffer;
+        } else {
+          const href = trimmed.startsWith('blob:') ? trimmed : resolveFileHref(trimmed) || trimmed;
+          const headers: Record<string, string> = {};
+          const token = getAuthToken();
+          if (token) headers.Authorization = `Bearer ${token}`;
+          const response = await fetch(href, { credentials: 'include', headers });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
+          }
+          pdfData = await response.arrayBuffer();
         }
 
-        const loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
         const pdf = await loadingTask.promise;
         if (!active) return;
 

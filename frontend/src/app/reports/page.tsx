@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
@@ -27,50 +28,55 @@ function getUserIdFromCookies() {
 }
 
 export default function ReportsPage() {
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedStatusKey, setSelectedStatusKey] = useState<string | null>(null);
-  const [applications, setApplications] = useState<any[]>([]);
-  const [appsLoading, setAppsLoading] = useState(false);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { userId } = useAuth();
-  const { setShowHeader, setShowSidebar } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
   const router = useRouter();
-  
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, authLoading, router]);
 
-  useEffect(() => {
-    // Load initial data
-    const load = async () => {
-      try {
-        const res = await ApplicationApi.getAll();
-        
-        // The API returns {success: true, message: '...', data: Array(1), pagination: {...}}
-        // We need to access the 'data' property
-        let apps: any[] = [];
-        if (res && typeof res === 'object') {
-          if (res.data && Array.isArray(res.data)) {
-            apps = res.data;
-          } else if (res.body && Array.isArray(res.body)) {
-            apps = res.body;
-          } else if (Array.isArray(res)) {
-            apps = res;
-          }
-        }
-        
-        setApplications(apps);
-      } catch (err) {
-        setApplications([]);
-      } finally {
-        setIsLoading(false);
+  // All applications (overview stats) — cached, only refetched when stale.
+  const allApplicationsQuery = useQuery({
+    queryKey: ['reports', 'allApplications'],
+    queryFn: async () => {
+      const res = await ApplicationApi.getAll();
+      // The API returns {success: true, message: '...', data: Array(1), pagination: {...}}
+      // We need to access the 'data' property
+      if (res && typeof res === 'object') {
+        if ((res as any).data && Array.isArray((res as any).data)) return (res as any).data;
+        if ((res as any).body && Array.isArray((res as any).body)) return (res as any).body;
+        if (Array.isArray(res)) return res;
       }
-    };
-    load();
-  }, []);
-  
+      return [] as any[];
+    },
+    enabled: !selectedStatusKey,
+    staleTime: 60_000,
+  });
+
+  // Applications filtered by a selected status key from the sidebar.
+  const statusApplicationsQuery = useQuery({
+    queryKey: ['reports', 'byStatus', selectedStatusKey, userId],
+    queryFn: async () => {
+      const uid = getUserIdFromCookies();
+      const statusIds = selectedStatusKey ? STATUS_MAPPING[selectedStatusKey] : undefined;
+      if (!uid || !statusIds) return [] as any[];
+      const res = await fetch(`/application/?user_id=${uid}&status_id=${statusIds.join(',')}`);
+      const data = await res.json();
+      return data || [];
+    },
+    enabled: !!selectedStatusKey,
+    staleTime: 30_000,
+  });
+
+  const applications: any[] = selectedStatusKey ? statusApplicationsQuery.data ?? [] : allApplicationsQuery.data ?? [];
+  const isLoading = allApplicationsQuery.isLoading;
+  const appsLoading = statusApplicationsQuery.isLoading;
+
   useEffect(() => {
     // Always show header and sidebar on Reports page
     setShowHeader(true);
@@ -80,21 +86,6 @@ export default function ReportsPage() {
       setShowSidebar(true);
     };
   }, [setShowHeader, setShowSidebar]);
-
-  // Fetch applications when status key is selected
-  useEffect(() => {
-    if (selectedStatusKey) {
-      const userId = getUserIdFromCookies();
-      const statusIds = STATUS_MAPPING[selectedStatusKey];
-      if (!userId || !statusIds) return;
-      setAppsLoading(true);
-      fetch(`/application/?user_id=${userId}&status_id=${statusIds.join(',')}`)
-        .then(res => res.json())
-        .then(data => setApplications(data || []))
-        .catch(() => setApplications([]))
-        .finally(() => setAppsLoading(false));
-    }
-  }, [selectedStatusKey]);
 
   // Get statistics for the report from fetched applications
   const stats = (() => {
@@ -127,7 +118,10 @@ export default function ReportsPage() {
       <Sidebar onStatusSelect={setSelectedStatusKey} />
       <Header />
 
-      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]">
+      <main
+        className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]"
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
         <PageSubHeader
           title="My Reports & Analytics"
           metaBadge={selectedStatusKey ? `Filtered by: ${selectedStatusKey}` : undefined}

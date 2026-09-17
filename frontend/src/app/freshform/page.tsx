@@ -34,7 +34,7 @@ function FreshFormContent() {
 
   const { isAuthenticated, userRole, isLoading: authLoading, initialized } = useAuth();
   const canCreate = canCreateApplications(userRole);
-  const { setShowHeader, setShowSidebar } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -145,7 +145,10 @@ function FreshFormContent() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]">
+      <main
+        className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]"
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
         <PageSubHeader
           title="Fresh Applications"
           metaBadge={filteredApplications.length > 0 ? `${filteredApplications.length} Application${filteredApplications.length !== 1 ? 's' : ''}` : undefined}

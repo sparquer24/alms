@@ -114,7 +114,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { setShowHeader, setShowSidebar } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
   const [application, setApplication] = useState<ApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
@@ -793,7 +793,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hidePrint={true}
       />
 
-      <main className='flex-1 ml-0  overflow-auto flex flex-col pt-[64px] md:pt-[78px]'>    
+      <main
+        className='flex-1 ml-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
         <div className='flex-grow w-full mx-auto '>
           {/* Success Message - Fixed Position at Top */}
           {successMessage && (

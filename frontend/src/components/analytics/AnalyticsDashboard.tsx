@@ -170,7 +170,7 @@ export default function AnalyticsDashboard({
           isLoading={isLoading}
         />
 
-        <div className="flex-grow min-h-0 max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 space-y-4">
+        <div className="flex-grow min-h-0 overflow-y-auto max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 space-y-4">
           <div className="flex gap-2 bg-white/60 backdrop-blur-sm p-1 rounded-xl border border-gray-200/80 w-fit">
             <Link
               href={analyticsBasePath}

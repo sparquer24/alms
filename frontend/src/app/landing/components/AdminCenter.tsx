@@ -54,7 +54,7 @@ const featureIcons: Record<string, React.ReactNode> = {
 
 export default function AdminCenter({ title, description, features, badges }: AdminCenterProps) {
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-gradient-to-br from-[#0F2D52]/5 via-white to-[#B8860B]/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="inline-block px-3 py-1 text-xs font-semibold text-[#B8860B] bg-[#B8860B]/10 rounded-full uppercase tracking-wider mb-4">
@@ -81,7 +81,7 @@ export default function AdminCenter({ title, description, features, badges }: Ad
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group bg-[#F8F9FA] rounded-xl p-6 hover:bg-[#0F2D52] hover:text-white transition-all duration-300 hover:shadow-xl"
+              className="group bg-white/50 backdrop-blur-sm border border-white/60 rounded-xl p-6 shadow-sm hover:bg-[#0F2D52] hover:border-[#0F2D52] hover:text-white transition-all duration-300 hover:shadow-xl"
             >
               <div className="text-[#B8860B] mb-4 group-hover:text-[#B8860B] transition-colors">
                 {featureIcons[feature.title] || (

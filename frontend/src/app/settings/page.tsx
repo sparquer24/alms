@@ -11,9 +11,11 @@ import { useDispatch } from 'react-redux';
 import { logoutUser } from '../../store/thunks/authThunks';
 import { getUserFromCookie } from '../../utils/authCookies';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
+import { useLayout } from '../../config/layoutContext';
 
 export default function SettingsPage() {
   const { isAuthenticated, isLoading: authLoading, token } = useAuth();
+  const { headerHeight } = useLayout();
   const dispatch = useDispatch();
 
   const router = useRouter();
@@ -123,7 +125,10 @@ export default function SettingsPage() {
       <Sidebar />
       <Header />
 
-      <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]'>
+      <main
+        className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
         <PageSubHeader
           title="User Profile & Settings"
           metaBadge={currentUser?.username ? `Logged in as: ${currentUser.username}` : undefined}

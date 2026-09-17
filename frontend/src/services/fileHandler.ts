@@ -6,7 +6,7 @@ const getApiServerOrigin = () => {
   return apiBase.replace(/\/api$/, '') || apiBase;
 };
 
-const getAuthToken = (): string | null => {
+export const getAuthToken = (): string | null => {
   try {
     const authCookie = jsCookie.get('auth');
     if (!authCookie) return null;

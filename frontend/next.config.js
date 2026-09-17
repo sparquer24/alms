@@ -54,7 +54,10 @@ const nextConfig = {
   },
   // Compiler optimizations
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // `true` strips every console.* call, including error/warn — keep those
+    // so production issues are still visible in server/browser logs.
+    removeConsole:
+      process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
   // TypeScript configuration for production builds
   typescript: {

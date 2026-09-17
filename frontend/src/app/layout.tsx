@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import RootProviders from '../components/RootProviders';
 import OfflineIndicator from '../components/OfflineIndicator';
+import PersistentHeroVideo from '../components/PersistentHeroVideo';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: any }) {
         suppressHydrationWarning
       >
         <div className='w-full'>
+          <PersistentHeroVideo />
           <OfflineIndicator />
           {/* RootProviders is a client component that contains all context/providers */}
           <RootProviders>{children}</RootProviders>

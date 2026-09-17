@@ -36,6 +36,75 @@ const unwrapEntityResponse = <T>(response: any): T | null => {
   return (response?.body ?? response) as T;
 };
 
+/** A single row from a parsed import file, keyed by spreadsheet header. */
+export type LicenseImportRow = Record<string, unknown>;
+
+export type LicenseImportRowStatus = 'valid' | 'warning' | 'error' | 'skipped';
+
+export interface LicenseImportPreviewRow {
+  rowNumber: number;
+  status: LicenseImportRowStatus;
+  errors: string[];
+  warnings: string[];
+  display: {
+    licenseNumber: string | null;
+    holderName: string | null;
+    district: string | null;
+    state: string | null;
+  };
+}
+
+export interface LicenseImportPreview {
+  success: boolean;
+  message?: string;
+  summary: {
+    total: number;
+    valid: number;
+    warnings: number;
+    errors: number;
+    skipped: number;
+    importable: number;
+  };
+  strict: boolean;
+  onDuplicate: 'fail' | 'skip';
+  scope: { stateId: number | null; stateName: string | null; roleCode: string | null };
+  rows: LicenseImportPreviewRow[];
+}
+
+export interface LicenseImportRowResult {
+  rowNumber: number;
+  status: 'imported' | 'failed' | 'skipped' | 'rejected';
+  licenseId?: number;
+  licenseNumber?: string;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface LicenseImportResult {
+  success: boolean;
+  batchId: string;
+  fileName: string | null;
+  importedAt: string;
+  scope: { stateId: number | null; stateName: string | null; roleCode: string | null };
+  summary: { total: number; imported: number; failed: number; skipped: number; rejectedByStrictMode: number };
+  results: LicenseImportRowResult[];
+}
+
+export interface LicenseImportRollbackResult {
+  success: boolean;
+  batchId: string;
+  removedCount: number;
+  removed: Array<{ id: number; licenseNumber: string }>;
+  skipped: Array<{ id: number; licenseNumber: string; reason: string }>;
+  message?: string;
+}
+
+export interface LicenseImportOptions {
+  strict?: boolean;
+  onDuplicate?: 'fail' | 'skip';
+  fileName?: string;
+}
+
 export class LicenseService {
   /**
    * Get a license by its ID with full details (source app, weapons, history)
@@ -243,6 +312,55 @@ export class LicenseService {
       console.error('[LicenseService] getLicenseAuditLogs error:', error);
       return null;
     }
+  }
+
+  /**
+   * Validate a bulk import without saving anything.
+   * POST /licenses/import/preview with { rows, strict }
+   */
+  static async previewLicenseImport(
+    rows: LicenseImportRow[],
+    options?: { strict?: boolean },
+  ): Promise<LicenseImportPreview> {
+    const response = await apiClient.post<any>('/licenses/import/preview', {
+      rows,
+      strict: !!options?.strict,
+    });
+    const payload = unwrapEntityResponse<LicenseImportPreview>(response);
+    if (!payload) throw new Error('The import preview could not be generated.');
+    return payload;
+  }
+
+  /**
+   * Commit a bulk import. Partial success is expected — inspect result.summary.
+   * POST /licenses/import with { rows, strict, onDuplicate, fileName }
+   */
+  static async importLicenses(
+    rows: LicenseImportRow[],
+    options?: LicenseImportOptions,
+  ): Promise<LicenseImportResult> {
+    const response = await apiClient.post<any>('/licenses/import', {
+      rows,
+      strict: !!options?.strict,
+      onDuplicate: options?.onDuplicate ?? 'fail',
+      ...(options?.fileName ? { fileName: options.fileName } : {}),
+    });
+    const payload = unwrapEntityResponse<LicenseImportResult>(response);
+    if (!payload) throw new Error('The import did not return a result.');
+    return payload;
+  }
+
+  /**
+   * Undo a previous import batch.
+   * POST /licenses/import/rollback/:batchId
+   */
+  static async rollbackLicenseImportBatch(batchId: string): Promise<LicenseImportRollbackResult> {
+    const response = await apiClient.post<any>(
+      `/licenses/import/rollback/${encodeURIComponent(batchId)}`,
+    );
+    const payload = unwrapEntityResponse<LicenseImportRollbackResult>(response);
+    if (!payload) throw new Error('The rollback did not return a result.');
+    return payload;
   }
 
   /**

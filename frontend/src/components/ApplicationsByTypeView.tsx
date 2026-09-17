@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import ApplicationTable from './ApplicationTable';
 import { fetchApplicationsByStatusKey } from '../services/sidebarApiCalls';
 import { ApplicationData } from '../types';
@@ -129,9 +130,41 @@ export default function ApplicationsByTypeView({
   const isFreshFormsPage = !isOrgWide && queryType === 'freshform';
   const isDraftsPage = !isOrgWide && queryType === 'drafts';
 
-  const [selectedFormType, setSelectedFormType] = useState<FreshFormViewType>('fresh');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Persisted in the URL (not just local state) so that navigating into an
+  // application's detail page and coming back with the browser/back button
+  // restores the previously selected Fresh/Renewal pill instead of resetting
+  // to the default.
+  const [selectedFormType, setSelectedFormType] = useState<FreshFormViewType>(
+    () => (searchParams?.get('formType') === 'renewal' ? 'renewal' : 'fresh')
+  );
+
+  const handleSelectedFormTypeChange = (formType: FreshFormViewType) => {
+    setSelectedFormType(formType);
+    if (isOrgWide) return;
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set('formType', formType);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
   const [searchQuery, setSearchQuery] = useState('');
-  const [applicationTypeFilter, setApplicationTypeFilter] = useState('All');
+
+  // Same URL-persistence treatment as selectedFormType above, so the
+  // Application Type dropdown also survives a trip into the application
+  // detail page and back.
+  const [applicationTypeFilter, setApplicationTypeFilter] = useState(
+    () => searchParams?.get('appType') || 'All'
+  );
+
+  const handleApplicationTypeFilterChange = (typeFilter: string) => {
+    setApplicationTypeFilter(typeFilter);
+    if (isOrgWide) return;
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set('appType', typeFilter);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
   const [isExporting, setIsExporting] = useState(false);
   const tableRef = React.useRef<ApplicationTableRef>(null);
 
@@ -271,12 +304,12 @@ export default function ApplicationsByTypeView({
                   { key: 'renewal', label: 'Renewal' },
                 ]}
                 value={selectedFormType}
-                onChange={setSelectedFormType}
+                onChange={handleSelectedFormTypeChange}
               />
             ) : (
               <SubHeaderSelect
                 value={applicationTypeFilter}
-                onChange={setApplicationTypeFilter}
+                onChange={handleApplicationTypeFilterChange}
                 options={[
                   { value: 'All', label: 'All Types' },
                   { value: 'Fresh', label: 'Fresh' },
@@ -309,12 +342,12 @@ export default function ApplicationsByTypeView({
               isLoading={isLoading}
               pageType={queryType}
               selectedFormType={selectedFormType}
-              onSelectedFormTypeChange={setSelectedFormType}
+              onSelectedFormTypeChange={handleSelectedFormTypeChange}
               showActionColumn={showActionColumn}
               searchQuery={searchQuery}
               onSearchQueryChange={setSearchQuery}
               applicationTypeFilter={applicationTypeFilter}
-              onApplicationTypeFilterChange={setApplicationTypeFilter}
+              onApplicationTypeFilterChange={handleApplicationTypeFilterChange}
               hideControls={true}
             />
           </div>

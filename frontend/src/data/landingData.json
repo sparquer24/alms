@@ -13,7 +13,7 @@
     { "label": "Help", "href": "#footer" }
   ],
   "hero": {
-    "title": "Secure, Transparent &amp; Workflow-Driven Arms License Governance",
+    "title": "Secure, Transparent &amp; Workflow-Driven <span class=\"text-[#D4AF37]\">Arms License Governance</span>",
     "subtitle": "A comprehensive digital platform for managing the complete arms licensing ecosystem through configurable workflows, role-based approvals, compliance monitoring, audit tracking, and lifecycle management.",
     "primaryCta": { "label": "officer ", "href": "/login" },
     "secondaryCta": { "label": "Track Application", "href": "/login" },
