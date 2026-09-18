@@ -122,7 +122,6 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'closed', statusIds: [10] },
       { name: 'drafts', statusIds: [13] },
       { name: 'Applications', statusIds: [11, 3] },
-      { name: 'analytics' },
       { name: 'cancelform' },
     ],
     'SHO': [
@@ -157,13 +156,11 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'dashboard' },
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
-      { name: 'analytics' },
     ],
     'CP': [
       { name: 'dashboard' },
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
-      { name: 'analytics' },
     ],
     'ARMS_SUPDT': [
       { name: 'dashboard' },

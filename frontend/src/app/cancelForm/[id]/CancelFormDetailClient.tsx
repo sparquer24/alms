@@ -153,10 +153,8 @@ export default function CancelFormDetailClient() {
     if (!id) return;
 
     setHeaderOptions({
-      breadcrumbs: [
-        { label: 'Home', onClick: () => router.push('/') },
-        { label: `Cancellation Request #${id}` },
-      ],
+      showBackButton: true,
+      breadcrumbs: [{ label: `Cancellation Request #${id}` }],
       applicationTypeLabel: 'Cancellation Request',
       statusBadge: request
         ? {

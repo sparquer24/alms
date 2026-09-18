@@ -118,6 +118,17 @@ function PDFPreview({
             throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
           }
           pdfData = await response.arrayBuffer();
+
+          // Some servers answer a missing/broken file path with a 200 OK
+          // fallback page (HTML or a JSON error body) instead of a proper
+          // 404, which passes the response.ok check above but isn't a PDF.
+          // Detect that here with a clear message instead of letting pdf.js
+          // fail deep inside with an opaque "Invalid PDF structure" error.
+          const header = new Uint8Array(pdfData.slice(0, 5));
+          const headerStr = String.fromCharCode(...header);
+          if (headerStr !== '%PDF-') {
+            throw new Error('This file is unavailable or is not a valid PDF.');
+          }
         }
 
         const loadingTask = pdfjsLib.getDocument({ data: pdfData });

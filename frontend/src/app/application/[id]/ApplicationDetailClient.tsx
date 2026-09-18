@@ -761,8 +761,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
       <Sidebar />
       <Header
+        showBackButton
         breadcrumbs={[
-          { label: 'Home', onClick: () => router.push('/') },
           { label: isRenewalView ? 'Renewal' : 'Fresh Application' },
           { label: applicationId ? `Application ID: ${applicationId}` : '...' },
         ]}
@@ -792,9 +792,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hideCreateForm={true}
         hidePrint={true}
       />
-
       <main
-        className='flex-1 ml-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]'
+        className='flex-1 ml-0 h-full overflow-y-auto flex flex-col pt-[52px] md:pt-[66px]'
         style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <div className='flex-grow w-full mx-auto '>

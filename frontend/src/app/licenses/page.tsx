@@ -31,6 +31,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { PageSubHeader, SubHeaderButton, SubHeaderSearch, SubHeaderPills, SubHeaderSelect } from '@/components/common/PageSubHeader';
 import BulkLicenseImport, { downloadLicenseImportTemplate } from '@/components/licenses/BulkLicenseImport';
+import { PageLayoutSkeleton } from '@/components/Skeleton';
 
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
 
@@ -551,14 +552,7 @@ function LicenseManagementContent() {
   const printTable = () => window.print();
 
   if (!initialized || isLoading || !checked) {
-    return (
-      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-[#001F54] mx-auto mb-4' />
-          <p className='text-sm text-gray-600'>Loading License Management...</p>
-        </div>
-      </div>
-    );
+    return <PageLayoutSkeleton />;
   }
 
   return (
@@ -1022,7 +1016,7 @@ function LicenseManagementContent() {
                           </button>
                         </th>
                       ))}
-                      <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-2 font-semibold'>
+                      <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-2 font-semibold print:hidden'>
                         Actions
                       </th>
                     </tr>
@@ -1039,7 +1033,7 @@ function LicenseManagementContent() {
                               <div className='h-4 rounded bg-gray-200' />
                             </td>
                           ))}
-                          <td className='sticky right-0 border-b bg-white px-3 py-1.5'>
+                          <td className='sticky right-0 border-b bg-white px-3 py-1.5 print:hidden'>
                             <div className='h-4 rounded bg-gray-200' />
                           </td>
                         </tr>
@@ -1100,7 +1094,7 @@ function LicenseManagementContent() {
                                 )}
                               </td>
                             ))}
-                            <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-1.5'>
+                            <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-1.5 print:hidden'>
                               <div className='flex items-center gap-2'>
                                 <button
                                   type='button'
@@ -1352,7 +1346,7 @@ function LicenseManagementContent() {
 export default function LicenseManagementPage() {
   return (
     <LayoutProvider>
-      <Suspense fallback={null}>
+      <Suspense fallback={<PageLayoutSkeleton />}>
         <LicenseManagementContent />
       </Suspense>
     </LayoutProvider>

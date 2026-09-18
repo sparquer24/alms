@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { ROLE_CODES } from '../../constants/auth';
+import { STATUS_CODES } from '../../constants/workflow-actions';
 
 /**
  * Public Service - Handles public-facing data retrieval
@@ -326,10 +327,13 @@ export class PublicService {
                 prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isPending: true } }).catch(() => 0),
                 prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isRejected: true } }).catch(() => 0),
 
+                // CancelFormRequests has no isApproved/isPending/isRejected columns — its
+                // outcome lives on the linked workflowStatus (code CANCEL = approved/executed,
+                // REJECT = rejected, anything else including null = still pending).
                 prisma.cancelFormRequests.count({ where: cancelWhere }).catch(() => 0),
-                prisma.cancelFormRequests.count({ where: { ...cancelWhere, isApproved: true } }).catch(() => 0),
-                prisma.cancelFormRequests.count({ where: { ...cancelWhere, isPending: true } }).catch(() => 0),
-                prisma.cancelFormRequests.count({ where: { ...cancelWhere, isRejected: true } }).catch(() => 0),
+                prisma.cancelFormRequests.count({ where: { ...cancelWhere, workflowStatus: { code: STATUS_CODES.CANCEL } } }).catch(() => 0),
+                prisma.cancelFormRequests.count({ where: { ...cancelWhere, NOT: { workflowStatus: { code: { in: [STATUS_CODES.CANCEL, STATUS_CODES.REJECT] } } } } }).catch(() => 0),
+                prisma.cancelFormRequests.count({ where: { ...cancelWhere, workflowStatus: { code: STATUS_CODES.REJECT } } }).catch(() => 0),
 
                 prisma.licenses.count({ where: licenseWhere }).catch(() => 0),
                 prisma.licenses.count({ where: { ...licenseWhere, status: 'ACTIVE' as any } }).catch(() => 0),

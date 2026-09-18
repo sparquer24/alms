@@ -24,6 +24,12 @@ import {
   MousePointerClick,
   BarChart2,
   LineChart as LineChartIcon,
+  FilePlus,
+  XCircle,
+  BadgeCheck,
+  UserCog,
+  ShieldCheck,
+  ClipboardList,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -45,8 +51,11 @@ import {
 } from 'recharts';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { normalizeRole } from '@/utils/roleUtils';
+import { normalizeRole, canCreateApplications, isLicenseManagementRole, isAdminRole } from '@/utils/roleUtils';
 import { getRoleBasedRedirectPath } from '@/config/roleRedirections';
+import { useAdminTheme } from '@/context/AdminThemeContext';
+import ApplicationTypeChart from '@/components/analytics/ApplicationTypeChart';
+import ApplicationStatusChart from '@/components/analytics/ApplicationStatusChart';
 
 import { Sidebar } from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -206,10 +215,55 @@ export default function UniversalDashboard() {
     return normalizeRole(userRole);
   }, [userRole]);
 
-  // Helper to determine analytics path based on role
-  const getAnalyticsPath = useCallback(() => {
-    return effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/analytics' : '/admin/analytics';
-  }, [effectiveRole]);
+  const { colors: adminColors } = useAdminTheme();
+  const adminBasePath = effectiveRole === 'SUPER_ADMIN' ? '/superAdmin' : '/admin';
+
+  const quickActions = useMemo(() => {
+    const actions: { key: string; label: string; href: string; icon: React.ReactNode }[] = [];
+    if (canCreateApplications(effectiveRole)) {
+      actions.push({
+        key: 'new-application',
+        label: 'New Application',
+        href: '/forms/createFreshApplication/personal-information',
+        icon: <FilePlus className="w-3.5 h-3.5" />,
+      });
+      actions.push({
+        key: 'cancel-form',
+        label: 'Cancel Form',
+        href: '/cancelForm/new',
+        icon: <XCircle className="w-3.5 h-3.5" />,
+      });
+    }
+    if (isLicenseManagementRole(effectiveRole)) {
+      actions.push({
+        key: 'license-management',
+        label: 'License Management',
+        href: '/licenses',
+        icon: <BadgeCheck className="w-3.5 h-3.5" />,
+      });
+    }
+    actions.push({
+      key: 'my-reports',
+      label: 'My Reports',
+      href: '/reports',
+      icon: <ClipboardList className="w-3.5 h-3.5" />,
+    });
+    if (isAdminRole(effectiveRole)) {
+      actions.push({
+        key: 'user-management',
+        label: 'User Management',
+        href: `${adminBasePath}/userManagement`,
+        icon: <UserCog className="w-3.5 h-3.5" />,
+      });
+      actions.push({
+        key: 'role-management',
+        label: 'Role Management',
+        href: `${adminBasePath}/roleMapping`,
+        icon: <ShieldCheck className="w-3.5 h-3.5" />,
+      });
+    }
+    return actions;
+  }, [effectiveRole, adminBasePath]);
 
   useEffect(() => {
     setMounted(true);
@@ -293,6 +347,39 @@ export default function UniversalDashboard() {
     enabled: authChecked,
     staleTime: 60_000,
   });
+
+  // Application & license analytics (moved here from the removed Analytics sidebar page)
+  const analyticsRange = useMemo(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 30);
+    return { fromDate: from.toISOString().slice(0, 10), toDate: to.toISOString().slice(0, 10) };
+  }, []);
+  const applicationsByWeekQuery = useQuery({
+    queryKey: ['dashboard', 'applicationsByWeek', analyticsRange.fromDate, analyticsRange.toDate],
+    queryFn: () => analyticsService.getApplicationsByWeek(analyticsRange),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const applicationStatesQuery = useQuery({
+    queryKey: ['dashboard', 'applicationStates', analyticsRange.fromDate, analyticsRange.toDate],
+    queryFn: () => analyticsService.getApplicationStates(analyticsRange),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const applicationTypeStatusSummary = useMemo(() => {
+    const byWeek = applicationsByWeekQuery.data ?? [];
+    const states = applicationStatesQuery.data ?? [];
+    return {
+      totalFresh: byWeek.reduce((sum: number, item: any) => sum + (item.fresh || 0), 0),
+      totalRenewal: byWeek.reduce((sum: number, item: any) => sum + (item.renewal || 0), 0),
+      totalCancel: byWeek.reduce((sum: number, item: any) => sum + (item.cancel || 0), 0),
+      totalApproved: states.find((s: any) => s.state === 'approved')?.count || 0,
+      totalPending: states.find((s: any) => s.state === 'pending')?.count || 0,
+      totalRejected: states.find((s: any) => s.state === 'rejected')?.count || 0,
+    };
+  }, [applicationsByWeekQuery.data, applicationStatesQuery.data]);
+  const applicationAnalyticsLoading = applicationsByWeekQuery.isLoading || applicationStatesQuery.isLoading;
 
   const actionItems = actionRequiredQuery.data ?? [];
   const actionLoading = actionRequiredQuery.isLoading;
@@ -464,7 +551,31 @@ export default function UniversalDashboard() {
 
           {/* Main Dashboard Content Area */}
           <div className="flex-grow min-h-0 overflow-y-auto max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
-        
+
+        {/* ─────────────────────────────────────────────────────────────
+            0. QUICK ACTIONS (role-gated shortcuts)
+        ────────────────────────────────────────────────────────────── */}
+        {quickActions.length > 0 && (
+          <section className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mr-1">
+                Quick Actions
+              </span>
+              {quickActions.map(action => (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={() => router.push(action.href)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0F2D52]/5 text-[#0F2D52] hover:bg-[#0F2D52] hover:text-white border border-[#0F2D52]/10 transition-colors"
+                >
+                  {action.icon}
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ─────────────────────────────────────────────────────────────
             1. CORE APPLICATION & LICENSING METRIC CARDS (INTERACTIVE)
         ────────────────────────────────────────────────────────────── */}
@@ -1455,6 +1566,49 @@ export default function UniversalDashboard() {
               });
             }}
           />
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
+            4C. APPLICATION & LICENSE ANALYTICS (moved from the former
+            Analytics sidebar page: By Type / By Status / License Status)
+        ────────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-[#0F2D52]" />
+                Applications by Type
+              </h3>
+              <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
+            </div>
+            <div className="mt-4">
+              <ApplicationTypeChart
+                fresh={applicationTypeStatusSummary.totalFresh}
+                renewal={applicationTypeStatusSummary.totalRenewal}
+                cancel={applicationTypeStatusSummary.totalCancel}
+                colors={adminColors}
+                loading={applicationAnalyticsLoading}
+              />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Applications by Status
+              </h3>
+              <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
+            </div>
+            <div className="mt-4">
+              <ApplicationStatusChart
+                approved={applicationTypeStatusSummary.totalApproved}
+                pending={applicationTypeStatusSummary.totalPending}
+                rejected={applicationTypeStatusSummary.totalRejected}
+                colors={adminColors}
+                loading={applicationAnalyticsLoading}
+              />
+            </div>
+          </div>
         </div>
 
         {/* ─────────────────────────────────────────────────────────────

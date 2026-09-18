@@ -1377,16 +1377,13 @@ export class ApplicationFormService {
             include: { role: true }
           });
           userRole = user?.role?.code;
-
-          // For non-ZS users, filter by currentUserId
-          // ZS users can see all applications
-          // if (userRole && userRole !== ROLE_CODES.ZS) {
-          where.currentUserId = parsedUserId;
-          // }
         }
       }
 
       // Workflow status filter: accept numeric IDs or textual identifiers (codes/names)
+      // Resolved BEFORE the ownership filter below so we know whether this is a
+      // terminal-status ("history") query, e.g. Closed/Applications tabs.
+      let resolvedStatusCodes: string[] = [];
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
         // Split numeric-like entries and non-numeric entries
         const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
@@ -1408,13 +1405,45 @@ export class ApplicationFormService {
         }
 
         where.workflowStatusId = { in: resolvedIds };
+
+        const statusRows = await prisma.statuses.findMany({
+          where: { id: { in: resolvedIds } },
+          select: { code: true },
+        });
+        resolvedStatusCodes = statusRows.map((s) => s.code);
       }
 
-      // Specific application ID filter (ownership) - for explicit isOwned flag
-      if (filter.isOwned == true && filter.currentUserId) {
-        // currentUserId might be string; convert if numeric
-        const parsed = Number(filter.currentUserId);
-        where.currentUserId = !isNaN(parsed) ? parsed : filter.currentUserId;
+      // Ownership filter. A plain "my queue" query (e.g. the live Inbox) is
+      // scoped to applications currently assigned to this user. But a query
+      // for terminal statuses only (Closed/Applications tabs: CLOSE, APPROVED,
+      // REJECT, DISPOSE, CANCEL) is a *history* view — by the time an
+      // application reaches one of those statuses, currentUserId has usually
+      // moved on to whoever actioned it last, so a strict currentUserId match
+      // would almost always come back empty for the user who originated it.
+      // In that case, also match applications this user was ever involved
+      // with via the workflow history trail.
+      const TERMINAL_STATUS_CODES = new Set([
+        STATUS_CODES.CLOSE,
+        STATUS_CODES.APPROVED,
+        STATUS_CODES.REJECT,
+        STATUS_CODES.DISPOSE,
+        STATUS_CODES.CANCEL,
+      ]);
+      const isTerminalHistoryQuery =
+        resolvedStatusCodes.length > 0 && resolvedStatusCodes.every((c) => TERMINAL_STATUS_CODES.has(c as any));
+
+      if (filter.currentUserId) {
+        const parsedUserId = Number(filter.currentUserId);
+        if (!isNaN(parsedUserId)) {
+          if (isTerminalHistoryQuery) {
+            where.OR = [
+              { currentUserId: parsedUserId },
+              { workflowHistories: { some: { previousUserId: parsedUserId } } },
+            ];
+          } else {
+            where.currentUserId = parsedUserId;
+          }
+        }
       }
 
       // Search filter (supports id exact match or text contains on allowed fields)
@@ -2331,16 +2360,8 @@ export class ApplicationFormService {
     // --- Fetch from CancelFormRequests (pending/active requests) ---
     const cancelFormWhere: any = {};
 
-    // User/citizen filter: map currentUserId to the cancel request's currentUserId (who it's assigned to)
-    // matching the exact logic used in getFilteredApplications
-    if (filter.currentUserId) {
-      const parsedUserId = Number(filter.currentUserId);
-      if (!isNaN(parsedUserId)) {
-        cancelFormWhere.currentUserId = parsedUserId;
-      }
-    }
-
     // Status filter - map workflowStatusId filter matching resolved IDs in getFilteredApplications
+    let resolvedCancelStatusCodes: string[] = [];
     if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
       const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
       const nonNumeric = filter.statusIds.filter((s: any) => isNaN(Number(s))).map(String);
@@ -2355,6 +2376,40 @@ export class ApplicationFormService {
 
       if (resolvedIds.length > 0) {
         cancelFormWhere.workFlowStatusId = { in: resolvedIds };
+        const statusRows = await prisma.statuses.findMany({
+          where: { id: { in: resolvedIds } },
+          select: { code: true },
+        });
+        resolvedCancelStatusCodes = statusRows.map((s) => s.code);
+      }
+    }
+
+    // User/citizen filter: map currentUserId to the cancel request's currentUserId (who it's
+    // assigned to), matching the exact logic used in getFilteredApplications — including the
+    // terminal-status ("history") broadening so Closed/Applications tabs also match requests
+    // this user was ever involved with, not just the ones still currently assigned to them.
+    const CANCEL_TERMINAL_STATUS_CODES = new Set([
+      STATUS_CODES.CLOSE,
+      STATUS_CODES.APPROVED,
+      STATUS_CODES.REJECT,
+      STATUS_CODES.DISPOSE,
+      STATUS_CODES.CANCEL,
+    ]);
+    const isCancelTerminalHistoryQuery =
+      resolvedCancelStatusCodes.length > 0 &&
+      resolvedCancelStatusCodes.every((c) => CANCEL_TERMINAL_STATUS_CODES.has(c as any));
+
+    if (filter.currentUserId) {
+      const parsedUserId = Number(filter.currentUserId);
+      if (!isNaN(parsedUserId)) {
+        if (isCancelTerminalHistoryQuery) {
+          cancelFormWhere.OR = [
+            { currentUserId: parsedUserId },
+            { cancelWorkflowHistories: { some: { previousUserId: parsedUserId } } },
+          ];
+        } else {
+          cancelFormWhere.currentUserId = parsedUserId;
+        }
       }
     }
 

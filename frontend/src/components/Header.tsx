@@ -92,8 +92,6 @@ const Header = (props: HeaderProps) => {
       '/admin/userManagement': { roleTitle: 'Admin', pageTitle: 'User Management', roleHref: '/admin/userManagement' },
       '/superAdmin/roleMapping': { roleTitle: 'Super Admin', pageTitle: 'Role Management', roleHref: '/superAdmin/roleMapping' },
       '/admin/roleMapping': { roleTitle: 'Admin', pageTitle: 'Role Management', roleHref: '/admin/roleMapping' },
-      '/superAdmin/analytics': { roleTitle: 'Super Admin', pageTitle: 'Global Analytics', roleHref: '/superAdmin/analytics' },
-      '/admin/analytics': { roleTitle: 'Admin', pageTitle: 'Analytics', roleHref: '/admin/analytics' },
       '/superAdmin/flowMapping': { roleTitle: 'Super Admin', pageTitle: 'Flow Mapping', roleHref: '/superAdmin/flowMapping' },
       '/admin/flowMapping': { roleTitle: 'Admin', pageTitle: 'Flow Mapping', roleHref: '/admin/flowMapping' },
       '/superAdmin/locationsManagement': { roleTitle: 'Super Admin', pageTitle: 'Locations Management', roleHref: '/superAdmin/locationsManagement' },
@@ -197,12 +195,13 @@ const Header = (props: HeaderProps) => {
           {showBackButton && (
             <button
               type='button'
-              onClick={() => router.push('/inbox?type=all')}
-              className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md flex-shrink-0'
-              aria-label='Back to inbox'
-              title='Back to Inbox'
+              onClick={() => router.back()}
+              className='flex items-center gap-1 pl-2 pr-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md flex-shrink-0'
+              aria-label='Go back'
+              title='Go back'
             >
               <ChevronLeft className='h-5 w-5' />
+              <span className='text-sm font-medium'>Back</span>
             </button>
           )}
           {/* Show Create Form only when sidebar is visible and not hidden,

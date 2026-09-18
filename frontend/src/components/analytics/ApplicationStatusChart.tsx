@@ -34,6 +34,17 @@ export const ApplicationStatusChart: React.FC<{
     { name: 'Rejected', value: rejected, href: '/inbox?type=returned', fill: colors.status.error },
   ];
 
+  if (approved + pending + rejected === 0) {
+    return (
+      <div
+        style={{ width: '100%', height: '260px' }}
+        className='flex items-center justify-center text-sm text-gray-400'
+      >
+        No applications in this period
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '260px' }}>
       <ResponsiveContainerFixed width='100%' height='100%'>

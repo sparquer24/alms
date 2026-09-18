@@ -21,6 +21,7 @@ export interface HeaderOptions {
   hidePrint?: boolean;
   hideCreateForm?: boolean;
   applicationTypeLabel?: string;
+  showBackButton?: boolean;
 }
 
 interface LayoutContextType {

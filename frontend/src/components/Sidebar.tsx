@@ -844,21 +844,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           return;
         }
 
-        // Handle analytics menu item
-        if (item.name.toLowerCase() === 'analytics') {
-          const analyticsPath = '/inbox/analytics';
-          if (!canNavigateTo(analyticsPath, actionId)) {
-            return;
-          }
-          setActiveItem(key);
-          persistActiveNavToLocal(key);
-          dispatch(closeInbox());
-          setActiveNavigationPath(analyticsPath);
-          router.push(analyticsPath);
-          endAction(actionId);
-          return;
-        }
-
         // Handle cancelform menu item (now displays inside the unified inbox)
         if (item.name.toLowerCase().replace(/\s+/g, '') === 'cancelform') {
           const cancelPath = '/inbox?type=cancel';

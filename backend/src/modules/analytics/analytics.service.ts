@@ -9,6 +9,7 @@ import {
 } from './dto/analytics.dto';
 import { getISOWeek, getISOWeekYear, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { ROLE_CODES } from '../../constants/auth';
+import { STATUS_CODES } from '../../constants/workflow-actions';
 
 @Injectable()
 export class AnalyticsService {
@@ -365,15 +366,19 @@ export class AnalyticsService {
                         isPending: true,
                     },
                 }),
+                // CancelFormRequests has no isApproved/isRejected/isPending columns — its
+                // outcome lives on the linked workflowStatus (code CANCEL = approved/executed,
+                // REJECT = rejected, anything else including null = still pending).
                 prisma.cancelFormRequests.findMany({
                     where: cancelWhere,
                     select: {
                         id: true,
+                        workflowStatus: { select: { code: true } },
                     },
                 }),
             ]);
 
-            // Calculate state counts for fresh and renewal
+            // Calculate state counts for fresh, renewal and cancel
             const stateMap = {
                 approved: 0,
                 rejected: 0,
@@ -392,25 +397,28 @@ export class AnalyticsService {
                 });
             };
 
+            const cancelOutcome = (app: { workflowStatus: { code: string } | null }): 'approved' | 'rejected' | 'pending' => {
+                const code = app.workflowStatus?.code;
+                if (code === STATUS_CODES.CANCEL) return 'approved';
+                if (code === STATUS_CODES.REJECT) return 'rejected';
+                return 'pending';
+            };
+
             processFreshRenewal(freshApps);
             processFreshRenewal(renewalApps);
-
-            // Count cancel statuses as pending (not yet approved/rejected)
-            cancelApps.forEach((app) => {
-                stateMap.pending++;
-            });
+            cancelApps.forEach((app) => stateMap[cancelOutcome(app)]++);
 
             // Convert to array
             const result = Object.entries(stateMap).map(([state, count]) => ({
                 state,
                 count,
-                fresh: state === 'approved' ? freshApps.filter((a) => a.isApproved).length : 
-                       state === 'rejected' ? freshApps.filter((a) => a.isRejected).length : 
+                fresh: state === 'approved' ? freshApps.filter((a) => a.isApproved).length :
+                       state === 'rejected' ? freshApps.filter((a) => a.isRejected).length :
                        freshApps.filter((a) => !a.isApproved && !a.isRejected).length,
-                renewal: state === 'approved' ? renewalApps.filter((a) => a.isApproved).length : 
-                        state === 'rejected' ? renewalApps.filter((a) => a.isRejected).length : 
+                renewal: state === 'approved' ? renewalApps.filter((a) => a.isApproved).length :
+                        state === 'rejected' ? renewalApps.filter((a) => a.isRejected).length :
                         renewalApps.filter((a) => !a.isApproved && !a.isRejected).length,
-                cancel: state === 'pending' ? cancelApps.length : 0,
+                cancel: cancelApps.filter((a) => cancelOutcome(a) === state).length,
             }));
 
             return result;

@@ -549,7 +549,7 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
                       key={col}
                       scope='col'
                       style={{ textAlign: isAction ? 'center' : 'left' }}
-                      className={`${styles.tableHeaderCell} text-sm font-medium text-black`}
+                      className={`${styles.tableHeaderCell} text-sm font-medium text-black ${isAction ? 'print:hidden' : ''}`}
                     >
                       {col}
                     </th>
@@ -773,7 +773,7 @@ const TableRow: React.FC<{
           })()}
         </td>
         {showActionColumn && (
-          <td className={`${styles.tableCell} text-center text-sm text-gray-500`}>
+          <td className={`${styles.tableCell} text-center text-sm text-gray-500 print:hidden`}>
             <button
               onClick={e => {
                 e.stopPropagation();
@@ -904,7 +904,7 @@ const TableRow: React.FC<{
         })()}
       </td>
       {showActionColumn && (
-        <td className={`${styles.tableCell} text-center text-sm text-gray-500`}>
+        <td className={`${styles.tableCell} text-center text-sm text-gray-500 print:hidden`}>
           {isDrafts ? (
             <div className='flex items-center gap-1 justify-center'>
               <button

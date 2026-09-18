@@ -48,7 +48,6 @@ export type MenuMetaKey =
   | 'applications'
   | 'drafts'
   | 'reports'
-  | 'analytics' // New analytics tab
   | 'cancelform' // Cancel Form workflow
   | 'logout'
   | 'userManagement'
@@ -94,10 +93,6 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   reports: {
     label: 'My Reports',
     icon: () => <BarChart2Fixed className='w-5 h-5' aria-label='My Reports' />,
-  },
-  analytics: {
-    label: 'Analytics',
-    icon: () => <BarChart2Fixed className='w-5 h-5' aria-label='Analytics' />,
   },
   cancelform: {
     label: 'Cancel Form',

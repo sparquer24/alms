@@ -172,7 +172,7 @@ function FreshFormContent() {
           }
         />
 
-        <div className="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6">
+        <div className="flex-grow p-3 sm:p-4 lg:p-6 max-w-[1800px] w-full mx-auto flex flex-col gap-4 sm:gap-5">
           {/* Success message */}
           {successMessage && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 flex items-center">
