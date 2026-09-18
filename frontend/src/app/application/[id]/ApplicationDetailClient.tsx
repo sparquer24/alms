@@ -1973,24 +1973,23 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
               {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal */}
               {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
-                <div className='p-6 lg:p-8 border-t border-gray-100 bg-white overflow-hidden print:hidden'>
+                <div className='p-6 lg:p-8 border-t border-gray-100 bg-white print:hidden'>
                   <div
                     ref={containerRef}
-                    className='flex h-[600px] items-stretch gap-0 relative w-full overflow-hidden'
-                    style={{
-                      display: 'flex',
-                    }}
+                    className='flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-0 relative w-full'
                   >
                     {/* Action Buttons - Full Width Editor (2 columns) - Hidden on License Tab */}
                     {!(isRenewalView && activeTab === 'original') && (
                       <div
-                        className='flex flex-col h-full overflow-hidden pr-4'
-                        style={{
-                          width: `${dividerPosition}%`,
-                          transition: isDragging ? 'none' : 'width 0.1s ease',
-                        }}
+                        className='flex flex-col w-full lg:w-[var(--left-w)] lg:pr-4 lg:sticky lg:top-0 lg:max-h-[calc(100vh-32px)] lg:overflow-y-auto lg:pb-2'
+                        style={
+                          {
+                            '--left-w': `${dividerPosition}%`,
+                            transition: isDragging ? 'none' : 'width 0.1s ease',
+                          } as React.CSSProperties
+                        }
                       >
-                        <div className='flex items-center justify-between mb-4'>
+                        <div className='flex items-center justify-between mb-4 lg:sticky lg:top-0 lg:z-10 lg:bg-white lg:pb-2'>
                           <div>
                             <h3 className='text-2xl font-bold text-gray-900 flex items-center'>
                               <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
@@ -1998,7 +1997,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             </h3>
                           </div>
                         </div>
-                        <div className='flex flex-col gap-4 flex-1 overflow-hidden'>
+                        <div className='flex flex-col gap-4 flex-1'>
                           {(() => {
                             // Determine which application to use based on active tab
                             const displayApp: ApplicationData | null =
@@ -2020,7 +2019,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             // If on license tab and still loading, show loading state
                             if (isLoading) {
                               return (
-                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col items-center justify-center'>
+                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center py-16'>
                                   <div className='flex flex-col items-center gap-3'>
                                     <div className='w-8 h-8 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin'></div>
                                     <p className='text-sm text-gray-600'>Loading License...</p>
@@ -2153,9 +2152,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             return canTakeAction ? (
                               <>
                                 {/* Proceedings Form - Always Open */}
-                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col'>
-                                  <div className='p-2 bg-gray-50 flex-1 overflow-auto'>
-                                    <div className='p-2 h-full'>
+                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col'>
+                                  <div className='p-2 bg-gray-50 flex-1'>
+                                    <div className='p-2'>
                                       <ProceedingsForm
                                         applicationId={String(displayAppId)}
                                         onSuccess={handleProceedingsSuccess}
@@ -2212,7 +2211,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       <div
                         ref={dividerRef}
                         onMouseDown={handleDividerMouseDown}
-                        className='w-1 bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-blue-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
+                        className='hidden lg:block w-1 self-stretch bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-blue-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
                         style={{
                           cursor: 'col-resize',
                           userSelect: 'none',
@@ -2225,24 +2224,26 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                     {/* Application Timeline/History - Right Side with Scroll */}
                     <div
-                      className={`flex flex-col h-full overflow-hidden ${isRenewalView && activeTab === 'original' ? '' : 'pl-4'}`}
-                      style={{
-                        width:
-                          isRenewalView && activeTab === 'original'
-                            ? '100%'
-                            : `${100 - dividerPosition}%`,
-                        transition: isDragging ? 'none' : 'width 0.1s ease',
-                      }}
+                      className={`flex flex-col w-full lg:sticky lg:top-0 lg:max-h-[calc(100vh-32px)] lg:overflow-y-auto ${isRenewalView && activeTab === 'original' ? '' : 'lg:w-[var(--right-w)] lg:pl-4'}`}
+                      style={
+                        {
+                          '--right-w':
+                            isRenewalView && activeTab === 'original'
+                              ? '100%'
+                              : `${100 - dividerPosition}%`,
+                          transition: isDragging ? 'none' : 'width 0.1s ease',
+                        } as React.CSSProperties
+                      }
                     >
-                      <div className='flex items-center justify-between mb-4'>
+                      <div className='flex items-center justify-between mb-4 lg:sticky lg:top-0 lg:z-10 lg:bg-white lg:pb-2'>
                         <h3 className='text-lg font-semibold text-gray-900 flex items-center'>
                           <div className='w-1 h-5 bg-green-600 rounded-full mr-3'></div>
                           Application History
                         </h3>
                       </div>
 
-                      <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
-                        <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
+                      <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm'>
+                        <div className='p-6 custom-scrollbar'>
                           {isRenewalView && activeTab === 'original' && originalLicenseLoading ? (
                             <div className='flex flex-col items-center justify-center h-full'>
                               <div className='w-8 h-8 border-4 border-green-100 border-t-green-600 rounded-full animate-spin mb-3'></div>
