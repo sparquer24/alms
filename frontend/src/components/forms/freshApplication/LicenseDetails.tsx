@@ -279,24 +279,18 @@ const LicenseDetails = () => {
   };
 
   const handleAreaChange = (area: string, checked: boolean) => {
+    if (!checked) return;
     setForm((prev: any) => {
       // Ensure licenseDetails array exists and has at least one element
       const currentLicenseDetails = prev.licenseDetails || [{}];
       const currentDetail = currentLicenseDetails[0] || {};
-      const currentAreas = currentDetail.areaOfValidity
-        ? currentDetail.areaOfValidity.split(', ').filter(Boolean)
-        : [];
-
-      const updatedAreas = checked
-        ? [...currentAreas.filter((a: string) => a !== area), area]
-        : currentAreas.filter((a: string) => a !== area);
 
       const newForm = {
         ...prev,
         licenseDetails: [
           {
             ...currentDetail,
-            areaOfValidity: updatedAreas.join(', '),
+            areaOfValidity: area,
           },
         ],
       };
@@ -305,13 +299,7 @@ const LicenseDetails = () => {
 
     // Real-time validation for area of validity
     const detail = getLicenseDetail();
-    const currentAreas = detail.areaOfValidity
-      ? detail.areaOfValidity.split(', ').filter(Boolean)
-      : [];
-    const updatedAreas = checked
-      ? [...currentAreas.filter((a: string) => a !== area), area]
-      : currentAreas.filter((a: string) => a !== area);
-    const newAreaValue = updatedAreas.join(', ');
+    const newAreaValue = area;
     const updatedForm = { ...form, licenseDetails: [{ ...detail, areaOfValidity: newAreaValue }] };
     const { error } = validation.processChange('areaOfValidity', newAreaValue, updatedForm);
     setFieldErrors((prev: any) => ({ ...prev, areaOfValidity: error }));
@@ -687,24 +675,36 @@ const LicenseDetails = () => {
             </div>
             <div className='text-xs text-gray-600 mb-1'>Tick any of the options</div>
             <div className='flex gap-6'>
-              <Checkbox
-                label='District'
-                name='areaDistrict'
-                checked={getLicenseDetail().areaOfValidity?.includes('District-wide') || false}
-                onChange={checked => handleAreaChange('District-wide', checked)}
-              />
-              <Checkbox
-                label='State'
-                name='areaState'
-                checked={getLicenseDetail().areaOfValidity?.includes('State-wide') || false}
-                onChange={checked => handleAreaChange('State-wide', checked)}
-              />
-              <Checkbox
-                label='Throughout India'
-                name='areaIndia'
-                checked={getLicenseDetail().areaOfValidity?.includes('Throughout India') || false}
-                onChange={checked => handleAreaChange('Throughout India', checked)}
-              />
+              <label className='flex items-center gap-2'>
+                <input
+                  type='radio'
+                  name='areaOfValidity'
+                  value='District-wide'
+                  checked={getLicenseDetail().areaOfValidity === 'District-wide'}
+                  onChange={(e) => handleAreaChange(e.target.value, e.target.checked)}
+                />{' '}
+                District
+              </label>
+              <label className='flex items-center gap-2'>
+                <input
+                  type='radio'
+                  name='areaOfValidity'
+                  value='State-wide'
+                  checked={getLicenseDetail().areaOfValidity === 'State-wide'}
+                  onChange={(e) => handleAreaChange(e.target.value, e.target.checked)}
+                />{' '}
+                State
+              </label>
+              <label className='flex items-center gap-2'>
+                <input
+                  type='radio'
+                  name='areaOfValidity'
+                  value='Throughout India'
+                  checked={getLicenseDetail().areaOfValidity === 'Throughout India'}
+                  onChange={(e) => handleAreaChange(e.target.value, e.target.checked)}
+                />{' '}
+                Throughout India
+              </label>
             </div>
             {fieldErrors.areaOfValidity && <p className="text-red-500 text-xs mt-1">{fieldErrors.areaOfValidity}</p>}
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useImperativeHandle } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ApplicationData } from '../types';
 import styles from './ApplicationTable.module.css';
 import { useApplications } from '../context/ApplicationContext';
@@ -172,6 +172,7 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
     }, [baseApplications, searchQuery, applicationTypeFilter]);
 
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { executeAction, setActiveNavigationPath } = useGlobalAction();
 
     // Compute visible table column names so header and export use same labels
@@ -228,11 +229,15 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
         // executeAction will prevent duplicate navigations for same actionId
         void executeAction(actionId, async () => {
           const app = (baseApplications || []).find(a => a.id === id);
-          const route = /cancel/i.test(String(app?.applicationType || ''))
+          const routeBase = /cancel/i.test(String(app?.applicationType || ''))
             ? `/cancelForm/${id}`
             : /renewal/i.test(String(app?.applicationType || ''))
               ? `/renewalApplication/${id}`
               : `/application/${id}`;
+          
+          const currentType = searchParams?.get('type');
+          const route = currentType ? `${routeBase}?returnType=${encodeURIComponent(currentType)}` : routeBase;
+          
           setActiveNavigationPath(route);
           await router.push(route);
           setLoadingRowId(null);

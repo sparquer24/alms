@@ -43,6 +43,7 @@ const GlobalActionContext = createContext<GlobalActionContextType>({
 
 export const GlobalActionProvider = ({ children }: { children: ReactNode }) => {
   const [actionState, setActionState] = useState<ActionState>(defaultState);
+  const actionStateRef = useRef<ActionState>(defaultState);
   const [activeNavigationPath, setActiveNavigationPath] = useState<string | null>(null);
 
   // Track recently completed actions with timestamps
@@ -51,49 +52,52 @@ export const GlobalActionProvider = ({ children }: { children: ReactNode }) => {
   // Only block the same actionId, not all actions
   const isActionInProgress = useCallback(
     (actionId?: string) => {
-      if (!actionState.isLoading) return false;
+      if (!actionStateRef.current.isLoading) return false;
       if (actionId) {
-        return actionState.actionId === actionId;
+        return actionStateRef.current.actionId === actionId;
       }
       return false;
     },
-    [actionState]
+    []
   );
 
   const startAction = useCallback(
     (actionId: string): boolean => {
       // Only block if the same actionId is in progress
-      if (actionState.isLoading && actionState.actionId === actionId) {
+      if (actionStateRef.current.isLoading && actionStateRef.current.actionId === actionId) {
         console.debug(
           '[GlobalAction] Action rejected - same action in progress:',
-          actionState.actionId
+          actionStateRef.current.actionId
         );
         return false;
       }
-      setActionState({
+      const newState = {
         isLoading: true,
         actionId,
         startedAt: Date.now(),
-      });
+      };
+      actionStateRef.current = newState;
+      setActionState(newState);
       return true;
     },
-    [actionState.isLoading, actionState.actionId]
+    []
   );
 
   const endAction = useCallback(
     (actionId?: string) => {
       // Only end if the action ID matches (or no ID specified)
-      if (actionId && actionState.actionId !== actionId) {
+      if (actionId && actionStateRef.current.actionId !== actionId) {
         return;
       }
       // Record completion time
-      if (actionState.actionId) {
-        completedActionsRef.current.set(actionState.actionId, Date.now());
+      if (actionStateRef.current.actionId) {
+        completedActionsRef.current.set(actionStateRef.current.actionId, Date.now());
       }
+      actionStateRef.current = defaultState;
       setActionState(defaultState);
       setActiveNavigationPath(null);
     },
-    [actionState.actionId]
+    []
   );
 
   const executeAction = useCallback(
@@ -140,13 +144,13 @@ export const GlobalActionProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
       // Only block if the same actionId is in progress
-      if (actionId && actionState.isLoading && actionState.actionId === actionId) {
+      if (actionId && actionStateRef.current.isLoading && actionStateRef.current.actionId === actionId) {
         console.debug('[GlobalAction] Navigation blocked - same action in progress:', actionId);
         return false;
       }
       return true;
     },
-    [activeNavigationPath, actionState.isLoading, actionState.actionId]
+    [activeNavigationPath]
   );
 
   const value: GlobalActionContextType = {

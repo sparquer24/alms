@@ -142,6 +142,15 @@ export default function ApplicationsByTypeView({
     () => (searchParams?.get('formType') === 'renewal' ? 'renewal' : 'fresh')
   );
 
+  useEffect(() => {
+    const formType = searchParams?.get('formType');
+    if (formType === 'renewal' || formType === 'fresh') {
+      setSelectedFormType(formType);
+    } else if (!formType) {
+      setSelectedFormType('fresh');
+    }
+  }, [searchParams]);
+
   const handleSelectedFormTypeChange = (formType: FreshFormViewType) => {
     setSelectedFormType(formType);
     if (isOrgWide) return;
@@ -157,6 +166,15 @@ export default function ApplicationsByTypeView({
   const [applicationTypeFilter, setApplicationTypeFilter] = useState(
     () => searchParams?.get('appType') || 'All'
   );
+
+  useEffect(() => {
+    const appType = searchParams?.get('appType');
+    if (appType) {
+      setApplicationTypeFilter(appType);
+    } else if (!appType) {
+      setApplicationTypeFilter('All');
+    }
+  }, [searchParams]);
 
   const handleApplicationTypeFilterChange = (typeFilter: string) => {
     setApplicationTypeFilter(typeFilter);

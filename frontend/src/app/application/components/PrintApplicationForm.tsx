@@ -113,9 +113,16 @@ function PDFPreview({
           const headers: Record<string, string> = {};
           const token = getAuthToken();
           if (token) headers.Authorization = `Bearer ${token}`;
-          const response = await fetch(href, { credentials: 'include', headers });
-          if (!response.ok) {
-            throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
+          let response = await fetch(href, { credentials: 'include', headers }).catch(() => null);
+          
+          // If fetch fails (often due to CORS with external URLs rejecting Authorization headers),
+          // retry without credentials and headers.
+          if (!response || !response.ok) {
+             response = await fetch(href, { credentials: 'omit' }).catch(() => null);
+          }
+          
+          if (!response || !response.ok) {
+            throw new Error(`Failed to fetch document: ${response?.status} ${response?.statusText}`);
           }
           pdfData = await response.arrayBuffer();
 
@@ -165,7 +172,7 @@ function PDFPreview({
           setImgSrcs(urls);
         }
       } catch (err: any) {
-        console.error('Error rendering PDF thumbnail:', err);
+        console.warn('Preview unavailable (likely external file without CORS):', err?.message || String(err));
         if (active) {
           setError(err?.message || String(err));
         }

@@ -185,9 +185,11 @@ export default function CancelFormDetailClient() {
 
   const handleProceedingsSuccess = (message?: string) => {
     fetchCancelInfo({ replaceRequestOnly: true }); // Reload details
-    // Give the user a moment to see the success confirmation before returning Home
+    // Give the user a moment to see the success confirmation before returning to inbox
     setTimeout(() => {
-      router.push('/');
+      const returnType = searchParams?.get('returnType');
+      const targetPath = returnType ? `/inbox?type=${encodeURIComponent(returnType)}` : '/inbox?type=all';
+      router.push(targetPath);
     }, 1500);
   };
 

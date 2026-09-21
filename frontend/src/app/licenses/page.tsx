@@ -1109,21 +1109,26 @@ function LicenseManagementContent() {
                                     type='button'
                                     disabled={license.status === 'CANCELLED'}
                                     onClick={() =>
-                                      router.push(`/forms/renewal?licenseId=${license.id}`)
+                                      license.renewalApplicationId
+                                        ? router.push(`/renewalApplication/${license.renewalApplicationId}`)
+                                        : router.push(`/forms/renewal?licenseId=${license.id}`)
                                     }
                                     className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                                       license.status === 'CANCELLED'
                                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : license.renewalApplicationId
+                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                                         : 'bg-[#001F54] text-white hover:bg-[#012a73]'
                                     }`}
                                   >
-                                    Renewal
+                                    {license.renewalApplicationId ? 'View Renewal' : 'Renewal'}
                                   </button>
-                                  {license.status === 'CANCELLED' && (
+                                  {(license.status === 'CANCELLED' || license.renewalApplicationId) && (
                                     <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
                                       <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
-                                        This license has been cancelled. No further actions are
-                                        allowed.
+                                        {license.status === 'CANCELLED'
+                                          ? 'This license has been cancelled. No further actions are allowed.'
+                                          : 'This license is already in the renewal process.'}
                                         <div className='absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900' />
                                       </div>
                                     </div>
@@ -1134,21 +1139,26 @@ function LicenseManagementContent() {
                                     type='button'
                                     disabled={license.status === 'CANCELLED'}
                                     onClick={() =>
-                                      router.push(`/cancelForm/new?licenseId=${license.id}`)
+                                      license.cancelApplicationId
+                                        ? router.push(`/cancelForm/${license.cancelApplicationId}`)
+                                        : router.push(`/cancelForm/new?licenseId=${license.id}`)
                                     }
                                     className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                                       license.status === 'CANCELLED'
                                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : license.cancelApplicationId
+                                        ? 'bg-orange-600 text-white hover:bg-orange-700'
                                         : 'bg-red-600 text-white hover:bg-red-700'
                                     }`}
                                   >
-                                    Cancel
+                                    {license.cancelApplicationId ? 'View Cancel' : 'Cancel'}
                                   </button>
-                                  {license.status === 'CANCELLED' && (
+                                  {(license.status === 'CANCELLED' || license.cancelApplicationId) && (
                                     <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
                                       <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
-                                        This license has been cancelled. No further actions are
-                                        allowed.
+                                        {license.status === 'CANCELLED'
+                                          ? 'This license has been cancelled. No further actions are allowed.'
+                                          : 'This license is already in the cancellation process.'}
                                         <div className='absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900' />
                                       </div>
                                     </div>

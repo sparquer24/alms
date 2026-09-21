@@ -166,7 +166,7 @@ const Header = (props: HeaderProps) => {
       } else if (type.key === 'cancel') {
         router.push('/cancelForm/new');
       } else {
-        router.push(`/inbox?type=all?type=${encodeURIComponent(type.key)}`);
+        router.push(`/inbox?type=${encodeURIComponent(type.key)}`);
       }
     } else if (onShowMessage) {
       onShowMessage('This feature will come soon', 'info');

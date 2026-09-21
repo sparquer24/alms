@@ -110,6 +110,8 @@ interface ApplicationDetailPageProps {
 }
 
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
+  const resolvedParams = React.use(params);
+  const applicationId = resolvedParams.id;
   const { isAuthenticated, user, userRole, isLoading: authLoading, initialized } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -118,7 +120,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [application, setApplication] = useState<ApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
-  const [applicationId, setApplicationId] = useState<string | null>(null);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -273,12 +274,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     return currentDisplayApp;
   }, [currentDisplayApp, isRenewalView, activeTab, originDocuments]);
 
-  // Handle params Promise for React 18 compatibility
-  useEffect(() => {
-    params.then(resolvedParams => {
-      setApplicationId(resolvedParams.id);
-    });
-  }, [params]);
+
 
   useEffect(() => {
     if (initialized && !isAuthenticated) {
@@ -602,9 +598,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           /* ignore */
         }
 
-        // Navigate to inbox/forwarded after successful processing
-        setActiveNavigationPath('/inbox/forwarded');
-        await router.push('/inbox/forwarded');
+        // Navigate back to the previous inbox tab or fallback to all
+        const returnType = searchParams?.get('returnType');
+        const targetPath = returnType ? `/inbox?type=${encodeURIComponent(returnType)}` : '/inbox?type=all';
+        setActiveNavigationPath(targetPath);
+        await router.push(targetPath);
       } catch (error) {
         setErrorMessage('Failed to process application. Please try again.');
         throw error;
@@ -644,9 +642,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           /* ignore */
         }
 
-        // Navigate to inbox/forwarded after successful forwarding
-        setActiveNavigationPath('/inbox/forwarded');
-        await router.push('/inbox/forwarded');
+        // Navigate back to the previous inbox tab or fallback to all
+        const returnType = searchParams?.get('returnType');
+        const targetPath = returnType ? `/inbox?type=${encodeURIComponent(returnType)}` : '/inbox?type=all';
+        setActiveNavigationPath(targetPath);
+        await router.push(targetPath);
       } catch (error) {
         setErrorMessage('Failed to forward application. Please try again.');
         throw error;
@@ -742,9 +742,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       /* ignore */
     }
 
-    // Redirect to inbox/all after successful proceedings action
+    // Redirect back to previous inbox tab after successful proceedings action
     setTimeout(() => {
-      router.push('/inbox?type=all');
+      const returnType = searchParams?.get('returnType');
+      const targetPath = returnType ? `/inbox?type=${encodeURIComponent(returnType)}` : '/inbox?type=all';
+      router.push(targetPath);
     }, 2000);
   };
 
@@ -758,8 +760,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }
 
   return (
-    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
-      <Sidebar />
+    <>
+      <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
+        <Sidebar />
       <Header
         showBackButton
         breadcrumbs={[
@@ -793,8 +796,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hidePrint={true}
       />
       <main
-        className='flex-1 ml-0 h-full overflow-y-auto flex flex-col pt-[52px] md:pt-[66px]'
-        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+        className='flex-1 ml-0 h-full overflow-y-auto flex flex-col pt-[72px] md:pt-[86px]'
+        style={headerHeight != null ? { paddingTop: headerHeight + 20 } : undefined}
       >
         <div className='flex-grow w-full mx-auto '>
           {/* Success Message - Fixed Position at Top */}
@@ -2773,6 +2776,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         </div>
       )}
 
+      </div>
+
       {/* Print-Only Layout Component */}
       {printApplication && (
         <div className='hidden print:block print:w-full print:bg-white print:text-black'>
@@ -2860,6 +2865,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }
