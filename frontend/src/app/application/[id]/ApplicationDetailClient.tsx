@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import Footer from '../../../components/Footer';
@@ -182,6 +183,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const isRenewalView =
     searchParams?.get('type') === 'renewal' ||
     (typeof pathname === 'string' && pathname.includes('/renewalApplication'));
+  const isLicenseView = searchParams?.get('type') === 'license';
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
@@ -196,7 +198,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     params.set('tab', nextTab);
     router.replace(`${pathname}?${params.toString()}`);
 
-    // Clear stale data when switching to the Origin tab to prevent showing old content while loading.
     if (nextTab === 'original') {
       setOriginalLicenseData(null);
       setOriginalLicenseLoading(true);
@@ -207,9 +208,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   };
 
-  // Use sidebar counts hook here so we can trigger an immediate refresh
-  // after actions that move an application between inbox buckets.
-  // We pass !loading to give priority to the /application/4 dependence API first.
   const { refreshCounts } = useSidebarCounts(!loading);
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
   const currentDisplayApp = useMemo(() => {
@@ -239,11 +237,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const showFullApplicationDetails =
     !isRenewalView || activeTab === 'info' || activeTab === 'original';
 
-  // Workflow history for the printout: use the same source the on-screen
-  // timeline uses (the separately-fetched `workflowHistory` state / the Origin
-  // tab's `originalLicenseHistory`) rather than application.workflowHistories,
-  // which is often empty for renewals and caused "Application History" to be
-  // missing from the print output.
   const printWorkflowHistory = useMemo(() => {
     if (isRenewalView && activeTab === 'original') {
       return originalLicenseHistory && originalLicenseHistory.length > 0
@@ -255,12 +248,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       : (currentDisplayApp as any)?.workflowHistories || [];
   }, [isRenewalView, activeTab, originalLicenseHistory, workflowHistory, currentDisplayApp]);
 
-  // Base the printout on currentDisplayApp — the same source the on-screen
-  // details panel renders from — so printing the Original License Details
-  // tab prints the license's original data (currentDisplayApp swaps to
-  // originalLicenseData there) instead of always printing the renewal
-  // application's own data regardless of which tab is active. Documents get
-  // the same origin-tab override used by the on-screen Documents table.
   const printApplication = useMemo(() => {
     if (!currentDisplayApp) return null;
     if (
@@ -274,36 +261,39 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     return currentDisplayApp;
   }, [currentDisplayApp, isRenewalView, activeTab, originDocuments]);
 
-
-
   useEffect(() => {
     if (initialized && !isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, initialized, router]);
 
-  // Show header and sidebar like other pages (Settings, etc.)
   useEffect(() => {
     setShowHeader(true);
-    setShowSidebar(false); // Hide sidebar on Application Details page
-
-    // Cleanup: reset sidebar visibility when leaving this page
+    setShowSidebar(false);
     return () => {
       setShowSidebar(true);
     };
   }, [setShowHeader, setShowSidebar]);
 
   useEffect(() => {
-    // Fetch application using shared service which maps workflow history correctly
     const fetchApplication = async () => {
       setLoading(true);
       try {
+        let licenseAppFallback = null;
         if (isRenewalView) {
           const response = await RenewalService.getRenewalForm(applicationId!);
           const renewalData = (response as any)?.data ?? response;
           if (renewalData) {
             setRawRenewalData(renewalData);
             setApplication(normalizeRenewalApplication(renewalData));
+          } else {
+            setApplication(null);
+          }
+        } else if (isLicenseView) {
+          const license = await LicenseService.getLicenseById(Number(applicationId!));
+          if (license) {
+            licenseAppFallback = license;
+            setApplication(license as unknown as ApplicationData);
           } else {
             setApplication(null);
           }
@@ -316,7 +306,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           }
         }
 
-        // Fetch license data for this application
         const fetchLicense = async () => {
           setLicenseLoading(true);
           try {
@@ -881,7 +870,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               renewalId={application.id}
               acknowledgementNo={application.acknowledgementNo}
               licenseId={originalLicenseData?.id ?? rawRenewalData?.licenseId}
-              licenseNumber={originalLicenseData?.licenseNumber}
+              licenseNumber={originalLicenseData?.licenseNumber || rawRenewalData?.licenses?.licenseNumber || rawRenewalData?.Licenses?.licenseNumber || rawRenewalData?.licenseNumber}
               activeTab={activeTab === 'original' ? 'Original License Details' : 'Renewal Info'}
               onTabChange={handleTabChange}
             />
@@ -1673,21 +1662,32 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 License Record
                               </h3>
                             </div>
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                                licenseData.status === 'ACTIVE'
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : licenseData.status === 'EXPIRED'
-                                    ? 'bg-red-100 text-red-700'
-                                    : licenseData.status === 'CANCELLED'
-                                      ? 'bg-slate-100 text-slate-700'
-                                      : licenseData.status === 'SUSPENDED'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-rose-100 text-rose-700'
-                              }`}
-                            >
-                              {licenseData.status}
-                            </span>
+                            <div className='flex items-center gap-3'>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                  licenseData.status === 'ACTIVE'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : licenseData.status === 'EXPIRED'
+                                      ? 'bg-red-100 text-red-700'
+                                      : licenseData.status === 'CANCELLED'
+                                        ? 'bg-slate-100 text-slate-700'
+                                        : licenseData.status === 'SUSPENDED'
+                                          ? 'bg-amber-100 text-amber-700'
+                                          : 'bg-rose-100 text-rose-700'
+                                }`}
+                              >
+                                {licenseData.status}
+                              </span>
+                              <Link
+                                href={`/application/${licenseData.id}?type=license`}
+                                className='px-4 py-1.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-2'
+                              >
+                                View License Details
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </Link>
+                            </div>
                           </div>
                           <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
                             <div className='space-y-4'>

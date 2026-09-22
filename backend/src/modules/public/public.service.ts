@@ -14,79 +14,114 @@ export class PublicService {
      * Returns sanitized application data suitable for public viewing via QR code scan
      */
     async getPublicApplicationDetails(
-        applicationId: number,
+        identifier: string | number,
         type?: string
     ): Promise<[any | null, any | null]> {
         try {
-            if (type === 'renewal') {
-                const application = await prisma.renewalFormPersonalDetails.findUnique({
-                    where: { id: applicationId },
-                    include: {
-                        workflowStatus: {
-                            select: {
-                                id: true,
-                                code: true,
-                                name: true,
-                            },
-                        },
-                        permanentAddress: {
-                            include: {
-                                state: { select: { id: true, name: true } },
-                                district: { select: { id: true, name: true } },
-                                policeStation: { select: { id: true, name: true } },
-                            },
-                        },
-                        presentAddress: {
-                            include: {
-                                state: { select: { id: true, name: true } },
-                                district: { select: { id: true, name: true } },
-                                policeStation: { select: { id: true, name: true } },
-                            },
-                        },
-                        licenseDetails: {
-                            include: {
-                                requestedWeapons: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        description: true,
-                                    },
-                                },
-                            },
-                        },
-                        fileUploads: {
-                            where: {
-                                fileType: 'PHOTOGRAPH',
-                            },
-                            orderBy: {
-                                uploadedAt: 'desc',
-                            },
-                            take: 1,
-                        },
-                    },
-                });
+            const strIdentifier = String(identifier).trim();
+            const idNum = Number(strIdentifier);
+            const isId = !isNaN(idNum) && /^\d+$/.test(strIdentifier);
 
-                if (!application) {
-                    return ['Application not found', null];
+            const renewalWhere: any = isId
+                ? { OR: [{ id: idNum }, { acknowledgementNo: strIdentifier }, { renewalLicenseId: strIdentifier }] }
+                : { OR: [{ acknowledgementNo: strIdentifier }, { renewalLicenseId: strIdentifier }] };
+
+            const freshWhere: any = isId
+                ? { OR: [{ id: idNum }, { acknowledgementNo: strIdentifier }, { almsLicenseId: strIdentifier }] }
+                : { OR: [{ acknowledgementNo: strIdentifier }, { almsLicenseId: strIdentifier }] };
+
+            const cancelWhere: any = isId
+                ? { OR: [{ id: idNum }, { acknowledgementNo: strIdentifier }] }
+                : { acknowledgementNo: strIdentifier };
+
+            const licenseWhere: any = isId
+                ? { OR: [{ id: idNum }, { licenseNumber: strIdentifier }, { almsLicenseId: strIdentifier }] }
+                : { OR: [{ licenseNumber: strIdentifier }, { almsLicenseId: strIdentifier }] };
+
+            const fetchRenewal = async () => prisma.renewalFormPersonalDetails.findFirst({
+                where: renewalWhere,
+                include: {
+                    workflowStatus: { select: { id: true, code: true, name: true } },
+                    permanentAddress: { include: { state: { select: { id: true, name: true } }, district: { select: { id: true, name: true } }, policeStation: { select: { id: true, name: true } } } },
+                    presentAddress: { include: { state: { select: { id: true, name: true } }, district: { select: { id: true, name: true } }, policeStation: { select: { id: true, name: true } } } },
+                    licenseDetails: { include: { requestedWeapons: { select: { id: true, name: true, description: true } } } },
+                    fileUploads: { where: { fileType: 'PHOTOGRAPH' }, orderBy: { uploadedAt: 'desc' }, take: 1 },
+                },
+            });
+
+            const fetchFresh = async () => prisma.freshLicenseApplicationPersonalDetails.findFirst({
+                where: freshWhere,
+                include: {
+                    workflowStatus: { select: { id: true, code: true, name: true } },
+                    permanentAddress: { include: { state: { select: { id: true, name: true } }, district: { select: { id: true, name: true } }, policeStation: { select: { id: true, name: true } } } },
+                    presentAddress: { include: { state: { select: { id: true, name: true } }, district: { select: { id: true, name: true } }, policeStation: { select: { id: true, name: true } } } },
+                    licenseDetails: { include: { requestedWeapons: { select: { id: true, name: true, description: true } } } },
+                    fileUploads: { where: { fileType: 'PHOTOGRAPH' }, orderBy: { uploadedAt: 'desc' }, take: 1 },
+                },
+            });
+
+            const fetchCancel = async () => prisma.cancelFormRequests.findFirst({
+                where: cancelWhere,
+                include: {
+                    workflowStatus: { select: { id: true, code: true, name: true } },
+                    state: { select: { id: true, name: true } }
+                }
+            });
+
+            const fetchLicense = async () => prisma.licenses.findFirst({
+                where: licenseWhere,
+                include: {
+                    endorsedWeapons: { select: { id: true, name: true, description: true } }
+                }
+            });
+
+            const formatData = (application: any, typeInfo: string) => {
+                if (typeInfo === 'cancel') {
+                    return {
+                        applicationId: application.id,
+                        acknowledgementNo: application.acknowledgementNo,
+                        almsLicenseId: null,
+                        applicantName: application.applicantName || 'Unknown',
+                        applicationStatus: application.workflowStatus?.name || 'Unknown',
+                        statusCode: application.workflowStatus?.code || null,
+                        presentState: application.state?.name || null,
+                        submittedDate: application.createdAt,
+                        lastUpdatedDate: application.updatedAt,
+                        applicationType: 'Cancellation Request'
+                    };
+                }
+                
+                if (typeInfo === 'license') {
+                    return {
+                        applicationId: application.id,
+                        acknowledgementNo: null,
+                        almsLicenseId: application.almsLicenseId || application.licenseNumber,
+                        applicantName: `${application.firstName} ${application.middleName || ''} ${application.lastName}`.trim(),
+                        sex: application.sex,
+                        dateOfBirth: application.dateOfBirth,
+                        applicationStatus: application.status || 'ACTIVE',
+                        licenseDetails: [{
+                            armsCategory: application.armsCategory,
+                            areaOfValidity: application.areaOfValidity,
+                            ammunitionDescription: application.ammunitionDescription,
+                            requestedWeapons: application.endorsedWeapons?.map((w: any) => ({ name: w.name, description: w.description }))
+                        }],
+                        submittedDate: application.createdAt,
+                        lastUpdatedDate: application.updatedAt,
+                        applicationType: 'Issued License'
+                    };
                 }
 
+                // Fresh or Renewal
                 const photoUpload = application.fileUploads?.[0];
-                const photoUrl = photoUpload?.fileUrl || null;
-
-                const publicData = {
+                return {
                     applicationId: application.id,
                     acknowledgementNo: application.acknowledgementNo,
-                    almsLicenseId: application.renewalLicenseId || null,
-
-                    // Applicant Basic Info (limited)
+                    almsLicenseId: typeInfo === 'renewal' ? (application.renewalLicenseId || null) : application.almsLicenseId,
                     applicantName: `${application.firstName} ${application.middleName || ''} ${application.lastName}`.trim(),
                     sex: application.sex,
                     dateOfBirth: application.dateOfBirth,
-
-                    // Photo URL
-                    photoUrl: photoUrl,
-
-                    // Application Status
+                    photoUrl: photoUpload?.fileUrl || null,
                     applicationStatus: application.workflowStatus?.name || 'Unknown',
                     statusCode: application.workflowStatus?.code || null,
                     isApproved: application.isApproved,
@@ -94,134 +129,64 @@ export class PublicService {
                     isPending: application.isPending,
                     isRecommended: application.isRecommended,
                     isNotRecommended: application.isNotRecommended,
-
-                    // License Details (public info only)
                     licenseDetails: application.licenseDetails?.map((ld: any) => ({
                         needForLicense: ld.needForLicense,
                         armsCategory: ld.armsCategory,
                         areaOfValidity: ld.areaOfValidity,
                         ammunitionDescription: ld.ammunitionDescription,
-                        requestedWeapons: ld.requestedWeapons?.map((w: any) => ({
-                            name: w.name,
-                            description: w.description,
-                        })),
+                        requestedWeapons: ld.requestedWeapons?.map((w: any) => ({ name: w.name, description: w.description })),
                     })),
-
-                    // Basic Location (State & District only, no full address)
                     presentState: application.presentAddress?.state?.name || null,
                     presentDistrict: application.presentAddress?.district?.name || null,
                     permanentState: application.permanentAddress?.state?.name || null,
                     permanentDistrict: application.permanentAddress?.district?.name || null,
-
-                    // Timestamps
                     submittedDate: application.createdAt,
                     lastUpdatedDate: application.updatedAt,
+                    applicationType: typeInfo === 'renewal' ? 'Renewal Application' : 'Fresh Application'
                 };
+            };
 
-                return [null, publicData];
+            let appData = null;
+            let foundType = '';
+
+            if (type === 'renewal') {
+                appData = await fetchRenewal();
+                foundType = 'renewal';
+            } else if (type === 'fresh') {
+                appData = await fetchFresh();
+                foundType = 'fresh';
+            } else if (type === 'cancel') {
+                appData = await fetchCancel();
+                foundType = 'cancel';
+            } else if (type === 'license') {
+                appData = await fetchLicense();
+                foundType = 'license';
+            } else {
+                // Try sequentially
+                appData = await fetchFresh();
+                if (appData) foundType = 'fresh';
+                
+                if (!appData) {
+                    appData = await fetchRenewal();
+                    if (appData) foundType = 'renewal';
+                }
+                
+                if (!appData) {
+                    appData = await fetchCancel();
+                    if (appData) foundType = 'cancel';
+                }
+                
+                if (!appData) {
+                    appData = await fetchLicense();
+                    if (appData) foundType = 'license';
+                }
             }
 
-            // Default: Fresh Application
-            const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-                where: { id: applicationId },
-                include: {
-                    workflowStatus: {
-                        select: {
-                            id: true,
-                            code: true,
-                            name: true,
-                        },
-                    },
-                    permanentAddress: {
-                        include: {
-                            state: { select: { id: true, name: true } },
-                            district: { select: { id: true, name: true } },
-                            policeStation: { select: { id: true, name: true } },
-                        },
-                    },
-                    presentAddress: {
-                        include: {
-                            state: { select: { id: true, name: true } },
-                            district: { select: { id: true, name: true } },
-                            policeStation: { select: { id: true, name: true } },
-                        },
-                    },
-                    licenseDetails: {
-                        include: {
-                            requestedWeapons: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    description: true,
-                                },
-                            },
-                        },
-                    },
-                    fileUploads: {
-                        where: {
-                            fileType: 'PHOTOGRAPH',
-                        },
-                        orderBy: {
-                            uploadedAt: 'desc',
-                        },
-                        take: 1,
-                    },
-                },
-            });
-
-            if (!application) {
+            if (!appData) {
                 return ['Application not found', null];
             }
 
-            const photoUpload = application.fileUploads?.[0];
-            const photoUrl = photoUpload?.fileUrl || null;
-
-            const publicData = {
-                applicationId: application.id,
-                acknowledgementNo: application.acknowledgementNo,
-                almsLicenseId: application.almsLicenseId,
-
-                // Applicant Basic Info (limited)
-                applicantName: `${application.firstName} ${application.middleName || ''} ${application.lastName}`.trim(),
-                sex: application.sex,
-                dateOfBirth: application.dateOfBirth,
-
-                // Photo URL
-                photoUrl: photoUrl,
-
-                // Application Status
-                applicationStatus: application.workflowStatus?.name || 'Unknown',
-                statusCode: application.workflowStatus?.code || null,
-                isApproved: application.isApproved,
-                isRejected: application.isRejected,
-                isPending: application.isPending,
-                isRecommended: application.isRecommended,
-                isNotRecommended: application.isNotRecommended,
-
-                // License Details (public info only)
-                licenseDetails: application.licenseDetails?.map((ld: any) => ({
-                    needForLicense: ld.needForLicense,
-                    armsCategory: ld.armsCategory,
-                    areaOfValidity: ld.areaOfValidity,
-                    ammunitionDescription: ld.ammunitionDescription,
-                    requestedWeapons: ld.requestedWeapons?.map((w: any) => ({
-                        name: w.name,
-                        description: w.description,
-                    })),
-                })),
-
-                // Basic Location (State & District only, no full address)
-                presentState: application.presentAddress?.state?.name || null,
-                presentDistrict: application.presentAddress?.district?.name || null,
-                permanentState: application.permanentAddress?.state?.name || null,
-                permanentDistrict: application.permanentAddress?.district?.name || null,
-
-                // Timestamps
-                submittedDate: application.createdAt,
-                lastUpdatedDate: application.updatedAt,
-            };
-
-            return [null, publicData];
+            return [null, formatData(appData, foundType)];
         } catch (error: any) {
             console.error('[PublicService] Error fetching public application details:', error);
             return [error?.message || 'Failed to fetch application details', null];

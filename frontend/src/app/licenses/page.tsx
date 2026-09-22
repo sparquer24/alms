@@ -66,7 +66,6 @@ const auditColumns = [
 ];
 
 const columns = [
-  'License ID',
   'License Number',
   'License Holder Name',
   'Expiry Date',
@@ -87,7 +86,6 @@ const columns = [
 ];
 
 const columnWidths: Record<string, string> = {
-  'License ID': 'w-[90px] min-w-[90px]',
   'License Number': 'w-[250px] min-w-[250px]',
   'License Holder Name': 'w-[220px] min-w-[220px]',
   'Expiry Date': 'w-[150px] min-w-[150px]',
@@ -188,7 +186,6 @@ const getExpiryState = (license: LicenseData) => {
 };
 
 const mapLicenseToRow = (license: LicenseData) => ({
-  'License ID': license.id,
   'License Number': license.licenseNumber,
   'License Holder Name': getFullName(license),
   'Father/Guardian Name': license.parentOrSpouseName || '-',

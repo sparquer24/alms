@@ -103,15 +103,10 @@ export class PublicController {
         @Query('type') type?: string
     ) {
         try {
-            const applicationIdNum = parseInt(applicationId, 10);
-            if (isNaN(applicationIdNum)) {
-                throw new HttpException(
-                    { success: false, error: 'Invalid application ID format' },
-                    HttpStatus.BAD_REQUEST
-                );
-            }
+            // Support both numeric IDs and alphanumeric tracking numbers
+            const parsedId = /^\d+$/.test(applicationId) ? parseInt(applicationId, 10) : applicationId;
 
-            const [error, result] = await this.publicService.getPublicApplicationDetails(applicationIdNum, type);
+            const [error, result] = await this.publicService.getPublicApplicationDetails(parsedId, type);
 
             if (error) {
                 const errorMessage = typeof error === 'object' && (error as any).message ? (error as any).message : error;

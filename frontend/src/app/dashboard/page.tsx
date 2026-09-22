@@ -1807,19 +1807,28 @@ export default function UniversalDashboard() {
 
               {lookupResult && (
                 <div className="mt-4 p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3 text-xs">
-                  <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-                    <span className="font-bold text-gray-900">{lookupResult.acknowledgementNo || `ID #${lookupResult.applicationId}`}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        lookupResult.isApproved
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : lookupResult.isRejected
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {lookupResult.applicationStatus || 'In Process'}
-                    </span>
+                  <div className="flex flex-col gap-2 border-b border-gray-200 pb-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-gray-900">{lookupResult.acknowledgementNo || lookupResult.almsLicenseId || `ID #${lookupResult.applicationId}`}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          lookupResult.isApproved
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : lookupResult.isRejected
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {lookupResult.applicationStatus || 'In Process'}
+                      </span>
+                    </div>
+                    {lookupResult.applicationType && (
+                      <div>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0F2D52]/10 text-[#0F2D52]">
+                          {lookupResult.applicationType}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-gray-600">
@@ -1829,18 +1838,38 @@ export default function UniversalDashboard() {
                     </div>
                     <div>
                       <span className="block text-[10px] text-gray-400 uppercase">District</span>
-                      <span className="font-medium text-gray-800">{lookupResult.permanentAddress?.district || 'Registered District'}</span>
+                      <span className="font-medium text-gray-800">{lookupResult.permanentDistrict || lookupResult.presentDistrict || 'Registered District'}</span>
                     </div>
                     <div>
                       <span className="block text-[10px] text-gray-400 uppercase">Submission Date</span>
                       <span className="font-medium text-gray-800">
-                        {lookupResult.createdAt ? new Date(lookupResult.createdAt).toLocaleDateString() : 'Recorded'}
+                        {lookupResult.submittedDate ? new Date(lookupResult.submittedDate).toLocaleDateString() : 'Recorded'}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] text-gray-400 uppercase">Police Station</span>
-                      <span className="font-medium text-gray-800">{lookupResult.permanentAddress?.policeStation || 'Jurisdictional PS'}</span>
+                      <span className="block text-[10px] text-gray-400 uppercase">State</span>
+                      <span className="font-medium text-gray-800">{lookupResult.permanentState || lookupResult.presentState || 'Registered State'}</span>
                     </div>
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
+                    <button
+                      onClick={() => {
+                        if (lookupResult.applicationType === 'Cancellation Request') {
+                          router.push(`/cancelForm/${lookupResult.applicationId}`);
+                        } else {
+                          let typeParam = 'fresh';
+                          if (lookupResult.applicationType === 'Renewal Application') typeParam = 'renewal';
+                          else if (lookupResult.applicationType === 'Issued License') typeParam = 'license';
+                          
+                          router.push(`/application/${lookupResult.applicationId}?type=${typeParam}`);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#0F2D52] text-white hover:bg-[#1A365D] transition-colors"
+                    >
+                      View Full Details
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               )}

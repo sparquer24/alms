@@ -36,10 +36,11 @@ export default function RenewalApplicationDetailsHeader({
   const isOriginTab = activeTab === 'Original License Details';
 
   const subtitleParts: string[] = [];
+  
+  if (licenseNumber) subtitleParts.push(`License Number: ${licenseNumber}`);
+  
   if (isOriginTab) {
-    // Original License Details tab — show license info
-    if (licenseId) subtitleParts.push(`License ID: ${licenseId}`);
-    if (licenseNumber) subtitleParts.push(`License Number: ${licenseNumber}`);
+    // Original License Details tab — (License Number is shown above)
   } else {
     // Non-origin tab (Renewal Info / Cancellation Info) — show request ID and acknowledgement
     if (applicationId) subtitleParts.push(`Request ID: ${applicationId}`);

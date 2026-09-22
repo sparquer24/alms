@@ -2,14 +2,23 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
 
 export class CreateCancelRequestDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'ID of the License application to cancel',
     example: 1,
     type: Number,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
-  licenseId!: number;
+  licenseId?: number;
+
+  @ApiPropertyOptional({
+    description: 'License number of the License application to cancel',
+    example: 'LUAN2026...',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  licenseNumber?: string;
   
   @IsNotEmpty()
   @IsString()

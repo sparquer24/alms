@@ -484,13 +484,19 @@ export default function SubmitCancelForm() {
 
     try {
       setLoading(true);
-      const payload = {
-        licenseId: Number(formData.licenseId),
+      const isNumeric = /^\d+$/.test(formData.licenseId);
+      const payload: any = {
         applicationType: 'Cancel Application', // Always matching request payload format "Cancel Application"
         applicantName: applicantDetails?.name || '',
         cancellationReason: formData.cancellationReason,
         remarks: formData.remarks
       };
+
+      if (isNumeric) {
+        payload.licenseId = Number(formData.licenseId);
+      } else {
+        payload.licenseNumber = formData.licenseId;
+      }
 
       await CancelService.createCancelRequest(payload);
       toast.success('Cancellation request submitted successfully');

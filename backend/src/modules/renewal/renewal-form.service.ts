@@ -1337,54 +1337,61 @@ export class RenewalFormService {
         });
 
         // Create merge audit log
-        // Create Licenses master record from approved fresh license
-        let createdLicense: any = null;
+        // Update existing Licenses master record instead of creating a new one
+        let createdLicense: any = null; // keeping variable name for compatibility
         try {
-          const licenseDetail = freshLicense.licenseDetails?.[0];
-          const licenseData: any = {
-            licenseNumber: `LIC-${Date.now()}-${licenseId}`,
-            issueDate: new Date(),
-            firstName: freshLicense.firstName,
-            middleName: freshLicense.middleName,
-            lastName: freshLicense.lastName,
-            parentOrSpouseName: freshLicense.parentOrSpouseName,
-            sex: freshLicense.sex,
-            dateOfBirth: freshLicense.dateOfBirth,
-            placeOfBirth: freshLicense.placeOfBirth,
-            aadharNumber: freshLicense.aadharNumber,
-            panNumber: freshLicense.panNumber,
-            validFrom: new Date(),
-            validTill: new Date(new Date().setFullYear(new Date().getFullYear() + 5)),
-            armsCategory: licenseDetail?.armsCategory,
-            areaOfValidity: licenseDetail?.areaOfValidity,
-            ammunitionDescription: licenseDetail?.ammunitionDescription,
-            licencePlaceArea: licenseDetail?.licencePlaceArea,
-            specialConsiderationReason: licenseDetail?.specialConsiderationReason,
-            needForLicense: licenseDetail?.needForLicense,
-            presentAddressLine: freshLicense.presentAddress?.addressLine,
-            presentStateId: freshLicense.presentAddress?.stateId,
-            presentDistrictId: freshLicense.presentAddress?.districtId,
-            presentPoliceStationId: freshLicense.presentAddress?.policeStationId,
-            presentZoneId: freshLicense.presentAddress?.zoneId,
-            presentDivisionId: freshLicense.presentAddress?.divisionId,
-            presentRangeOfficeId: freshLicense.presentAddress?.rangeOfficeId,
-            permanentAddressLine: freshLicense.permanentAddress?.addressLine,
-            permanentStateId: freshLicense.permanentAddress?.stateId,
-            permanentDistrictId: freshLicense.permanentAddress?.districtId,
-            permanentPoliceStationId: freshLicense.permanentAddress?.policeStationId,
-            permanentZoneId: freshLicense.permanentAddress?.zoneId,
-            permanentDivisionId: freshLicense.permanentAddress?.divisionId,
-            permanentRangeOfficeId: freshLicense.permanentAddress?.rangeOfficeId,
-            occupation: freshLicense.occupationAndBusiness?.occupation,
-            officeAddress: freshLicense.occupationAndBusiness?.officeAddress,
-            freshApplicationId: licenseId,
-            issuedBy: currentUserId,
-          };
+          const targetLicenseId = renewalLicense.licenseId;
 
-          createdLicense = await tx.licenses.create({ data: licenseData });
-          mergedFields.push('licenseCreated');
+          if (!targetLicenseId) {
+            throw new Error(`Renewal license ${renewalLicenseId} does not have a linked master licenseId.`);
+          }
+
+          const existingLicense = await tx.licenses.findUnique({
+            where: { id: targetLicenseId }
+          });
+
+          if (!existingLicense) {
+            throw new Error(`Master license not found for ID: ${targetLicenseId}`);
+          }
+
+          const newValidTill = new Date(existingLicense.validTill || new Date());
+          newValidTill.setFullYear(newValidTill.getFullYear() + 2);
+
+          const licenseDetail = freshLicense.licenseDetails?.[0];
+
+          createdLicense = await tx.licenses.update({
+            where: { id: existingLicense.id },
+            data: {
+              validTill: newValidTill,
+              status: 'ACTIVE',
+              armsCategory: licenseDetail?.armsCategory,
+              areaOfValidity: licenseDetail?.areaOfValidity,
+              ammunitionDescription: licenseDetail?.ammunitionDescription,
+              licencePlaceArea: licenseDetail?.licencePlaceArea,
+              specialConsiderationReason: licenseDetail?.specialConsiderationReason,
+              needForLicense: licenseDetail?.needForLicense,
+              presentAddressLine: freshLicense.presentAddress?.addressLine,
+              presentStateId: freshLicense.presentAddress?.stateId,
+              presentDistrictId: freshLicense.presentAddress?.districtId,
+              presentPoliceStationId: freshLicense.presentAddress?.policeStationId,
+              presentZoneId: freshLicense.presentAddress?.zoneId,
+              presentDivisionId: freshLicense.presentAddress?.divisionId,
+              presentRangeOfficeId: freshLicense.presentAddress?.rangeOfficeId,
+              permanentAddressLine: freshLicense.permanentAddress?.addressLine,
+              permanentStateId: freshLicense.permanentAddress?.stateId,
+              permanentDistrictId: freshLicense.permanentAddress?.districtId,
+              permanentPoliceStationId: freshLicense.permanentAddress?.policeStationId,
+              permanentZoneId: freshLicense.permanentAddress?.zoneId,
+              permanentDivisionId: freshLicense.permanentAddress?.divisionId,
+              permanentRangeOfficeId: freshLicense.permanentAddress?.rangeOfficeId,
+              occupation: freshLicense.occupationAndBusiness?.occupation,
+              officeAddress: freshLicense.occupationAndBusiness?.officeAddress,
+            }
+          });
+
+          mergedFields.push('licenseUpdated');
         } catch (createLicenseError: any) {
-          // If license creation fails, continue to create audit log but transaction will rollback on error propagation
+          // If license update fails, continue to create audit log but transaction will rollback on error propagation
           createdLicense = null;
         }
 
