@@ -82,6 +82,11 @@ export interface ApplicationTableProps {
   applicationTypeFilter?: string;
   onApplicationTypeFilterChange?: (filter: string) => void;
   hideControls?: boolean;
+  // External pagination props (optional). If not provided, it handles pagination locally.
+  currentPage?: number;
+  totalPages?: number;
+  totalItems?: number;
+  onPageChange?: (page: number) => void;
 }
 
 const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableProps>(
@@ -101,6 +106,10 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
       applicationTypeFilter: externalApplicationTypeFilter,
       onApplicationTypeFilterChange,
       hideControls = false,
+      currentPage: externalCurrentPage,
+      totalPages: externalTotalPages,
+      totalItems: externalTotalItems,
+      onPageChange: externalOnPageChange,
     },
     ref
   ) => {
@@ -170,6 +179,39 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
 
       return filtered;
     }, [baseApplications, searchQuery, applicationTypeFilter]);
+
+    // --- Pagination Logic ---
+    const [localCurrentPage, setLocalCurrentPage] = useState(1);
+    const pageSize = 15;
+    
+    // If external pagination is provided, use it. Otherwise, use local.
+    const isExternalPagination = externalCurrentPage !== undefined;
+    const currentPage = isExternalPagination ? externalCurrentPage : localCurrentPage;
+    
+    const totalItems = isExternalPagination && externalTotalItems !== undefined 
+      ? externalTotalItems 
+      : effectiveApplications.length;
+      
+    const totalPages = isExternalPagination && externalTotalPages !== undefined
+      ? externalTotalPages
+      : Math.max(1, Math.ceil(totalItems / pageSize));
+      
+    const handlePageChange = (page: number) => {
+      if (externalOnPageChange) {
+        externalOnPageChange(page);
+      } else {
+        setLocalCurrentPage(page);
+      }
+    };
+    
+    // Slice data ONLY if we are using local pagination.
+    const paginatedApplications = React.useMemo(() => {
+      if (isExternalPagination) {
+        return effectiveApplications; // Parent already sliced it
+      }
+      const startIndex = (currentPage - 1) * pageSize;
+      return effectiveApplications.slice(startIndex, startIndex + pageSize);
+    }, [effectiveApplications, currentPage, pageSize, isExternalPagination]);
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -575,11 +617,11 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
                   </td>
                 </tr>
               ) : (
-                effectiveApplications.map((app, index) => (
+                paginatedApplications.map((app, index) => (
                   <TableRow
                     key={`${app.id}-${index}`}
                     app={app}
-                    index={index}
+                    index={(currentPage - 1) * pageSize + index}
                     handleViewApplication={handleViewApplication}
                     handleEditDraft={handleEditDraft}
                     isDraftsPage={isDraftsPage}
@@ -596,6 +638,61 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Container */}
+        {totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-slate-200 bg-white flex-shrink-0 flex items-center justify-between">
+            <div className="text-sm text-slate-500 font-medium">
+              Showing <span className="text-slate-800 font-semibold">{Math.min((currentPage - 1) * pageSize + 1, totalItems)}</span> to <span className="text-slate-800 font-semibold">{Math.min(currentPage * pageSize, totalItems)}</span> of <span className="text-slate-800 font-semibold">{totalItems}</span> entries
+            </div>
+            <div className="flex space-x-1.5">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              
+              {(() => {
+                const pages = [];
+                const maxPages = 5;
+                let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
+                let endPage = startPage + maxPages - 1;
+                
+                if (endPage > totalPages) {
+                  endPage = totalPages;
+                  startPage = Math.max(1, endPage - maxPages + 1);
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(
+                    <button
+                      key={i}
+                      onClick={() => handlePageChange(i)}
+                      className={`min-w-[32px] px-2 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        i === currentPage
+                          ? 'bg-[#001F54] text-white border border-[#001F54]'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
+                    >
+                      {i}
+                    </button>
+                  );
+                }
+                return pages;
+              })()}
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

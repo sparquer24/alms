@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { ApplicationData } from '../types';
 import { CheckIcon, ForwardIcon, RejectIcon, ReturnIcon, FlagIcon, DisposeIcon, ReviewIcon, PendingIcon } from '../utils/icons';
+import { RichTextDisplay } from './RichTextDisplay';
 
 // Local date helpers to replace missing '../utils/dateUtils'
 function formatDate(input: string | number | Date): string {
@@ -65,6 +66,15 @@ const TimelineEventItem: React.FC<{ event: TimelineEvent; isLast: boolean }> = (
               <span>{event.time}</span>
             </div>
           </div>
+
+          {event.description && event.description !== 'No remarks provided.' && (
+            <div className="mt-1.5 bg-slate-50/50 p-2 rounded border border-slate-100 font-medium">
+              <span className="font-bold text-slate-500 mr-1 text-[10.5px]">Remarks:</span>
+              <div className="mt-1">
+                <RichTextDisplay content={event.description} className="text-[10.5px] leading-relaxed text-slate-700" />
+              </div>
+            </div>
+          )}
 
           {event.attachments && event.attachments.length > 0 && (
              <div className="mt-1 flex flex-wrap gap-1">
@@ -195,12 +205,7 @@ const EnhancedApplicationTimeline: React.FC<EnhancedApplicationTimelineProps> = 
   }, [application, workflowHistory]);
 
   const displayEvents = useMemo(() => {
-    if (!timelineEvents || timelineEvents.length <= 3) return timelineEvents || [];
-    return [
-      timelineEvents[0],
-      timelineEvents[timelineEvents.length - 2],
-      timelineEvents[timelineEvents.length - 1]
-    ];
+    return timelineEvents || [];
   }, [timelineEvents]);
 
   if (!displayEvents || displayEvents.length === 0) {

@@ -9,6 +9,7 @@ export type AdminMenuItemKey =
     | 'dashboard'
     | 'userManagement'
     | 'roleMapping'
+    | 'permissions'
     | 'flowMapping'
     | 'locationsManagement'
     | 'actionMapping';
@@ -46,26 +47,33 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
         path: '/admin/roleMapping',
         order: 3,
     },
+    permissions: {
+        name: 'permissions',
+        key: 'permissions',
+        label: 'Permissions',
+        path: '/admin/permissions',
+        order: 4,
+    },
     flowMapping: {
         name: 'flowMapping',
         key: 'flowMapping',
         label: 'Flow Mapping',
         path: '/admin/flowMapping',
-        order: 4,
+        order: 5,
     },
     locationsManagement: {
         name: 'locationsManagement',
         key: 'locationsManagement',
         label: 'Locations Management',
         path: '/admin/locationsManagement',
-        order: 5,
+        order: 6,
     },
     actionMapping: {
         name: 'actionMapping',
         key: 'actionMapping',
         label: 'Action Mapping',
         path: '/admin/actionMapping',
-        order: 6,
+        order: 7,
     },
 };
 
@@ -128,12 +136,15 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'rolesmanagement': 'roleMapping',
         'roles_management': 'roleMapping',
         'roles-management': 'roleMapping',
+        'permissions': 'permissions',
+        'permission': 'permissions',
+        'permission_management': 'permissions',
+        'permission-management': 'permissions',
+        'permissionmanagement': 'permissions',
+        'permissionsmanagement': 'permissions',
         'flowmapping': 'flowMapping',
         'flow_mapping': 'flowMapping',
         'flow-mapping': 'flowMapping',
-        // 'flowmanagement': 'flowMapping',
-        // 'flow_management': 'flowMapping',
-        // 'flow-management': 'flowMapping',
         'flowmap': 'flowMapping',
         'flow': 'flowMapping',
         'locationsmanagement': 'locationsManagement',

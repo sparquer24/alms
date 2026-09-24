@@ -131,6 +131,20 @@ model Roles {
   users                          Users[]
 }
 
+// Definitions of individual permission flags (the keys used inside Roles.permissions'
+// JSON blob). This table is the catalog of what a permission IS (key/label/category);
+// whether a given role actually HAS a permission is still tracked on Roles.permissions.
+model Permissions {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  label       String
+  category    String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model RolesActionsMapping {
   id              Int                      @id @default(autoincrement())
   roleId          Int

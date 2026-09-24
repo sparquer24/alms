@@ -655,7 +655,7 @@ export default function FlowMappingContent() {
           }
         />
 
-        <div className="flex-grow min-h-0 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex-grow min-h-0 overflow-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* Main Form Card */}
         <AdminCard title='Configure Workflow Mapping'>

@@ -12,6 +12,7 @@ import {
   AdminErrorAlert,
   AdminErrorBoundary,
 } from '@/components/admin';
+import { AdminDataTable, Column } from '@/components/tables/AdminDataTable';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout } from '@/styles/admin-design-system';
 
@@ -35,6 +36,8 @@ const UserListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [dismissedError, setDismissedError] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   // Fetch users with React Query
   const {
@@ -87,6 +90,7 @@ const UserListPage: React.FC = () => {
   const handleClearFilters = () => {
     setSearchQuery('');
     setRoleFilter('');
+    setCurrentPage(1);
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -107,6 +111,30 @@ const UserListPage: React.FC = () => {
         return colors.text.secondary;
     }
   };
+
+  const columns: Column<User>[] = [
+    { key: 'username', header: 'Username' },
+    { key: 'email', header: 'Email' },
+    { key: 'role', header: 'Role' },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (value: any, user: User) => (
+        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          user.status === 'active' ? 'bg-green-100 text-green-800' :
+          user.status === 'inactive' ? 'bg-gray-100 text-gray-600' :
+          'bg-red-100 text-red-800'
+        }`}>
+          {user.status}
+        </span>
+      ),
+    },
+    { key: 'stateId', header: 'State', render: (v, u) => u.stateId || '—' },
+    { key: 'districtId', header: 'District', render: (v, u) => u.districtId || '—' },
+    { key: 'policeStationId', header: 'Station', render: (v, u) => u.policeStationId || '—' },
+    { key: 'zoneId', header: 'Zone', render: (v, u) => u.zoneId || '—' },
+    { key: 'divisionId', header: 'Division', render: (v, u) => u.divisionId || '—' },
+  ];
 
   return (
     <AdminErrorBoundary>
@@ -183,72 +211,28 @@ const UserListPage: React.FC = () => {
             <p className='text-gray-500 text-sm'>No users found matching your criteria.</p>
           </div>
         ) : (
-          <div className='bg-white rounded-lg border border-gray-200 overflow-hidden'>
-            <div className='overflow-x-auto'>
-              <table className='w-full text-left border-collapse'>
-                <thead>
-                  <tr className='bg-gray-50 border-b border-gray-200'>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>Username</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>Email</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>Role</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>Status</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>State</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>District</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>Station</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>Zone</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider'>Division</th>
-                    <th scope='col' className='px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider text-center'>Actions</th>
-                  </tr>
-                </thead>
-                <tbody className='divide-y divide-gray-100'>
-                  {filteredUsers.map(user => (
-                    <tr key={user.id} className='hover:bg-gray-50 transition-colors'>
-                      <td className='px-4 py-3 text-sm font-medium text-gray-900'>{user.username}</td>
-                      <td className='px-4 py-3 text-sm text-gray-600'>{user.email}</td>
-                      <td className='px-4 py-3 text-sm text-gray-600'>{user.role}</td>
-                      <td className='px-4 py-3 text-sm'>
-                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.status === 'active' ? 'bg-green-100 text-green-800' :
-                          user.status === 'inactive' ? 'bg-gray-100 text-gray-600' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {user.status}
-                        </span>
-                      </td>
-                      <td className='px-4 py-3 text-sm text-gray-600'>{user.stateId || '—'}</td>
-                      <td className='px-4 py-3 text-sm text-gray-600'>{user.districtId || '—'}</td>
-                      <td className='px-4 py-3 text-sm text-gray-600'>{user.policeStationId || '—'}</td>
-                      <td className='px-4 py-3 text-sm text-gray-600'>{user.zoneId || '—'}</td>
-                      <td className='px-4 py-3 text-sm text-gray-600'>{user.divisionId || '—'}</td>
-                      <td className='px-4 py-3 text-sm text-center'>
-                        <div className='flex items-center justify-center gap-2'>
-                          <button
-                            onClick={() => router.push(`/admin/users/${user.id}/edit`)}
-                            className='inline-flex items-center px-2.5 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors text-xs font-medium'
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to delete this user?')) {
-                                handleDeleteUser(user.id);
-                              }
-                            }}
-                            className='inline-flex items-center px-2.5 py-1.5 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors text-xs font-medium'
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className='bg-gray-50 px-4 py-3 border-t border-gray-200'>
-              <p className='text-sm text-gray-600'>Showing {filteredUsers.length} of {users.length} user(s)</p>
-            </div>
-          </div>
+          <AdminDataTable
+            data={filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize)}
+            columns={columns}
+            rowActions={[
+              {
+                label: 'Edit',
+                onClick: (user) => router.push(`/admin/users/${user.id}/edit`),
+              },
+              {
+                label: 'Delete',
+                onClick: (user) => handleDeleteUser(user.id),
+                variant: 'danger',
+              }
+            ]}
+            pagination={{
+              currentPage,
+              totalPages: Math.ceil(filteredUsers.length / pageSize),
+              totalItems: filteredUsers.length,
+              pageSize,
+              onPageChange: setCurrentPage
+            }}
+          />
         )}
       </div>
     </AdminErrorBoundary>

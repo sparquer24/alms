@@ -1,6 +1,7 @@
 // Admin Components Index
 export { AdminCard } from './AdminCard';
 export { AdminTable } from './AdminTable';
+export { AdminTableContainer, AdminTableElement } from './AdminTableContainer';
 export { AdminModal } from './AdminModal';
 export { AdminToolbar } from './AdminToolbar';
 export { AdminFilter } from './AdminFilter';

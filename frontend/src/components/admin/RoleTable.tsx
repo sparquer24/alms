@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AdminBorderRadius, AdminSpacing } from '@/styles/admin-design-system';
 import { useAdminTheme } from '@/context/AdminThemeContext';
+import { AdminDataTable } from '@/components/tables/AdminDataTable';
 
 interface Role {
   id?: number;
@@ -25,6 +26,7 @@ interface RoleTableProps {
   onViewPermissions?: (role: Role) => void;
   currentPage?: number;
   totalPages?: number;
+  totalItems?: number;
   onPageChange?: (page: number) => void;
 }
 
@@ -51,6 +53,7 @@ export const RoleTable: React.FC<RoleTableProps> = ({
   onViewPermissions,
   currentPage = 1,
   totalPages = 1,
+  totalItems = 0,
   onPageChange,
 }) => {
   const { colors } = useAdminTheme();
@@ -104,326 +107,111 @@ export const RoleTable: React.FC<RoleTableProps> = ({
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      {/* Roles are paginated (bounded row count), so this never needs its own
-          scrollbar - the sticky thead is just future-proofing in case that changes. */}
-      <div style={{ overflow: 'hidden', borderRadius: AdminBorderRadius.lg }}>
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          backgroundColor: colors.surface,
-        }}
-      >
-        <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-          <tr
-            style={{
-              backgroundColor: colors.background,
-              borderBottom: `1px solid ${colors.border}`,
-            }}
-          >
-            <th
+    <AdminDataTable
+      data={roles}
+      columns={[
+        {
+          key: 'sno',
+          header: 'S.No',
+          width: '80px',
+          render: (_, row) => (currentPage - 1) * 10 + (roles.indexOf(row)) + 1
+        },
+        {
+          key: 'name',
+          header: 'Role Name',
+          sortable: true,
+          render: (_, role) => (
+            <div>
+              <div className="font-medium text-slate-800">{role.name}</div>
+              {role.description && (
+                <div className="text-xs text-slate-500 mt-1">{role.description}</div>
+              )}
+            </div>
+          )
+        },
+        {
+          key: 'code',
+          header: 'Code',
+          sortable: true,
+          render: (_, role) => (
+            <span className="font-mono text-xs text-slate-500">{role.code}</span>
+          )
+        },
+        {
+          key: 'is_active',
+          header: 'Status',
+          render: (_, role) => (
+            <span
               style={{
-                padding: AdminSpacing.md,
-                textAlign: 'left',
-                fontWeight: 600,
-                color: colors.text.primary,
-                cursor: onSort ? 'pointer' : 'default',
-              }}
-              onClick={() => handleSort('name')}
-            >
-              Role Name
-              <SortIcon field='name' sortBy={sortBy} sortOrder={sortOrder} />
-            </th>
-            <th
-              style={{
-                padding: AdminSpacing.md,
-                textAlign: 'left',
-                fontWeight: 600,
-                color: colors.text.primary,
-                cursor: onSort ? 'pointer' : 'default',
-              }}
-              onClick={() => handleSort('code')}
-            >
-              Code
-              <SortIcon field='code' sortBy={sortBy} sortOrder={sortOrder} />
-            </th>
-            <th
-              style={{
-                padding: AdminSpacing.md,
-                textAlign: 'left',
-                fontWeight: 600,
-                color: colors.text.primary,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 8px',
+                borderRadius: AdminBorderRadius.sm,
+                fontSize: '12px',
+                fontWeight: 500,
+                backgroundColor: role.is_active ? '#d4edda' : '#f8d7da',
+                color: role.is_active ? '#155724' : '#856404',
               }}
             >
-              Status
-            </th>
-            <th
-              style={{
-                padding: AdminSpacing.md,
-                textAlign: 'left',
-                fontWeight: 600,
-                color: colors.text.primary,
-                cursor: onSort ? 'pointer' : 'default',
-              }}
-              onClick={() => handleSort('created_at')}
-            >
-              Created
-              <SortIcon field='created_at' sortBy={sortBy} sortOrder={sortOrder} />
-            </th>
-            <th
-              style={{
-                padding: AdminSpacing.md,
-                textAlign: 'left',
-                fontWeight: 600,
-                color: colors.text.primary,
-                cursor: onSort ? 'pointer' : 'default',
-              }}
-              onClick={() => handleSort('updated_at')}
-            >
-              Updated
-              <SortIcon field='updated_at' sortBy={sortBy} sortOrder={sortOrder} />
-            </th>
-            <th
-              style={{
-                padding: AdminSpacing.md,
-                textAlign: 'center',
-                fontWeight: 600,
-                color: colors.text.primary,
-              }}
-            >
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {roles.map(role => (
-            <tr
-              key={role.id}
-              style={{
-                borderBottom: `1px solid ${colors.border}`,
-              }}
-            >
-              <td
+              <span
                 style={{
-                  padding: AdminSpacing.md,
-                  color: colors.text.primary,
-                  fontWeight: 500,
+                  display: 'inline-block',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: role.is_active ? '#28a745' : '#dc3545',
                 }}
-              >
-                <div>
-                  <div>{role.name}</div>
-                  {role.description && (
-                    <div
-                      style={{
-                        fontSize: '12px',
-                        color: colors.text.secondary,
-                        marginTop: '4px',
-                      }}
-                    >
-                      {role.description}
-                    </div>
-                  )}
-                </div>
-              </td>
-              <td
-                style={{
-                  padding: AdminSpacing.md,
-                  color: colors.text.secondary,
-                  fontFamily: 'monospace',
-                  fontSize: '12px',
-                }}
-              >
-                {role.code}
-              </td>
-              <td
-                style={{
-                  padding: AdminSpacing.md,
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 8px',
-                    borderRadius: AdminBorderRadius.sm,
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    backgroundColor: role.is_active ? '#d4edda' : '#f8d7da',
-                    color: role.is_active ? '#155724' : '#856404',
-                  }}
-                >
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      backgroundColor: role.is_active ? '#28a745' : '#dc3545',
-                    }}
-                  />
-                  {role.is_active ? 'Active' : 'Inactive'}
-                </span>
-              </td>
-              <td
-                style={{
-                  padding: AdminSpacing.md,
-                  color: colors.text.secondary,
-                  fontSize: '12px',
-                }}
-              >
-                {formatDate(role.created_at)}
-              </td>
-              <td
-                style={{
-                  padding: AdminSpacing.md,
-                  color: colors.text.secondary,
-                  fontSize: '12px',
-                }}
-              >
-                {formatDate(role.updated_at)}
-              </td>
-              <td
-                style={{
-                  padding: AdminSpacing.md,
-                  textAlign: 'center',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: AdminSpacing.sm,
-                    justifyContent: 'center',
-                  }}
-                >
-                  {onViewPermissions && (
-                    <button
-                      onClick={() => onViewPermissions(role)}
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        backgroundColor: '#e3f2fd',
-                        color: '#1976d2',
-                        border: 'none',
-                        borderRadius: AdminBorderRadius.sm,
-                        cursor: 'pointer',
-                      }}
-                      title='View Permissions'
-                    >
-                      Perms
-                    </button>
-                  )}
-                  {onEdit && (
-                    <button
-                      onClick={() => onEdit(role)}
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        backgroundColor: '#fff3e0',
-                        color: '#f57c00',
-                        border: 'none',
-                        borderRadius: AdminBorderRadius.sm,
-                        cursor: 'pointer',
-                      }}
-                      title='Edit Role'
-                    >
-                      Edit
-                    </button>
-                  )}
-                  {onToggleStatus && (
-                    <button
-                      onClick={() => onToggleStatus(role)}
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        backgroundColor: role.is_active ? '#fce4ec' : '#c8e6c9',
-                        color: role.is_active ? '#c2185b' : '#2e7d32',
-                        border: 'none',
-                        borderRadius: AdminBorderRadius.sm,
-                        cursor: 'pointer',
-                      }}
-                      title={role.is_active ? 'Deactivate' : 'Activate'}
-                    >
-                      {role.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      onClick={() => onDelete(role)}
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        backgroundColor: '#ffebee',
-                        color: '#c62828',
-                        border: 'none',
-                        borderRadius: AdminBorderRadius.sm,
-                        cursor: 'pointer',
-                      }}
-                      title='Delete Role'
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: AdminSpacing.md,
-            marginTop: AdminSpacing.lg,
-            padding: AdminSpacing.md,
-          }}
-        >
-          <button
-            onClick={() => onPageChange?.(currentPage - 1)}
-            disabled={currentPage === 1}
-            style={{
-              padding: '6px 12px',
-              borderRadius: AdminBorderRadius.sm,
-              border: `1px solid ${colors.border}`,
-              backgroundColor: currentPage === 1 ? colors.background : 'white',
-              color: colors.text.primary,
-              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-              opacity: currentPage === 1 ? 0.5 : 1,
-            }}
-          >
-            Previous
-          </button>
-          <span style={{ color: colors.text.secondary, fontSize: '14px' }}>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => onPageChange?.(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            style={{
-              padding: '6px 12px',
-              borderRadius: AdminBorderRadius.sm,
-              border: `1px solid ${colors.border}`,
-              backgroundColor: currentPage === totalPages ? colors.background : 'white',
-              color: colors.text.primary,
-              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-              opacity: currentPage === totalPages ? 0.5 : 1,
-            }}
-          >
-            Next
-          </button>
-        </div>
-      )}
-    </div>
+              />
+              {role.is_active ? 'Active' : 'Inactive'}
+            </span>
+          )
+        },
+        {
+          key: 'created_at',
+          header: 'Created',
+          sortable: true,
+          render: (_, role) => <span className="text-xs text-slate-500">{formatDate(role.created_at)}</span>
+        },
+        {
+          key: 'updated_at',
+          header: 'Updated',
+          sortable: true,
+          render: (_, role) => <span className="text-xs text-slate-500">{formatDate(role.updated_at)}</span>
+        }
+      ]}
+      loading={isLoading}
+      pagination={{
+        currentPage,
+        totalPages,
+        totalItems,
+        pageSize: 10,
+        onPageChange: (page) => onPageChange && onPageChange(page)
+      }}
+      rowActions={[
+        ...(onViewPermissions ? [{
+          label: 'Perms',
+          onClick: (role: Role) => onViewPermissions(role),
+          variant: 'primary' as const
+        }] : []),
+        ...(onEdit ? [{
+          label: 'Edit',
+          onClick: (role: Role) => onEdit(role),
+          variant: 'secondary' as const
+        }] : []),
+        ...(onToggleStatus ? [{
+          label: (row: Role) => row.is_active ? 'Deactivate' : 'Activate',
+          onClick: (role: Role) => onToggleStatus(role),
+          variant: 'secondary' as const
+        }] : []),
+        ...(onDelete ? [{
+          label: 'Delete',
+          onClick: (role: Role) => onDelete(role),
+          variant: 'danger' as const
+        }] : []),
+      ]}
+      emptyMessage="No roles found"
+      className="border-none shadow-none"
+    />
   );
 };

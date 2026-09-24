@@ -1,293 +1,133 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { PageSubHeader, SubHeaderSearch, SubHeaderButton } from '@/components/common/PageSubHeader';
-import { getCookie } from 'cookies-next';
-import { AdminSectionSkeleton } from '@/components/admin';
-
-// Permission categories for better organization
-const PERMISSION_CATEGORIES = {
-  "View Permissions": [
-    "canViewFreshForm",
-    "canViewForwarded", 
-    "canViewReturned",
-    "canViewRedFlagged",
-    "canViewDisposed",
-    "canViewSent",
-    "canViewApplication",
-    "canViewReports",
-    "canAccessSettings"
-  ],
-  "Action Permissions": [
-    "canSubmitApplication",
-    "canCaptureUIN",
-    "canCaptureBiometrics", 
-    "canUploadDocuments",
-    "canForwardToACP",
-    "canForwardToSHO",
-    "canForwardToDCP",
-    "canForwardToAS",
-    "canForwardToCP",
-    "canConductEnquiry",
-    "canAddRemarks",
-    "canApproveTA",
-    "canApproveAI",
-    "canReject",
-    "canRequestResubmission",
-    "canGeneratePDF"
-  ]
-};
-
-// Mock data for permissions
-const mockPermissions = [
-  {
-    id: "canViewFreshForm",
-    name: "View Fresh Forms",
-    category: "View Permissions",
-    description: "Ability to view fresh application forms",
-    roles: ["ZS", "SHO", "ACP", "DCP"]
-  },
-  {
-    id: "canViewForwarded",
-    name: "View Forwarded Applications", 
-    category: "View Permissions",
-    description: "Ability to view applications forwarded to user",
-    roles: ["SHO", "ACP", "DCP", "CP"]
-  },
-  {
-    id: "canViewReturned",
-    name: "View Returned Applications",
-    category: "View Permissions", 
-    description: "Ability to view returned applications",
-    roles: ["APPLICANT", "SHO", "ACP", "DCP"]
-  },
-  {
-    id: "canViewRedFlagged",
-    name: "View Red Flagged Applications",
-    category: "View Permissions",
-    description: "Ability to view red flagged applications", 
-    roles: ["SHO", "ACP", "DCP", "CP"]
-  },
-  {
-    id: "canViewDisposed",
-    name: "View Disposed Applications",
-    category: "View Permissions",
-    description: "Ability to view disposed applications",
-    roles: ["ACP", "DCP", "CP"]
-  },
-  {
-    id: "canViewSent",
-    name: "View Sent Applications", 
-    category: "View Permissions",
-    description: "Ability to view sent applications",
-    roles: ["APPLICANT", "SHO", "ACP", "DCP"]
-  },
-  {
-    id: "canViewApplication",
-    name: "View Final Disposal",
-    category: "View Permissions",
-    description: "Ability to view final disposal applications",
-    roles: ["APPLICANT", "DCP", "CP"]
-  },
-  {
-    id: "canViewReports",
-    name: "View Reports",
-    category: "View Permissions", 
-    description: "Ability to view system reports",
-    roles: ["SHO", "ACP", "DCP", "CP", "ADMIN"]
-  },
-  {
-    id: "canAccessSettings",
-    name: "Access Settings",
-    category: "View Permissions",
-    description: "Ability to access system settings",
-    roles: ["SHO", "ACP", "DCP", "CP", "ADMIN"]
-  },
-  {
-    id: "canSubmitApplication",
-    name: "Submit Application",
-    category: "Action Permissions",
-    description: "Ability to submit new applications",
-    roles: ["APPLICANT"]
-  },
-  {
-    id: "canCaptureUIN",
-    name: "Capture UIN",
-    category: "Action Permissions",
-    description: "Ability to capture UIN for applications",
-    roles: ["ZS"]
-  },
-  {
-    id: "canCaptureBiometrics",
-    name: "Capture Biometrics", 
-    category: "Action Permissions",
-    description: "Ability to capture biometric data",
-    roles: ["ZS"]
-  },
-  {
-    id: "canUploadDocuments",
-    name: "Upload Documents",
-    category: "Action Permissions",
-    description: "Ability to upload documents",
-    roles: ["APPLICANT", "ZS", "SHO"]
-  },
-  {
-    id: "canForwardToACP",
-    name: "Forward to ACP",
-    category: "Action Permissions",
-    description: "Ability to forward applications to ACP",
-    roles: ["SHO", "DCP", "ZS"]
-  },
-  {
-    id: "canForwardToSHO",
-    name: "Forward to SHO",
-    category: "Action Permissions",
-    description: "Ability to forward applications to SHO",
-    roles: ["ACP"]
-  },
-  {
-    id: "canForwardToDCP",
-    name: "Forward to DCP",
-    category: "Action Permissions",
-    description: "Ability to forward applications to DCP",
-    roles: ["ACP", "ZS", "SHO"]
-  },
-  {
-    id: "canForwardToAS",
-    name: "Forward to AS",
-    category: "Action Permissions",
-    description: "Ability to forward applications to AS",
-    roles: ["DCP", "ACP"]
-  },
-  {
-    id: "canForwardToCP",
-    name: "Forward to CP",
-    category: "Action Permissions",
-    description: "Ability to forward applications to CP",
-    roles: ["DCP", "ACP"]
-  },
-  {
-    id: "canConductEnquiry",
-    name: "Conduct Enquiry",
-    category: "Action Permissions",
-    description: "Ability to conduct enquiries",
-    roles: ["SHO"]
-  },
-  {
-    id: "canAddRemarks",
-    name: "Add Remarks",
-    category: "Action Permissions",
-    description: "Ability to add remarks to applications",
-    roles: ["SHO", "ACP", "DCP", "CP"]
-  },
-  {
-    id: "canApproveTA",
-    name: "Approve TA",
-    category: "Action Permissions",
-    description: "Ability to approve TA applications",
-    roles: ["DCP", "ACP"]
-  },
-  {
-    id: "canApproveAI",
-    name: "Approve AI",
-    category: "Action Permissions",
-    description: "Ability to approve AI applications",
-    roles: ["CP"]
-  },
-  {
-    id: "canReject",
-    name: "Reject Applications",
-    category: "Action Permissions",
-    description: "Ability to reject applications",
-    roles: ["DCP", "ACP", "CP"]
-  },
-  {
-    id: "canRequestResubmission",
-    name: "Request Resubmission",
-    category: "Action Permissions",
-    description: "Ability to request application resubmission",
-    roles: ["DCP", "CP"]
-  },
-  {
-    id: "canGeneratePDF",
-    name: "Generate PDF",
-    category: "Action Permissions",
-    description: "Ability to generate PDF documents",
-    roles: ["ZS"]
-  }
-];
+import { AdminSectionSkeleton, AdminErrorAlert, ConfirmationDialog } from '@/components/admin';
+import { AdminDataTable, Column } from '@/components/tables/AdminDataTable';
+import type { ConfirmationDialogConfig } from '@/components/admin/ConfirmationDialog';
+import { AdminPermissionService, Permission } from '@/services/admin/permissions';
 
 export default function PermissionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, isLoading: authLoading, userRole } = useAuth();
+  const { userRole } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
-      return;
-    }
+  const [confirmationDialog, setConfirmationDialog] = useState<{ isOpen: boolean; config?: ConfirmationDialogConfig }>({
+    isOpen: false,
+  });
 
-    // Check if user is admin
-    if (userRole !== 'ADMIN') {
-      router.push('/');
-      return;
-    }
+  const {
+    data: permissions = [],
+    isLoading,
+    error: fetchError,
+    refetch,
+  } = useQuery<Permission[]>({
+    queryKey: ['admin-permissions'],
+    queryFn: () => AdminPermissionService.getPermissions(),
+    staleTime: 5 * 60 * 1000,
+    enabled: userRole === 'ADMIN',
+  });
 
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-  }, [isAuthenticated, authLoading, userRole, router]);
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => AdminPermissionService.deletePermission(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-permissions'] });
+      setConfirmationDialog({ isOpen: false });
+    },
+  });
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
+  const categories = Array.from(new Set(permissions.map(p => p.category)));
 
-  const handleCategoryFilter = (category: string) => {
-    setSelectedCategory(category);
-  };
-
-  const handleReset = () => {
-    setSearchQuery('');
-    setSelectedCategory('all');
-  };
-
-  // Filter permissions based on search and category
-  const filteredPermissions = mockPermissions.filter(permission => {
-    const matchesSearch = permission.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         permission.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         permission.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
+  const filteredPermissions = permissions.filter(permission => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      permission.label.toLowerCase().includes(q) ||
+      permission.key.toLowerCase().includes(q) ||
+      (permission.description || '').toLowerCase().includes(q);
     const matchesCategory = selectedCategory === 'all' || permission.category === selectedCategory;
-    
     return matchesSearch && matchesCategory;
   });
+
+  const handleDelete = (permission: Permission) => {
+    setConfirmationDialog({
+      isOpen: true,
+      config: {
+        title: 'Delete Permission',
+        message: `Are you sure you want to delete "${permission.label}"? This does not remove it from roles that already have it enabled.`,
+        type: 'delete',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        onConfirm: async () => {
+          await deleteMutation.mutateAsync(permission.id);
+        },
+        onCancel: () => setConfirmationDialog({ isOpen: false }),
+      },
+    });
+  };
+
+  const columns: Column<Permission>[] = [
+    {
+      key: 'label',
+      header: 'Permission',
+      render: (v, p) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">{p.label}</div>
+          <div className="text-sm text-gray-500">{p.key}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (v, p) => (
+        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+          {p.category}
+        </span>
+      ),
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      render: (v, p) => (
+        <div className="text-sm text-gray-900 max-w-xs truncate">{p.description || '—'}</div>
+      ),
+    },
+    {
+      key: 'assignedRoles',
+      header: 'Assigned Roles',
+      render: (v, p) => (
+        <div className="flex flex-wrap gap-1">
+          {p.assignedRoles.length === 0 && <span className="text-xs text-gray-400">None</span>}
+          {p.assignedRoles.map((role) => (
+            <span key={role} className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+              {role}
+            </span>
+          ))}
+        </div>
+      ),
+    },
+  ];
 
   if (isLoading) {
     return <AdminSectionSkeleton />;
   }
 
   return (
-    <div className="flex flex-col flex-grow">
+    <div className="flex flex-col flex-grow min-h-0">
       <PageSubHeader
         title="Permission Management"
         metaBadge={`${filteredPermissions.length} Permission${filteredPermissions.length !== 1 ? 's' : ''}`}
         actions={
           <div className="flex items-center gap-2">
-            <SubHeaderSearch
-              value={searchQuery}
-              onChange={handleSearch}
-              placeholder="Search permissions..."
-            />
-            <SubHeaderButton
-              variant="primary"
-              onClick={() => router.push('/admin/permissions/create')}
-            >
+            <SubHeaderSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search permissions..." />
+            <SubHeaderButton variant="primary" onClick={() => router.push('/admin/permissions/create')}>
               Create Permission
             </SubHeaderButton>
           </div>
@@ -295,125 +135,74 @@ export default function PermissionsPage() {
       />
 
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6 flex-grow">
-        <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 p-6">
+        {fetchError && (
+          <AdminErrorAlert
+            title="Failed to Load Permissions"
+            message={(fetchError as any).message || 'An error occurred'}
+            onRetry={() => refetch()}
+          />
+        )}
 
-        {/* Category Filter */}
-        {!isLoading && (
+        <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 p-6">
+          {/* Category Filter */}
           <div className="mb-6">
             <div className="flex space-x-2 flex-wrap gap-2">
               <button
-                onClick={() => handleCategoryFilter('all')}
+                onClick={() => setSelectedCategory('all')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCategory === 'all'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                  selectedCategory === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Categories
+              </button>
+              {categories.map(category => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCategory === category ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
                 >
-                  All Categories
+                  {category}
                 </button>
-                {Object.keys(PERMISSION_CATEGORIES || {}).map(category => (
-                  <button
-                    key={category}
-                    onClick={() => handleCategoryFilter(category)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      selectedCategory === category
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
+              ))}
             </div>
-        )}
-
-        {/* Display search information if applied */}
-        {searchQuery && (
-          <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-            <h3 className="font-semibold text-blue-700">Search Results:</h3>
-            <p className="text-sm text-gray-700 mt-1">Searching for: "{searchQuery}"</p>
           </div>
-        )}
 
-          {/* Show permission count */}
           <div className="mb-6">
-            <p className="text-gray-600">
-              Showing {filteredPermissions.length} permission(s)
-            </p>
+            <p className="text-gray-600">Showing {filteredPermissions.length} permission(s)</p>
           </div>
 
           {/* Permissions Table */}
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Permission
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Assigned Roles
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPermissions.map((permission) => (
-                  <tr key={permission.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{permission.name}</div>
-                        <div className="text-sm text-gray-500">{permission.id}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {permission.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 max-w-xs truncate">
-                        {permission.description}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {permission.roles.map((role) => (
-                          <span
-                            key={role}
-                            className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800"
-                          >
-                            {role}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => router.push(`/admin/permissions/${permission.id}/edit`)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => router.push(`/admin/permissions/${permission.id}`)}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {filteredPermissions.length > 0 && (
+              <AdminDataTable
+                data={filteredPermissions.slice((currentPage - 1) * pageSize, currentPage * pageSize)}
+                columns={columns}
+                rowActions={[
+                  {
+                    label: 'View',
+                    onClick: (p) => router.push(`/admin/permissions/${p.id}`),
+                  },
+                  {
+                    label: 'Edit',
+                    onClick: (p) => router.push(`/admin/permissions/${p.id}/edit`),
+                  },
+                  {
+                    label: 'Delete',
+                    onClick: (p) => handleDelete(p),
+                    variant: 'danger',
+                  }
+                ]}
+                pagination={{
+                  currentPage,
+                  totalPages: Math.ceil(filteredPermissions.length / pageSize),
+                  totalItems: filteredPermissions.length,
+                  pageSize,
+                  onPageChange: setCurrentPage
+                }}
+              />
+            )}
           </div>
 
           {filteredPermissions.length === 0 && (
@@ -429,6 +218,13 @@ export default function PermissionsPage() {
           )}
         </div>
       </div>
+
+      <ConfirmationDialog
+        isOpen={confirmationDialog.isOpen}
+        config={confirmationDialog.config}
+        isLoading={deleteMutation.isPending}
+        onClose={() => setConfirmationDialog({ isOpen: false })}
+      />
     </div>
   );
-} 
+}

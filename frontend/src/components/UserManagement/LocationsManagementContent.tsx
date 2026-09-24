@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +19,7 @@ import {
   AdminErrorAlert,
   AdminSectionSkeleton,
 } from '@/components/admin';
+import { AdminDataTable } from '@/components/tables/AdminDataTable';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminBorderRadius } from '@/styles/admin-design-system';
 import { ROLE_CODES } from '@/constants';
@@ -409,6 +410,10 @@ export default function LocationsManagementContent() {
       (parentId !== undefined && parentId !== null),
   });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
   // Filtered + sorted items based on search query, date range and sort order
   const items = useMemo(() => {
     let result = allItems;
@@ -445,6 +450,15 @@ export default function LocationsManagementContent() {
 
     return result;
   }, [allItems, searchQuery, dateFrom, dateTo, sortBy]);
+
+  // Pagination
+  const totalPages = Math.ceil(items.length / itemsPerPage);
+  const paginatedItems = items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, dateFrom, dateTo, sortBy, currentLevel]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -683,22 +697,50 @@ export default function LocationsManagementContent() {
         }
       />
 
-      <div className="flex-grow min-h-0 flex flex-col max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="flex-grow min-h-0 flex flex-col w-full px-4 sm:px-6 lg:px-8 py-4 space-y-3">
         {/* Breadcrumb Hierarchy Trail */}
         {breadcrumbPath.length > 1 && (
-          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 text-xs shadow-xs">
-            <span className="text-slate-500 font-medium">Hierarchy:</span>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: colors.surface,
+            padding: `${AdminSpacing.md} ${AdminSpacing.lg}`,
+            borderRadius: AdminBorderRadius.lg,
+            border: `1px solid ${colors.border}`,
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+          }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text.secondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Path:</span>
             {breadcrumbPath.map((item, idx) => (
-              <span key={item.level} className="flex items-center gap-2">
-                {idx > 0 && <span className="text-slate-400">/</span>}
+              <span key={item.level} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {idx > 0 && <span style={{ color: colors.text.muted, fontSize: '14px' }}>›</span>}
                 <button
                   type="button"
                   onClick={() => handleBreadcrumbClick(item.level)}
-                  className={`hover:underline font-semibold ${
-                    idx === breadcrumbPath.length - 1 ? 'text-[#0F2D52]' : 'text-blue-600'
-                  }`}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '4px 8px',
+                    borderRadius: AdminBorderRadius.md,
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: idx === breadcrumbPath.length - 1 ? colors.status.info : colors.text.primary,
+                    backgroundColor: idx === breadcrumbPath.length - 1 ? `${colors.status.info}15` : 'transparent',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (idx < breadcrumbPath.length - 1) {
+                      (e.target as HTMLElement).style.backgroundColor = `${colors.hover}`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (idx < breadcrumbPath.length - 1) {
+                      (e.target as HTMLElement).style.backgroundColor = 'transparent';
+                    }
+                  }}
                 >
-                  {item.item?.name || item.level}
+                  {item.item?.name || LOCATION_HIERARCHY[item.level].singular}
                 </button>
               </span>
             ))}
@@ -711,14 +753,14 @@ export default function LocationsManagementContent() {
         {/* Main Content Card */}
         <AdminCard title={levelConfig.label} fill={!isLoading && items.length > 0}>
         
-        {/* Search Results Info */}
-        {searchQuery && (
-          <div style={{ marginBottom: AdminSpacing.md, fontSize: '14px', color: colors.text.secondary }}>
-            {items.length > 0 ? (
-              <span>Found {items.length} result{items.length !== 1 ? 's' : ''} for "{searchQuery}"</span>
-            ) : (
-              <span>No results found for "{searchQuery}"</span>
-            )}
+        {/* Search Results Info and Pagination Info */}
+        {(searchQuery || items.length > 0) && (
+          <div style={{ marginBottom: AdminSpacing.sm, fontSize: '12px', color: colors.text.secondary, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>
+              {searchQuery && items.length > 0 && <span>Found {items.length} result{items.length !== 1 ? 's' : ''} for "{searchQuery}" • </span>}
+              {items.length > 0 && <span>Showing {Math.min((currentPage - 1) * itemsPerPage + 1, items.length)} - {Math.min(currentPage * itemsPerPage, items.length)} of {items.length}</span>}
+              {searchQuery && items.length === 0 && <span>No results found for "{searchQuery}"</span>}
+            </span>
           </div>
         )}
 
@@ -728,136 +770,84 @@ export default function LocationsManagementContent() {
         {/* Empty State */}
         {!isLoading && items.length === 0 && (
           <div
-            style={{ textAlign: 'center', padding: AdminSpacing.xl, color: colors.text.secondary }}
+            style={{
+              textAlign: 'center',
+              padding: `${AdminSpacing.xl} ${AdminSpacing.lg}`,
+              backgroundColor: `${colors.status.info}08`,
+              borderRadius: AdminBorderRadius.lg,
+              border: `1px dashed ${colors.status.info}40`,
+            }}
           >
-            <p style={{ fontSize: '16px', margin: '0 0 8px 0' }}>
-              No {levelConfig.label.toLowerCase()} found
+            <div style={{ marginBottom: '16px' }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto', color: colors.status.info, opacity: 0.6 }}>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+              </svg>
+            </div>
+            <p style={{ fontSize: '16px', margin: '0 0 8px 0', fontWeight: 600, color: colors.text.primary }}>
+              No {levelConfig.label.toLowerCase()} yet
             </p>
-            <p style={{ fontSize: '14px', margin: 0 }}>Create one to get started</p>
+            <p style={{ fontSize: '13px', margin: 0, color: colors.text.secondary }}>
+              Create your first {levelConfig.singular.toLowerCase()} to get started
+            </p>
           </div>
         )}
 
         {/* Data Table */}
         {!isLoading && items.length > 0 && (
-          <div style={{ overflowX: 'auto', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-            {/* Table header stays fixed while rows scroll within the card's available height */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', isolation: 'isolate' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                <tr
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderBottom: `1px solid ${colors.border}`,
-                  }}
-                >
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
-                    S.No
-                  </th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
-                    Name
-                  </th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
-                    Created At
-                  </th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
-                    Updated At
-                  </th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'center', fontWeight: 600 }}>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, idx) => (
-                  <tr
-                    key={item.id}
-                    style={{
-                      borderBottom: `1px solid ${colors.border}`,
-                      backgroundColor: idx % 2 === 0 ? colors.background : colors.surface,
-                      cursor: canNavigateToChild ? 'pointer' : 'default',
-                    }}
-                    onClick={() => canNavigateToChild && handleNavigateToChild(item)}
-                  >
-                    <td style={{ padding: AdminSpacing.md }}>{idx + 1}</td>
-                    <td style={{ padding: AdminSpacing.md, fontWeight: 500 }}>{item.name}</td>
-                    <td style={{ padding: AdminSpacing.md, color: colors.text.secondary }}>
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: AdminSpacing.md, color: colors.text.secondary }}>
-                      {new Date(item.updatedAt).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: AdminSpacing.md, textAlign: 'center' }}>
-                      {canNavigateToChild && (
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleNavigateToChild(item);
-                          }}
-                          title={`View ${HIERARCHY_ORDER[HIERARCHY_ORDER.indexOf(currentLevel) + 1] ? LOCATION_HIERARCHY[HIERARCHY_ORDER[HIERARCHY_ORDER.indexOf(currentLevel) + 1]].label : ''}`}
-                          style={{
-                            padding: '6px 10px',
-                            marginRight: '8px',
-                            backgroundColor: colors.surface,
-                            color: colors.text.primary,
-                            border: `1px solid ${colors.border}`,
-                            borderRadius: AdminBorderRadius.sm,
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          View
-                        </button>
-                      )}
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleEdit(item);
-                        }}
-                        style={{
-                          padding: '6px 12px',
-                          marginRight: '8px',
-                          backgroundColor: colors.status.info,
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: AdminBorderRadius.sm,
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        Edit
-                      </button>
-                      {/* <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleDeactivate(item.id);
-                        }}
-                        disabled={softDeleteMutation.isPending}
-                        style={{
-                          padding: '6px 12px',
-                          backgroundColor: colors.status.error,
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: AdminBorderRadius.sm,
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          opacity: softDeleteMutation.isPending ? 0.6 : 1,
-                        }}
-                      >
-                        Deactivate
-                      </button> */}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
+          <div className="flex-1 min-h-0">
+            <AdminDataTable
+              data={paginatedItems}
+              columns={[
+                {
+                  key: 'sno',
+                  header: 'S.No',
+                  render: (_, row) => {
+                    const idx = paginatedItems.findIndex(item => item.id === row.id);
+                    return (currentPage - 1) * itemsPerPage + Math.max(0, idx) + 1;
+                  },
+                  width: '80px'
+                },
+                {
+                  key: 'name',
+                  header: levelConfig.singular,
+                  sortable: true
+                },
+                {
+                  key: 'createdAt',
+                  header: 'Created',
+                  render: (val) => new Date(val).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                },
+                {
+                  key: 'updatedAt',
+                  header: 'Updated',
+                  render: (val) => new Date(val).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                }
+              ]}
+              pagination={{
+                currentPage,
+                totalPages,
+                totalItems: items.length,
+                pageSize: itemsPerPage,
+                onPageChange: setCurrentPage
+              }}
+              rowActions={[
+                ...(canNavigateToChild ? [{
+                  label: (
+                    <span className="flex items-center gap-1">
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </span>
+                  ),
+                  onClick: (item: any) => handleNavigateToChild(item),
+                  variant: 'primary' as const
+                }] : []),
+                {
+                  label: 'Edit',
+                  onClick: (item: any) => handleEdit(item),
+                  variant: 'secondary' as const
+                }
+              ]}
+              className="border-none shadow-none h-full"
+            />
           </div>
         )}
         </AdminCard>
@@ -872,126 +862,238 @@ export default function LocationsManagementContent() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
+            padding: '20px',
           }}
           onClick={() => !isSaving && setShowModal(false)}
         >
           <div
-            style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}
+            style={{
+              maxWidth: '520px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              backgroundColor: colors.surface,
+              borderRadius: AdminBorderRadius.lg,
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+              animation: 'slideUp 0.3s ease-out',
+            }}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
-            <AdminCard
-              title={
-                modalMode === 'create'
-                  ? `Create ${levelConfig.singular}`
-                  : `Edit ${levelConfig.singular}`
+            <style>{`
+              @keyframes slideUp {
+                from {
+                  transform: translateY(20px);
+                  opacity: 0;
+                }
+                to {
+                  transform: translateY(0);
+                  opacity: 1;
+                }
               }
-              onClick={() => undefined}
+            `}</style>
+
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: `${AdminSpacing.lg} ${AdminSpacing.xl}`,
+                borderBottom: `1px solid ${colors.border}`,
+                backgroundColor: `${colors.status.info}08`,
+              }}
             >
-              <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: AdminSpacing.lg }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  color: colors.text.primary,
+                }}
+              >
+                {modalMode === 'create'
+                  ? `Create New ${levelConfig.singular}`
+                  : `Edit ${levelConfig.singular}`}
+              </h2>
+              <p
+                style={{
+                  margin: '4px 0 0 0',
+                  fontSize: '12px',
+                  color: colors.text.secondary,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  fontWeight: 500,
+                }}
+              >
+                {modalMode === 'create' ? 'Add a new location to the system' : 'Update location information'}
+              </p>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSubmit} style={{ padding: `${AdminSpacing.xl}` }}>
+              <div style={{ marginBottom: AdminSpacing.xl }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: AdminSpacing.sm,
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    color: colors.text.primary,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {levelConfig.singular} Name *
+                </label>
+                <input
+                  type='text'
+                  value={formData.name}
+                  onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder={`Enter ${levelConfig.singular.toLowerCase()} name`}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: AdminSpacing.md,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: AdminBorderRadius.md,
+                    fontSize: '14px',
+                    backgroundColor: colors.background,
+                    color: colors.text.primary,
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onFocus={(e) => {
+                    (e.target as HTMLElement).style.borderColor = colors.status.info;
+                    (e.target as HTMLElement).style.boxShadow = `0 0 0 3px ${colors.status.info}15`;
+                  }}
+                  onBlur={(e) => {
+                    (e.target as HTMLElement).style.borderColor = colors.border;
+                    (e.target as HTMLElement).style.boxShadow = 'none';
+                  }}
+                  disabled={isSaving}
+                />
+              </div>
+
+              {modalMode === 'edit' && (
+                <div style={{ marginBottom: AdminSpacing.xl }}>
                   <label
-                    style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}
+                    style={{
+                      display: 'block',
+                      marginBottom: AdminSpacing.sm,
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      color: colors.text.primary,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
                   >
-                    Name *
+                    Assigned Officer
                   </label>
-                  <input
-                    type='text'
-                    value={formData.name}
-                    onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder={`Enter ${levelConfig.singular.toLowerCase()} name`}
-                    style={{
-                      width: '100%',
-                      padding: AdminSpacing.md,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: AdminBorderRadius.md,
-                      fontSize: '14px',
-                    }}
-                    disabled={isSaving}
-                  />
-                </div>
-
-                {modalMode === 'edit' && (
-                  <div style={{ marginBottom: AdminSpacing.lg }}>
-                    <label
-                      style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}
+                  {isLoadingUsers ? (
+                    <div style={{ fontSize: '14px', color: colors.text.secondary, padding: AdminSpacing.md }}>Loading eligible officers...</div>
+                  ) : (
+                    <select
+                      value={assignedUserId || ''}
+                      onChange={e => setAssignedUserId(e.target.value ? Number(e.target.value) : null)}
+                      style={{
+                        width: '100%',
+                        padding: AdminSpacing.md,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: AdminBorderRadius.md,
+                        fontSize: '14px',
+                        backgroundColor: colors.background,
+                        color: colors.text.primary,
+                        boxSizing: 'border-box',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                      }}
+                      disabled={isSaving}
                     >
-                      Assigned User
-                    </label>
-                    {isLoadingUsers ? (
-                      <div style={{ fontSize: '14px', color: colors.text.secondary }}>Loading eligible users...</div>
-                    ) : (
-                      <select
-                        value={assignedUserId || ''}
-                        onChange={e => setAssignedUserId(e.target.value ? Number(e.target.value) : null)}
-                        style={{
-                          width: '100%',
-                          padding: AdminSpacing.md,
-                          border: `1px solid ${colors.border}`,
-                          borderRadius: AdminBorderRadius.md,
-                          fontSize: '14px',
-                          backgroundColor: colors.background,
-                          color: colors.text.primary,
-                        }}
-                        disabled={isSaving}
-                      >
-                        <option value="">None (Unassigned)</option>
-                        {eligibleUsers.map((u: any) => (
-                          <option key={u.id} value={u.id}>
-                            {u.username} ({u.role?.name || u.role?.code}){u.email ? ` - ${u.email}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                )}
-
-
-                <div style={{ display: 'flex', gap: AdminSpacing.md, justifyContent: 'flex-end' }}>
-                  <button
-                    type='button'
-                    onClick={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
-                    disabled={isSaving}
-                    style={{
-                      padding: '10px 16px',
-                      backgroundColor: 'transparent',
-                      color: colors.text.secondary,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: AdminBorderRadius.md,
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 600,
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type='submit'
-                    disabled={isSaving}
-                    style={{
-                      padding: '10px 16px',
-                      backgroundColor: colors.status.success,
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: AdminBorderRadius.md,
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      opacity: isSaving ? 0.6 : 1,
-                    }}
-                  >
-                    {isSaving ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Update'}
-                  </button>
+                      <option value="">— Unassigned —</option>
+                      {eligibleUsers.map((u: any) => (
+                        <option key={u.id} value={u.id}>
+                          {u.username} ({u.role?.name || u.role?.code}){u.email ? ` - ${u.email}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-              </form>
-            </AdminCard>
+              )}
+
+              {/* Modal Footer */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: AdminSpacing.md,
+                  justifyContent: 'flex-end',
+                  paddingTop: AdminSpacing.lg,
+                  borderTop: `1px solid ${colors.border}`,
+                  marginTop: AdminSpacing.xl,
+                }}
+              >
+                <button
+                  type='button'
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
+                  disabled={isSaving}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: 'transparent',
+                    color: colors.text.secondary,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: AdminBorderRadius.md,
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSaving) {
+                      (e.currentTarget as HTMLElement).style.backgroundColor = `${colors.hover}`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type='submit'
+                  disabled={isSaving}
+                  style={{
+                    padding: '10px 24px',
+                    backgroundColor: colors.status.success,
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: AdminBorderRadius.md,
+                    cursor: isSaving ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    opacity: isSaving ? 0.7 : 1,
+                    transition: 'all 0.2s ease',
+                    boxShadow: `0 4px 12px ${colors.status.success}30`,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSaving) {
+                      (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
+                      (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${colors.status.success}40`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                    (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${colors.status.success}30`;
+                  }}
+                >
+                  {isSaving ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Update'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

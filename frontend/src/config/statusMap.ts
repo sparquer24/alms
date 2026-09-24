@@ -30,11 +30,11 @@ export const statusIdMap: StatusIdMap = {
   approved: ['APPROVED'],     // APPROVED
   applications: ['CLOSE', 'APPROVED'],  // Approved or closed applications
   freshform: ['INITIATED'],        // INITIATE / INITIATED (fresh form applications)
-  // Numeric workflowStatusId, not the 'CLOSE' code string: sidebarApiCalls.ts sends
-  // this straight through as the `statusIds` query param, which the backend expects
-  // as numeric Statuses.id values (CLOSE = id 9 per prisma/seed.ts) — a string code
-  // here never matches anything server-side, so the Closed tab always came back empty.
-  closed: [9],          // CLOSE
+  // Use the status CODE, not a hardcoded numeric id: different environments'
+  // Statuses tables have been seen with different row orders/ids, so a numeric
+  // id here can silently point at the wrong status. resolveStatusIdentifiers on
+  // the backend looks codes up by name, so this stays correct everywhere.
+  closed: ['CLOSE'],
   cancelled: ['CANCEL'],        // CANCEL
   reEnquiry: ['RE_ENQUIRY'],        // RE_ENQUIRY
   groundReport: ['GROUND_REPORT'],     // GROUND_REPORT

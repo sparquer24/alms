@@ -63,7 +63,7 @@ const MenuItem = memo(({ icon, label, count, active, loading, onClick, onActivat
       type='button'
       onMouseDown={onActivate}
       onClick={onClick}
-      className={`flex items-center w-full px-3 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2
+      className={`flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2
         ${active ? 'bg-[#001F54] text-white font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
       aria-pressed={active}
       aria-current={active ? 'page' : undefined}
@@ -76,10 +76,11 @@ const MenuItem = memo(({ icon, label, count, active, loading, onClick, onActivat
         }
       }}
     >
-      <span className={`inline-flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0 transition-colors ${active ? 'text-white' : 'text-gray-500'}`} aria-hidden='true'>
+      <span className={`inline-flex items-center justify-center w-7 h-7 mr-3 flex-shrink-0 transition-colors pl-3 ${active ? 'text-white' : 'text-gray-500'}`} aria-hidden='true'>
         {icon}
       </span>
       <span className='flex-1 truncate'>{label}</span>
+      <span className='pr-3'></span>
       {count !== undefined && count > 0 && (
         <span className={`inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold rounded-full ml-2 transition-colors ${
           active ? 'bg-white/20 text-white font-bold' : 'bg-[#0F2D52] text-white'
@@ -122,7 +123,7 @@ const InboxSubMenuItem = memo(
 
     const className = useMemo(
       () =>
-        `flex items-center w-full px-3 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 ${active ? 'bg-[#001F54] text-white font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`,
+        `flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 ${active ? 'bg-[#001F54] text-white font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`,
       [active]
     );
 
@@ -144,14 +145,14 @@ const InboxSubMenuItem = memo(
           }}
         >
           <span
-            className={`inline-flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0 transition-colors ${active ? 'text-white' : 'text-gray-500'}`}
+            className={`inline-flex items-center justify-center w-7 h-7 mr-3 flex-shrink-0 transition-colors pl-3 ${active ? 'text-white' : 'text-gray-500'}`}
             aria-hidden='true'
           >
             {icon}
           </span>
           <span className='flex-1 truncate'>{label}</span>
           {typeof count === 'number' && count > 0 && (
-            <span className={`inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold rounded-full ml-2 transition-colors ${
+            <span className={`inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold rounded-full ml-2 mr-3 transition-colors ${
               active ? 'bg-white/20 text-white font-bold' : 'bg-[#0F2D52] text-white'
             }`}>
               {count > 99 ? '99+' : count}
@@ -766,7 +767,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               return;
             }
 
-            setActiveNavigationPath(adminPath);
             setActiveItem(key);
             persistActiveNavToLocal(key);
             router.push(adminPath);
@@ -798,12 +798,10 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           persistActiveNavToLocal(key);
           // For 'sent', trigger navigation to inbox with type=sent and load data
           if (key === 'sent') {
-            const sentActionId = 'sidebar-sent';
             const sentPath = '/inbox?type=sent';
-            if (!canNavigateTo(sentPath, sentActionId)) {
+            if (!canNavigateTo(sentPath)) {
               return;
             }
-            setActiveNavigationPath(sentPath);
             // Pre-load the sent data into InboxContext so the table renders immediately on arrival
             void loadType('sent', false, item.statusIds).catch(() => {});
             router.push(sentPath);
@@ -836,7 +834,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               if (!canNavigateTo(redirectPath)) {
                 return;
               }
-              setActiveNavigationPath(redirectPath);
               router.push(redirectPath);
               endAction(actionId);
             }
@@ -847,14 +844,13 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         // Handle cancelform menu item (now displays inside the unified inbox)
         if (item.name.toLowerCase().replace(/\s+/g, '') === 'cancelform') {
           const cancelPath = '/inbox?type=cancel';
-          if (!canNavigateTo(cancelPath, actionId)) {
+          if (!canNavigateTo(cancelPath)) {
             return;
           }
           setActiveItem(key);
           persistActiveNavToLocal(key);
           // Pre-load cancel requests data
           void loadType('cancel', false, item.statusIds).catch(() => {});
-          setActiveNavigationPath(cancelPath);
           router.push(cancelPath);
           endAction(actionId);
           return;
@@ -862,7 +858,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
 
 
-        const type = item.name.replace(/\s+/g, '');
+        const type = item.name.replace(/\s+/g, '').toLowerCase();
         const wasTopLevel = key && topLevelInboxLike.has(key);
         const target = `/inbox?type=${encodeURIComponent(type)}`;
 
@@ -875,11 +871,9 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           }
         }
 
-        if (!canNavigateTo(target, actionId) && !isSamePath) {
+        if (!canNavigateTo(target) && !isSamePath) {
           return;
         }
-
-        setActiveNavigationPath(target);
 
         if (wasTopLevel) {
           try {
@@ -1063,8 +1057,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           } catch (e) {}
           if (onTableReload) onTableReload(subItem);
         } else {
-          if (canNavigateTo(targetUrl, actionId)) {
-            setActiveNavigationPath(targetUrl);
+          if (canNavigateTo(targetUrl)) {
             router.push(targetUrl);
             scheduleInboxForwardedRefresh(targetUrl);
           }
@@ -1237,7 +1230,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               persistActiveNavToLocal('dashboard');
               router.push('/dashboard');
             }}
-            className={`w-full text-left px-3 py-2.5 flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none ${
+            className={`w-full text-left px-0 py-2.5 flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none ${
               pathname === '/dashboard'
                 ? 'bg-[#0F2D52] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] shadow-inner'
                 : 'bg-[#001F54] text-white hover:bg-[#0A1C33]'
@@ -1251,12 +1244,13 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className={`w-4 h-4 flex-shrink-0 ${pathname === '/dashboard' ? 'text-[#D4AF37]' : 'text-white'}`}
+              className={`w-6 h-6 flex-shrink-0 pl-3 ${pathname === '/dashboard' ? 'text-[#D4AF37]' : 'text-white'}`}
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
             </svg>
             <span className='font-semibold text-sm truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
+            <span className='pr-3'></span>
           </button>
         ) : (
           <button
@@ -1265,7 +1259,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               const defaultHome = getRoleBasedRedirectPath(effectiveRole);
               router.push(defaultHome);
             }}
-            className='w-full text-left bg-[#0F2D52] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] px-3 py-2.5 flex items-center gap-2 shadow-inner transition-all cursor-pointer focus-visible:outline-none'
+            className='w-full text-left bg-[#0F2D52] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] px-0 py-2.5 flex items-center gap-2 shadow-inner transition-all cursor-pointer focus-visible:outline-none'
           >
             <svg
               xmlns='http://www.w3.org/2000/svg'
@@ -1275,16 +1269,17 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className='w-4 h-4 flex-shrink-0 text-[#D4AF37]'
+              className='w-6 h-6 flex-shrink-0 pl-3 text-[#D4AF37]'
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
             </svg>
             <span className='font-semibold text-sm truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
+            <span className='pr-3'></span>
           </button>
         )}
 
-        <nav className='flex-1 overflow-y-auto py-2 px-2'>
+        <nav className='flex-1 overflow-y-auto py-2 px-0'>
           <ul className='space-y-1'>
             {!isAdminRole(effectiveRole) && (
               <li>
@@ -1292,21 +1287,21 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                 <button
                   type='button'
                   onClick={handleInboxToggle}
-                  className={`flex items-center w-full px-3 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 ${
+                  className={`flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 ${
                     (activeItem && String(activeItem).startsWith('inbox-')) || isInboxOpen
                       ? 'bg-[#001F54] text-white font-medium shadow-sm'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
                   <span
-                    className='inline-flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0 transition-colors'
+                    className='inline-flex items-center justify-center w-7 h-7 mr-3 flex-shrink-0 transition-colors pl-3'
                     aria-hidden='true'
                   >
                     {menuMeta.inbox.icon() as any}
                   </span>
                   <span className='flex-1'>{menuMeta.inbox.label}</span>
-                  <span className='ml-2 flex-shrink-0 transition-transform duration-200' style={{ transform: isInboxOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
-                    <ChevronDown className='w-4 h-4' />
+                  <span className='ml-2 mr-3 flex-shrink-0 transition-transform duration-200' style={{ transform: isInboxOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
+                    <ChevronDown className='w-6 h-6' />
                   </span>
                 </button>
                 {isInboxOpen && (
@@ -1423,10 +1418,10 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           <button
             type='button'
             onClick={handleLogout}
-            className='flex items-center w-full px-3 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 text-gray-600 hover:bg-red-50 hover:text-red-700'
+            className='flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 text-gray-600 hover:bg-red-50 hover:text-red-700'
           >
             <span
-              className='inline-flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0'
+              className='inline-flex items-center justify-center w-7 h-7 mr-3 flex-shrink-0 pl-3'
               aria-hidden='true'
             >
               <svg
@@ -1435,7 +1430,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                 viewBox='0 0 24 24'
                 strokeWidth='1.5'
                 stroke='currentColor'
-                className='w-5 h-5'
+                className='w-6 h-6'
               >
                 <path
                   strokeLinecap='round'
@@ -1446,6 +1441,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               </svg>
             </span>
             Logout
+            <span className='pr-3'></span>
           </button>
         </div>
       </aside>

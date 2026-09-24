@@ -13,6 +13,7 @@ import { AdminErrorBoundary } from '@/components/admin';
 import { AdminRoleService } from '@/services/admin/roles';
 import { AdminActionService, Action, RoleActionMapping } from '@/services/admin/actions';
 import { useAdminTheme } from '@/context/AdminThemeContext';
+import { AdminDataTable } from '@/components/tables/AdminDataTable';
 
 export default function ActionMappingContent() {
   const queryClient = useQueryClient();
@@ -36,6 +37,10 @@ export default function ActionMappingContent() {
   const [newActionCode, setNewActionCode] = useState('');
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Notification State
   const [notification, setNotification] = useState<{
@@ -97,6 +102,18 @@ export default function ActionMappingContent() {
         action.code.toLowerCase().includes(query)
     );
   }, [actionsData, actionSearchQuery]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [actionSearchQuery, selectedRoleId, selectedAppType]);
+
+  const totalPages = Math.max(1, Math.ceil((filteredActionsData?.length || 0) / itemsPerPage));
+  const paginatedActions = useMemo(() => {
+    if (!filteredActionsData) return [];
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredActionsData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredActionsData, currentPage]);
 
   // Fetch Mappings for Selected Role + Application Type
   const { data: mappingsData, isLoading: isLoadingMappings } = useQuery({
@@ -243,7 +260,7 @@ export default function ActionMappingContent() {
         />
 
         {/* Main Content Area */}
-        <div className="flex-grow min-h-0 flex flex-col max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex-grow min-h-0 flex flex-col w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {notification.visible && (
             <div className={`p-4 rounded-lg flex justify-between items-center flex-shrink-0 ${notification.type === 'success' ? 'bg-green-100 border border-green-300 text-green-800' : 'bg-red-100 border border-red-300 text-red-800'}`}>
               <span>{notification.message}</span>
@@ -261,62 +278,73 @@ export default function ActionMappingContent() {
               {isLoadingActions || isLoadingMappings ? (
                 <div className='p-8 text-center text-slate-500'>Loading actions...</div>
               ) : (
-                <div className='overflow-x-auto flex-1 min-h-0 flex flex-col'>
-                  {/* Table header stays fixed while rows scroll within the card's available height */}
-                  <div className='flex-1 min-h-0 overflow-y-auto isolate'>
-                    <table className='w-full text-left border-collapse'>
-                      <thead className='sticky top-0 z-10'>
-                        <tr className='bg-slate-50 border-b border-slate-200'>
-                          <th className='p-4 font-semibold text-slate-600 text-sm'>Action Name</th>
-                          <th className='p-4 font-semibold text-slate-600 text-sm'>Code</th>
-                          <th className='p-4 font-semibold text-slate-600 text-sm w-40'>Allowed By</th>
-                          <th className='p-4 font-semibold text-slate-600 text-sm w-32 text-center'>Access</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredActionsData?.map((action: Action) => {
-                          const mapping = actionStatusMap.get(action.id);
-                          const isEnabled = mapping ? mapping.isActive : false;
-
-                          return (
-                            <tr key={action.id} className='border-b border-slate-100 hover:bg-slate-50'>
-                              <td className='p-4 font-medium text-slate-800'>{action.name}</td>
-                              <td className='p-4 text-slate-500 text-sm'>
-                                <span className='bg-slate-100 px-2 py-1 rounded text-xs font-mono'>{action.code}</span>
-                              </td>
-                              <td className='p-4 text-sm text-slate-600'>
-                                {isEnabled && mapping?.allowedBy?.username ? (
-                                  <span className='text-slate-700'>{mapping.allowedBy.username}</span>
-                                ) : (
-                                  <span className='text-slate-400'>—</span>
-                                )}
-                              </td>
-                              <td className='p-4 text-center'>
-                                <button
-                                  onClick={() => handleToggle(action.id, mapping)}
-                                  disabled={toggleMappingMutation.isPending}
-                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${toggleMappingMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                                >
-                                  <span
-                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-
-                        {filteredActionsData?.length === 0 && (
-                          <tr>
-                            <td colSpan={4} className='p-8 text-center text-slate-500'>
-                              {actionSearchQuery ? `No actions found matching "${actionSearchQuery}".` : 'No actions found in the system.'}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <AdminDataTable
+                  data={paginatedActions || []}
+                  columns={[
+                    {
+                      key: 'sno',
+                      header: 'S.No',
+                      width: '80px',
+                      render: (_, row) => (currentPage - 1) * itemsPerPage + (paginatedActions.indexOf(row)) + 1
+                    },
+                    {
+                      key: 'name',
+                      header: 'Action Name',
+                      sortable: true,
+                      render: (_, action) => <span className="font-medium text-slate-800">{action.name}</span>
+                    },
+                    {
+                      key: 'code',
+                      header: 'Code',
+                      sortable: true,
+                      render: (_, action) => <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono text-slate-500">{action.code}</span>
+                    },
+                    {
+                      key: 'allowedBy',
+                      header: 'Allowed By',
+                      width: '10rem',
+                      render: (_, action) => {
+                        const mapping = actionStatusMap.get(action.id);
+                        const isEnabled = mapping ? mapping.isActive : false;
+                        return isEnabled && mapping?.allowedBy?.username ? (
+                          <span className='text-slate-700'>{mapping.allowedBy.username}</span>
+                        ) : (
+                          <span className='text-slate-400'>—</span>
+                        );
+                      }
+                    },
+                    {
+                      key: 'access',
+                      header: 'Access',
+                      width: '8rem',
+                      align: 'center',
+                      render: (_, action) => {
+                        const mapping = actionStatusMap.get(action.id);
+                        const isEnabled = mapping ? mapping.isActive : false;
+                        return (
+                          <button
+                            onClick={() => handleToggle(action.id, mapping)}
+                            disabled={toggleMappingMutation.isPending}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${toggleMappingMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                            />
+                          </button>
+                        );
+                      }
+                    }
+                  ]}
+                  pagination={{
+                    currentPage,
+                    totalPages,
+                    totalItems: filteredActionsData?.length || 0,
+                    pageSize: itemsPerPage,
+                    onPageChange: setCurrentPage
+                  }}
+                  emptyMessage={actionSearchQuery ? `No actions found matching "${actionSearchQuery}".` : 'No actions found in the system.'}
+                  className="rounded-b-xl border-none shadow-none"
+                />
               )}
             </div>
           ) : (

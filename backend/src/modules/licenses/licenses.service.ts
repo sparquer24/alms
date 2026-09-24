@@ -641,6 +641,9 @@ export class LicensesService {
       ...sourceApplication,
       ...baseMetadata,
       applicantName: [sourceApplication.firstName, sourceApplication.middleName, sourceApplication.lastName].filter(Boolean).join(' '),
+      // Always expose documents from the most recently approved application (fresh or renewal).
+      // The sourceApplication already reflects the last approved application per loadApplicationForLicense.
+      documents: sourceApplication.fileUploads ?? [],
     };
 
     excludedKeys.forEach((key) => {

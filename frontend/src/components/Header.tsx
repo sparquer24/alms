@@ -36,8 +36,10 @@ interface HeaderProps {
   hideCreateForm?: boolean;
   /** Force the Create Form button to show even when the sidebar is hidden */
   showCreateForm?: boolean;
-  /** Show a back button that navigates to /inbox?type=all */
+  /** Show a back button that navigates to the given URL, or to browser history if no URL is provided */
   showBackButton?: boolean;
+  /** Optional URL to navigate to when back button is clicked. Defaults to router.back() */
+  backHref?: string;
   /** Optional application type label to display in the header */
   applicationTypeLabel?: string;
 }
@@ -52,6 +54,7 @@ const Header = (props: HeaderProps) => {
     hideCreateForm,
     showCreateForm,
     showBackButton,
+    backHref,
     applicationTypeLabel,
   } = props;
   const { showHeader, showSidebar, setHeaderHeight } = useLayout();
@@ -195,7 +198,7 @@ const Header = (props: HeaderProps) => {
           {showBackButton && (
             <button
               type='button'
-              onClick={() => router.back()}
+              onClick={() => backHref ? router.push(backHref) : router.back()}
               className='flex items-center gap-1 pl-2 pr-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md flex-shrink-0'
               aria-label='Go back'
               title='Go back'

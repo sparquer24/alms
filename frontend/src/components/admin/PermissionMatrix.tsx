@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AdminBorderRadius, AdminSpacing } from '@/styles/admin-design-system';
 import { useAdminTheme } from '@/context/AdminThemeContext';
+import { AdminPermissionService } from '@/services/admin/permissions';
 
 interface Permission {
   key: string;
@@ -14,52 +16,6 @@ interface PermissionMatrixProps {
   readOnly?: boolean;
 }
 
-const PERMISSION_LIST: Permission[] = [
-  // Capability Permissions
-  { key: 'can_forward', label: 'Can Forward Applications', category: 'Capabilities' },
-  { key: 'can_FLAF', label: 'Can FLAF (Fresh Form)', category: 'Capabilities' },
-  {
-    key: 'can_generate_ground_report',
-    label: 'Can Generate Ground Report',
-    category: 'Capabilities',
-  },
-  { key: 'can_re_enquiry', label: 'Can Re-enquiry', category: 'Capabilities' },
-  { key: 'can_create_freshLicence', label: 'Can Create Fresh Licence', category: 'Capabilities' },
-  { key: 'can_access_settings', label: 'Can Access Settings', category: 'Capabilities' },
-
-  // View Permissions
-  { key: 'canViewFreshForm', label: 'View Fresh Forms', category: 'View Permissions' },
-  { key: 'canViewForwarded', label: 'View Forwarded Applications', category: 'View Permissions' },
-  { key: 'canViewReturned', label: 'View Returned Applications', category: 'View Permissions' },
-  {
-    key: 'canViewRedFlagged',
-    label: 'View Red Flagged Applications',
-    category: 'View Permissions',
-  },
-  { key: 'canViewDisposed', label: 'View Disposed Applications', category: 'View Permissions' },
-  { key: 'canViewSent', label: 'View Sent Applications', category: 'View Permissions' },
-  { key: 'canViewApplicationl', label: 'View Applications', category: 'View Permissions' },
-  { key: 'canViewReports', label: 'View Reports', category: 'View Permissions' },
-
-  // Action Permissions
-  { key: 'canSubmitApplication', label: 'Submit Applications', category: 'Actions' },
-  { key: 'canCaptureUIN', label: 'Capture UIN', category: 'Actions' },
-  { key: 'canCaptureBiometrics', label: 'Capture Biometrics', category: 'Actions' },
-  { key: 'canUploadDocuments', label: 'Upload Documents', category: 'Actions' },
-  { key: 'canForwardToACP', label: 'Forward to ACP', category: 'Actions' },
-  { key: 'canForwardToSHO', label: 'Forward to SHO', category: 'Actions' },
-  { key: 'canForwardToDCP', label: 'Forward to DCP', category: 'Actions' },
-  { key: 'canForwardToAS', label: 'Forward to AS', category: 'Actions' },
-  { key: 'canForwardToCP', label: 'Forward to CP', category: 'Actions' },
-  { key: 'canConductEnquiry', label: 'Conduct Enquiry', category: 'Actions' },
-  { key: 'canAddRemarks', label: 'Add Remarks', category: 'Actions' },
-  { key: 'canApproveTA', label: 'Approve TA', category: 'Actions' },
-  { key: 'canApproveAI', label: 'Approve AI', category: 'Actions' },
-  { key: 'canReject', label: 'Reject Applications', category: 'Actions' },
-  { key: 'canRequestResubmission', label: 'Request Resubmission', category: 'Actions' },
-  { key: 'canGeneratePDF', label: 'Generate PDF', category: 'Actions' },
-];
-
 export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
   permissions,
   onChange,
@@ -71,6 +27,20 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
   useEffect(() => {
     setLocalPermissions(permissions);
   }, [permissions]);
+
+  // The permission catalog (key/label/category) is managed in Admin > Permissions;
+  // this matrix only edits which of those keys a given role has enabled.
+  const { data: catalogPermissions = [] } = useQuery({
+    queryKey: ['admin-permissions'],
+    queryFn: () => AdminPermissionService.getPermissions(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const PERMISSION_LIST: Permission[] = catalogPermissions.map(p => ({
+    key: p.key,
+    label: p.label,
+    category: p.category,
+  }));
 
   const handlePermissionChange = (key: string, value: boolean) => {
     if (readOnly) return;

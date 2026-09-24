@@ -70,6 +70,7 @@ const columns = [
   'License Holder Name',
   'Expiry Date',
   'License Status',
+  'Created From',
   'Father/Guardian Name',
   'Address',
   'Weapon Type',
@@ -77,7 +78,6 @@ const columns = [
   'License Purpose',
   'Issue Date',
   'Current Workflow Status',
-  'Created From',
   'Created Date',
   'Updated Date',
   'Mobile Number',
@@ -239,8 +239,6 @@ function LicenseManagementContent() {
   })();
 
   const [tab, setTab] = useState<LicenseTab>(initialTab);
-  const [selectedLicense, setSelectedLicense] = useState<LicenseData | null>(null);
-  const [auditRows, setAuditRows] = useState<any[]>([]);
   const [search, setSearch] = useState(searchParams?.get('search') || '');
   const [statusFilter, setStatusFilter] = useState(searchParams?.get('status') || '');
   const [purposeFilter, setPurposeFilter] = useState(searchParams?.get('purpose') || '');
@@ -261,6 +259,7 @@ function LicenseManagementContent() {
 
   const role = useMemo(() => normalizeRole(userRole), [userRole]);
   const canAccess = role ? LICENSE_ROLES.has(role) : false;
+  const isZS = role === 'ZS';
 
   useEffect(() => {
     setShowSidebar(false);
@@ -484,14 +483,8 @@ function LicenseManagementContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const openDetails = async (license: LicenseData) => {
-    // Use the row data from the /licenses list response as-is — it already has
-    // every field the drawer needs. (The /licenses/:id detail endpoint returns a
-    // differently-shaped "source application" record that leaves most license
-    // fields blank, so we deliberately don't fetch or merge it here.)
-    setSelectedLicense(license);
-    const audit = await LicenseService.getLicenseAudit(license.id);
-    setAuditRows(audit);
+  const openDetails = (license: LicenseData) => {
+    router.push(`/licenses/${license.id}`);
   };
 
   const visibleRows = useMemo(() => licenses.map(mapLicenseToRow), [licenses]);
@@ -872,7 +865,7 @@ function LicenseManagementContent() {
             );
           })}
         </section>
-        <section className='mt-2 flex-1 min-h-0 flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden print:flex-none'>
+        <section className='mt-2 flex-1 min-h-0 flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm print:flex-none'>
           {tab === 'import' ? (
             <BulkLicenseImport
               onChanged={() => loadLicenses()}
@@ -980,14 +973,27 @@ function LicenseManagementContent() {
                 </div>
               )}
 
-              <div className='flex-1 min-h-0 overflow-x-auto overflow-y-hidden isolate'>
+              <div className='flex-1 min-h-0 overflow-auto isolate'>
                 <table className='min-w-[1900px] w-full border-separate border-spacing-0 text-sm'>
                   <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                     <tr>
-                      {columns.map(col => (
+                      <th className='sticky left-0 z-20 border-b border-[#001F54] bg-[#001F54] px-3 py-1.5 font-semibold w-[60px] min-w-[60px]'>
+                        S.No
+                      </th>
+                      {columns.map((col, idx) => {
+                        const isStickyColumn = ['License Number', 'License Holder Name', 'License Status', 'Created From'].includes(col);
+                        const stickyLeftValues: Record<string, string> = {
+                          'License Number': 'left-[60px]',
+                          'License Holder Name': 'left-[310px]',
+                          'License Status': 'left-[530px]',
+                          'Created From': 'left-[680px]',
+                        };
+                        const stickyClass = isStickyColumn ? `sticky ${stickyLeftValues[col]} z-20 bg-[#001F54]` : '';
+
+                        return (
                         <th
                           key={col}
-                          className={`border-b border-[#001F54] px-3 py-1.5 font-semibold ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                          className={`border-b border-[#001F54] px-3 py-1.5 font-semibold ${stickyClass} ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
                         >
                           <button
                             type='button'
@@ -1012,16 +1018,22 @@ function LicenseManagementContent() {
                             {col}
                           </button>
                         </th>
-                      ))}
-                      <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-2 font-semibold print:hidden'>
-                        Actions
-                      </th>
+                        );
+                        })}
+                      {isZS && (
+                        <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-2 font-semibold print:hidden'>
+                          Actions
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       Array.from({ length: 10 }).map((_, idx) => (
                         <tr key={idx} className='animate-pulse'>
+                          <td className='sticky left-0 border-b bg-gray-100 px-3 py-1.5 w-[60px] min-w-[60px]'>
+                            <div className='h-4 rounded bg-gray-200' />
+                          </td>
                           {columns.slice(0, 8).map(col => (
                             <td
                               key={col}
@@ -1030,15 +1042,17 @@ function LicenseManagementContent() {
                               <div className='h-4 rounded bg-gray-200' />
                             </td>
                           ))}
-                          <td className='sticky right-0 border-b bg-white px-3 py-1.5 print:hidden'>
-                            <div className='h-4 rounded bg-gray-200' />
-                          </td>
+                          {isZS && (
+                            <td className='sticky right-0 border-b bg-white px-3 py-1.5 print:hidden'>
+                              <div className='h-4 rounded bg-gray-200' />
+                            </td>
+                          )}
                         </tr>
                       ))
                     ) : licenses.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={columns.length + 1}
+                          colSpan={columns.length + 1 + (isZS ? 1 : 0)}
                           className='px-3 py-12 text-center text-gray-500'
                         >
                           No licenses found for the selected filters.
@@ -1054,10 +1068,24 @@ function LicenseManagementContent() {
                             key={license.id}
                             className='odd:bg-white even:bg-gray-50 hover:bg-blue-50/70'
                           >
-                            {columns.map(col => (
+                            <td className='sticky left-0 z-10 border-b border-gray-100 bg-inherit px-3 py-1.5 align-middle text-gray-700 font-semibold w-[60px] min-w-[60px]'>
+                              {(page - 1) * limit + licenses.indexOf(license) + 1}
+                            </td>
+                            {columns.map((col, idx) => {
+                              const isStickyColumn = ['License Number', 'License Holder Name', 'License Status', 'Created From'].includes(col);
+                              const stickyLeftValues: Record<string, string> = {
+                                'License Number': 'left-[60px]',
+                                'License Holder Name': 'left-[310px]',
+                                'License Status': 'left-[530px]',
+                                'Created From': 'left-[680px]',
+                              };
+                              const bgClass = isStickyColumn ? (license.id % 2 === 0 ? 'bg-gray-50' : 'bg-white') : '';
+                              const stickyClass = isStickyColumn ? `sticky ${stickyLeftValues[col]} z-10 ${bgClass}` : '';
+
+                              return (
                               <td
                                 key={col}
-                                className={`border-b border-gray-100 px-3 py-1.5 align-middle text-gray-700 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                                className={`border-b border-gray-100 px-3 py-1.5 align-middle text-gray-700 ${stickyClass} ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
                               >
                                 {col === 'License Status' ? (
                                   <span
@@ -1090,79 +1118,82 @@ function LicenseManagementContent() {
                                   </span>
                                 )}
                               </td>
-                            ))}
-                            <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-1.5 print:hidden'>
-                              <div className='flex items-center gap-2'>
-                                <button
-                                  type='button'
-                                  onClick={() => openDetails(license)}
-                                  className='rounded-md border p-1.5 text-gray-700 hover:bg-white'
-                                  title='View details'
-                                >
-                                  <Eye className='h-4 w-4' />
-                                </button>
-                                <div className='relative group'>
+                            );
+                            })}
+                            {isZS && (
+                              <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-1.5 print:hidden'>
+                                <div className='flex items-center gap-2'>
                                   <button
                                     type='button'
-                                    disabled={license.status === 'CANCELLED'}
-                                    onClick={() =>
-                                      license.renewalApplicationId
-                                        ? router.push(`/renewalApplication/${license.renewalApplicationId}`)
-                                        : router.push(`/forms/renewal?licenseId=${license.id}`)
-                                    }
-                                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                                      license.status === 'CANCELLED'
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                        : license.renewalApplicationId
-                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                        : 'bg-[#001F54] text-white hover:bg-[#012a73]'
-                                    }`}
+                                    onClick={() => openDetails(license)}
+                                    className='rounded-md border p-1.5 text-gray-700 hover:bg-white'
+                                    title='View details'
                                   >
-                                    {license.renewalApplicationId ? 'View Renewal' : 'Renewal'}
+                                    <Eye className='h-4 w-4' />
                                   </button>
-                                  {(license.status === 'CANCELLED' || license.renewalApplicationId) && (
-                                    <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
-                                      <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
-                                        {license.status === 'CANCELLED'
-                                          ? 'This license has been cancelled. No further actions are allowed.'
-                                          : 'This license is already in the renewal process.'}
-                                        <div className='absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900' />
+                                  <div className='relative group'>
+                                    <button
+                                      type='button'
+                                      disabled={license.status === 'CANCELLED'}
+                                      onClick={() =>
+                                        license.renewalApplicationId
+                                          ? router.push(`/renewalApplication/${license.renewalApplicationId}`)
+                                          : router.push(`/forms/renewal?licenseId=${license.id}`)
+                                      }
+                                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        license.status === 'CANCELLED'
+                                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                          : license.renewalApplicationId
+                                          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                          : 'bg-[#001F54] text-white hover:bg-[#012a73]'
+                                      }`}
+                                    >
+                                      {license.renewalApplicationId ? 'View Renewal' : 'Renewal'}
+                                    </button>
+                                    {(license.status === 'CANCELLED' || license.renewalApplicationId) && (
+                                      <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
+                                        <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
+                                          {license.status === 'CANCELLED'
+                                            ? 'This license has been cancelled. No further actions are allowed.'
+                                            : 'This license is already in the renewal process.'}
+                                          <div className='absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900' />
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className='relative group'>
-                                  <button
-                                    type='button'
-                                    disabled={license.status === 'CANCELLED'}
-                                    onClick={() =>
-                                      license.cancelApplicationId
-                                        ? router.push(`/cancelForm/${license.cancelApplicationId}`)
-                                        : router.push(`/cancelForm/new?licenseId=${license.id}`)
-                                    }
-                                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                                      license.status === 'CANCELLED'
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                        : license.cancelApplicationId
-                                        ? 'bg-orange-600 text-white hover:bg-orange-700'
-                                        : 'bg-red-600 text-white hover:bg-red-700'
-                                    }`}
-                                  >
-                                    {license.cancelApplicationId ? 'View Cancel' : 'Cancel'}
-                                  </button>
-                                  {(license.status === 'CANCELLED' || license.cancelApplicationId) && (
-                                    <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
-                                      <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
-                                        {license.status === 'CANCELLED'
-                                          ? 'This license has been cancelled. No further actions are allowed.'
-                                          : 'This license is already in the cancellation process.'}
-                                        <div className='absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900' />
+                                    )}
+                                  </div>
+                                  <div className='relative group'>
+                                    <button
+                                      type='button'
+                                      disabled={license.status === 'CANCELLED'}
+                                      onClick={() =>
+                                        license.cancelApplicationId
+                                          ? router.push(`/cancelForm/${license.cancelApplicationId}`)
+                                          : router.push(`/cancelForm/new?licenseId=${license.id}`)
+                                      }
+                                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        license.status === 'CANCELLED'
+                                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                          : license.cancelApplicationId
+                                          ? 'bg-orange-600 text-white hover:bg-orange-700'
+                                          : 'bg-red-600 text-white hover:bg-red-700'
+                                      }`}
+                                    >
+                                      {license.cancelApplicationId ? 'View Cancel' : 'Cancel'}
+                                    </button>
+                                    {(license.status === 'CANCELLED' || license.cancelApplicationId) && (
+                                      <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
+                                        <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
+                                          {license.status === 'CANCELLED'
+                                            ? 'This license has been cancelled. No further actions are allowed.'
+                                            : 'This license is already in the cancellation process.'}
+                                          <div className='absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900' />
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
+                              </td>
+                            )}
                           </tr>
                         );
                       })
@@ -1201,151 +1232,6 @@ function LicenseManagementContent() {
         <Footer />
       </main>
 
-      {selectedLicense && (
-        <div
-          className='fixed inset-0 z-[100] flex items-start justify-end bg-black/40 print:hidden'
-          onClick={() => setSelectedLicense(null)}
-        >
-          <aside
-            className='h-full w-full max-w-3xl overflow-y-auto bg-white shadow-2xl md:rounded-l-2xl'
-            onClick={event => event.stopPropagation()}
-          >
-            <div className='sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-4'>
-              <div>
-                <h2 className='text-xl font-semibold text-gray-900'>
-                  {getFullName(selectedLicense)}
-                </h2>
-                <p className='text-sm text-gray-500'>{selectedLicense.licenseNumber}</p>
-              </div>
-              <button
-                type='button'
-                onClick={() => setSelectedLicense(null)}
-                className='rounded-md border px-3 py-2 text-sm'
-              >
-                Close
-              </button>
-            </div>
-            <div className='space-y-5 p-6'>
-              {[
-                [
-                  'Personal Details',
-                  [
-                    ['License ID', selectedLicense.id],
-                    ['Name', getFullName(selectedLicense)],
-                    ['Father/Guardian', selectedLicense.parentOrSpouseName],
-                    ['Gender', selectedLicense.sex],
-                    ['Date of Birth', formatDate(selectedLicense.dateOfBirth)],
-                    ['Aadhar', selectedLicense.aadharNumber],
-                    ['PAN', selectedLicense.panNumber],
-                  ],
-                ],
-                [
-                  'Present Address',
-                  [
-                    ['Address', selectedLicense.presentAddressLine],
-                    ['State', locationValue(selectedLicense.presentStateName, selectedLicense.presentStateId, 'State')],
-                    ['District', locationValue(selectedLicense.presentDistrictName, selectedLicense.presentDistrictId, 'District')],
-                    ['Police Station', locationValue(selectedLicense.presentPoliceStationName, selectedLicense.presentPoliceStationId, 'Police Station')],
-                    ['Range Office', locationValue(selectedLicense.presentRangeOfficeName, selectedLicense.presentRangeOfficeId, 'Range Office')],
-                    ['Zone', locationValue(selectedLicense.presentZoneName, selectedLicense.presentZoneId, 'Zone')],
-                    ['Division', locationValue(selectedLicense.presentDivisionName, selectedLicense.presentDivisionId, 'Division')],
-                  ],
-                ],
-                [
-                  'Permanent Address',
-                  [
-                    ['Address', selectedLicense.permanentAddressLine],
-                    ['State', locationValue(selectedLicense.permanentStateName, selectedLicense.permanentStateId, 'State')],
-                    ['District', locationValue(selectedLicense.permanentDistrictName, selectedLicense.permanentDistrictId, 'District')],
-                    ['Police Station', locationValue(selectedLicense.permanentPoliceStationName, selectedLicense.permanentPoliceStationId, 'Police Station')],
-                    ['Range Office', locationValue(selectedLicense.permanentRangeOfficeName, selectedLicense.permanentRangeOfficeId, 'Range Office')],
-                    ['Zone', locationValue(selectedLicense.permanentZoneName, selectedLicense.permanentZoneId, 'Zone')],
-                    ['Division', locationValue(selectedLicense.permanentDivisionName, selectedLicense.permanentDivisionId, 'Division')],
-                  ],
-                ],
-                [
-                  'Weapon Details',
-                  [
-                    ['Weapon Type', selectedLicense.armsCategory],
-                    [
-                      'Weapon Details',
-                      selectedLicense.endorsedWeapons?.map(w => w.name).join(', '),
-                    ],
-                    ['Ammunition', selectedLicense.ammunitionDescription],
-                  ],
-                ],
-                [
-                  'License Information',
-                  [
-                    ['License Number', selectedLicense.licenseNumber],
-                    [
-                      'Issue Date',
-                      formatDate(selectedLicense.issueDate || selectedLicense.validFrom),
-                    ],
-                    ['Expiry Date', formatDate(selectedLicense.validTill)],
-                    ['Purpose', selectedLicense.needForLicense],
-                    ['Status', selectedLicense.status],
-                    ['Created From', getLicenseSource(selectedLicense).label],
-                  ],
-                ],
-              ].map(([title, fields]) => (
-                <section key={String(title)} className='rounded-lg border border-gray-200'>
-                  <h3 className='border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900'>
-                    {String(title)}
-                  </h3>
-                  <dl className='grid grid-cols-1 gap-px bg-gray-100 sm:grid-cols-2'>
-                    {(fields as any[]).map(([label, value]) => (
-                      <div key={label} className='bg-white px-4 py-3'>
-                        <dt className='text-xs font-medium uppercase text-gray-500'>{label}</dt>
-                        <dd className='mt-1 text-sm text-gray-900'>{value || '-'}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              ))}
-
-              <section className='rounded-lg border border-gray-200'>
-                <h3 className='border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900'>
-                  Workflow History & Audit Timeline
-                </h3>
-                <div className='divide-y'>
-                  {(auditRows.length ? auditRows : selectedLicense.workflowHistories || []).map(
-                    (entry: any) => (
-                      <div key={entry.id} className='px-4 py-3'>
-                        <div className='flex items-center justify-between gap-3'>
-                          <span className='font-medium text-gray-900'>
-                            {entry.event || entry.action || entry.newStatus || 'Activity'}
-                          </span>
-                          <span className='text-xs text-gray-500'>
-                            {formatDate(entry.createdAt)}
-                          </span>
-                        </div>
-                        <p className='mt-1 text-sm text-gray-600'>{entry.remarks || '-'}</p>
-                        <p className='mt-1 text-xs text-gray-500'>
-                          Officer:{' '}
-                          {entry.officer || entry.changedByUser?.username || entry.changedBy || '-'}
-                        </p>
-                      </div>
-                    )
-                  )}
-                  {!auditRows.length && !selectedLicense.workflowHistories?.length && (
-                    <div className='px-4 py-6 text-sm text-gray-500'>
-                      No audit activity found for this license.
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <section className='rounded-lg border border-gray-200 bg-gray-50 p-4'>
-                <h3 className='text-sm font-semibold text-gray-900'>Raw License Information</h3>
-                <pre className='mt-3 max-h-80 overflow-auto rounded-md bg-gray-950 p-4 text-xs text-gray-100'>
-                  {JSON.stringify(selectedLicense, null, 2)}
-                </pre>
-              </section>
-            </div>
-          </aside>
-        </div>
-      )}
     </div>
   );
 }

@@ -385,6 +385,9 @@ export default function RoleMappingPage() {
               borderRadius: AdminBorderRadius.lg,
               border: `1px solid ${colors.border}`,
               overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
             }}
           >
             {isLoadingRoles ? (

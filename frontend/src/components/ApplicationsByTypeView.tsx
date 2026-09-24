@@ -64,7 +64,7 @@ const fetchRenewalApplications = async (submittedOnly: boolean): Promise<Applica
   }
 };
 
-const ORG_WIDE_PAGE_SIZE = 20;
+const ORG_WIDE_PAGE_SIZE = 15;
 
 type FreshFormViewType = 'fresh' | 'renewal';
 

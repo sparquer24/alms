@@ -12,6 +12,7 @@ import {
   SubHeaderButton,
   SubHeaderSearch,
 } from '../common/PageSubHeader';
+import { AdminDataTable } from '@/components/tables/AdminDataTable';
 import { fetchData, postData, putData, deleteData } from '../../api/axiosConfig';
 import { useLocationHierarchy } from '../../hooks/useLocationHierarchy';
 import { ROLE_CODES, LOCATION_HIERARCHY_ROLES } from '../../constants';
@@ -164,6 +165,10 @@ export default function UserManagementContent() {
   // State for fetching roles from API (for SUPER_ADMIN)
   const [allRolesFromAPI, setAllRolesFromAPI] = useState<ApiRole[]>([]);
   const [loadingRolesAPI, setLoadingRolesAPI] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Location hierarchy hook (loads states and manages dependent lists)
   const [locationState, locationActions] = useLocationHierarchy();
@@ -597,6 +602,17 @@ export default function UserManagementContent() {
     }
   };
 
+  // Reset page when search or roleFilter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, roleFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage));
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const skeletonRows = Array.from({ length: 6 });
 
   return (
@@ -659,7 +675,7 @@ export default function UserManagementContent() {
         }
       />
 
-      <div className='flex-grow min-h-0 flex flex-col max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6'>
+      <div className='flex-grow min-h-0 flex flex-col w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6'>
 
           {/* Error Alert */}
           {error && (
@@ -690,238 +706,105 @@ export default function UserManagementContent() {
                 </span>
               </div>
             </div>
-            <div className='overflow-x-auto flex-1 min-h-0 flex flex-col'>
-              {/* Table header stays fixed while rows scroll within the card's available height */}
-              <div className='flex-1 min-h-0 overflow-y-auto isolate'>
-                <table className='w-full table-fixed'>
-                  <thead className='bg-slate-50 border-b border-slate-200 sticky top-0 z-10'>
-                    <tr>
-                      <th className='py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-12'>
-                        #
-                      </th>
-                      <th className='py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider'>
-                        User
-                      </th>
-                      <th className='py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider'>
-                        Role
-                      </th>
-                      <th className='py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider'>
-                        Contact
-                      </th>
-                      <th className='py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider w-36'>
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className='divide-y divide-slate-200'>
-                    {loading &&
-                      skeletonRows.map((_, i) => (
-                        <tr key={i} className='animate-pulse'>
-                          <td className='py-4 px-4'>
-                            <div className='h-4 bg-slate-200 rounded'></div>
-                          </td>
-                          <td className='py-4 px-4'>
-                            <div className='h-4 bg-slate-200 rounded w-3/4'></div>
-                          </td>
-                          <td className='py-4 px-4'>
-                            <div className='h-6 bg-slate-200 rounded w-20'></div>
-                          </td>
-                          <td className='py-4 px-4'>
-                            <div className='h-4 bg-slate-200 rounded w-1/2'></div>
-                          </td>
-                          <td className='py-4 px-4'>
-                            <div className='h-8 bg-slate-200 rounded w-16'></div>
-                          </td>
-                        </tr>
-                      ))}
-                    {!loading && filteredUsers.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className='py-12 text-center'>
-                          <div className='flex flex-col items-center justify-center text-slate-400'>
-                            <svg
-                              className='h-12 w-12 mb-3'
-                              fill='none'
-                              stroke='currentColor'
-                              viewBox='0 0 24 24'
-                            >
-                              <path
-                                strokeLinecap='round'
-                                strokeLinejoin='round'
-                                strokeWidth={1}
-                                d='M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z'
-                              />
-                            </svg>
-                            <p className='text-lg font-medium'>No users found</p>
-                            <p className='text-sm mt-1'>
-                              Try adjusting your search or filter criteria
-                            </p>
-                            {isAdmin ? (
-                              <button
-                                onClick={handleOpenAddModal}
-                                className='mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300'
-                              >
-                                <svg
-                                  className='w-4 h-4'
-                                  fill='none'
-                                  stroke='currentColor'
-                                  viewBox='0 0 24 24'
-                                >
-                                  <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d='M12 4v16m8-8H4'
-                                  />
-                                </svg>
-                                Add your first user
-                              </button>
-                            ) : (
-                              <p className='text-sm mt-3 text-slate-500'>
-                                Contact an administrator to add users.
-                              </p>
-                            )}
+            <div className='flex-1 min-h-0'>
+              <AdminDataTable
+                data={paginatedUsers}
+                columns={[
+                  {
+                    key: 'sno',
+                    header: 'S.No',
+                    width: '80px',
+                    render: (_, row) => (currentPage - 1) * itemsPerPage + (paginatedUsers.indexOf(row)) + 1
+                  },
+                  {
+                    key: 'user',
+                    header: 'User',
+                    sortable: true,
+                    render: (_, u) => (
+                      <div className='flex items-center'>
+                        <div className='w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden mr-3'>
+                          <img
+                            src='/assets/passport-img.png'
+                            alt={`${u.username} avatar`}
+                            className='w-full h-full object-cover'
+                          />
+                        </div>
+                        <div>
+                          <div className='font-medium text-slate-900'>{u.username}</div>
+                          <div className='text-xs text-slate-500 font-mono mt-1'>
+                            ID: {u.id}
                           </div>
-                        </td>
-                      </tr>
-                    )}
-                    {!loading &&
-                      filteredUsers.map((u, idx) => (
-                        <tr key={u.id} className='hover:bg-slate-50 transition-colors'>
-                          <td className='py-4 px-4 text-sm text-slate-500 font-medium'>
-                            {idx + 1}
-                          </td>
-                          <td className='py-4 px-4'>
-                            <div className='flex items-center'>
-                              <div className='w-8 h-15 rounded-full bg-black flex items-center justify-center overflow-hidden mr-3'>
-                                <img
-                                  src='/assets/passport-img.png'
-                                  alt={`${u.username} avatar`}
-                                  className='w-full h-full object-cover'
-                                />
-                              </div>
-                              <div>
-                                <div className='font-medium text-slate-900'>{u.username}</div>
-                                <div className='text-xs text-slate-500 font-mono mt-1'>
-                                  ID: {u.id}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className='py-4 px-4'>
-                            {u.role ? (
-                              <span className='inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200'>
-                                {u.role}
-                              </span>
-                            ) : (
-                              <span className='text-slate-400 text-sm'>-</span>
-                            )}
-                          </td>
-                          <td className='py-4 px-4'>
-                            <div className='space-y-1'>
-                              {u.email && (
-                                <div className='text-sm text-slate-700 flex items-center gap-2'>
-                                  <svg
-                                    className='h-3 w-3 text-slate-400'
-                                    fill='none'
-                                    stroke='currentColor'
-                                    viewBox='0 0 24 24'
-                                  >
-                                    <path
-                                      strokeLinecap='round'
-                                      strokeLinejoin='round'
-                                      strokeWidth={2}
-                                      d='M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'
-                                    />
-                                  </svg>
-                                  {u.email}
-                                </div>
-                              )}
-                              {u.phoneNo && (
-                                <div className='text-sm text-slate-700 flex items-center gap-2'>
-                                  <svg
-                                    className='h-3 w-3 text-slate-400'
-                                    fill='none'
-                                    stroke='currentColor'
-                                    viewBox='0 0 24 24'
-                                  >
-                                    <path
-                                      strokeLinecap='round'
-                                      strokeLinejoin='round'
-                                      strokeWidth={2}
-                                      d='M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z'
-                                    />
-                                  </svg>
-                                  {u.phoneNo}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className='py-4 px-4 w-36'>
-                            <div className='flex gap-2 justify-end'>
-                              <button
-                                onClick={() => openDetails(u)}
-                                className='inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white w-9 h-9 text-slate-600 hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors'
-                                title='View details'
-                              >
-                                <svg
-                                  className='w-4 h-4'
-                                  fill='none'
-                                  stroke='currentColor'
-                                  viewBox='0 0 24 24'
-                                >
-                                  <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-                                  />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => openEdit(u)}
-                                className='inline-flex items-center justify-center rounded-lg border border-amber-300 bg-amber-50 w-9 h-9 text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-300 transition-colors'
-                                title='Edit user'
-                              >
-                                <svg
-                                  className='w-4 h-4'
-                                  fill='none'
-                                  stroke='currentColor'
-                                  viewBox='0 0 24 24'
-                                >
-                                  <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d='M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'
-                                  />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => confirmDelete(u)}
-                                className='inline-flex items-center justify-center rounded-lg border border-red-300 bg-red-50 w-9 h-9 text-red-600 hover:bg-red-100 hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-300 transition-colors'
-                                title='Delete user'
-                              >
-                                <svg
-                                  className='w-4 h-4'
-                                  fill='none'
-                                  stroke='currentColor'
-                                  viewBox='0 0 24 24'
-                                >
-                                  <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'
-                                  />
-                                </svg>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'role',
+                    header: 'Role',
+                    sortable: true,
+                    render: (_, u) => (
+                      u.role ? (
+                        <span className='inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200'>
+                          {u.role}
+                        </span>
+                      ) : (
+                        <span className='text-slate-400 text-sm'>-</span>
+                      )
+                    )
+                  },
+                  {
+                    key: 'contact',
+                    header: 'Contact',
+                    render: (_, u) => (
+                      <div className='space-y-1'>
+                        {u.email && (
+                          <div className='text-sm text-slate-700 flex items-center gap-2'>
+                            <svg className='h-3 w-3 text-slate-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' />
+                            </svg>
+                            {u.email}
+                          </div>
+                        )}
+                        {u.phoneNo && (
+                          <div className='text-sm text-slate-700 flex items-center gap-2'>
+                            <svg className='h-3 w-3 text-slate-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z' />
+                            </svg>
+                            {u.phoneNo}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                ]}
+                loading={loading}
+                emptyMessage="No users found. Try adjusting your search or filter criteria."
+                className="border-none shadow-none h-full"
+                rowActions={[
+                  {
+                    label: 'View Details',
+                    onClick: (u) => openDetails(u),
+                    variant: 'primary'
+                  },
+                  {
+                    label: 'Edit',
+                    onClick: (u) => openEdit(u),
+                    variant: 'secondary'
+                  },
+                  {
+                    label: 'Delete',
+                    onClick: (u) => confirmDelete(u),
+                    variant: 'danger'
+                  }
+                ]}
+                pagination={{
+                  currentPage,
+                  totalPages,
+                  totalItems: filteredUsers.length,
+                  pageSize: itemsPerPage,
+                  onPageChange: setCurrentPage
+                }}
+              />
             </div>
           </div>
         </div>

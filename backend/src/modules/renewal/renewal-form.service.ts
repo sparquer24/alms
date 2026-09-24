@@ -920,6 +920,7 @@ export class RenewalFormService {
         search,
         status,
         currentUserId,
+        licenseId,
         ordering = 'DESC',
         orderBy = 'createdAt',
       } = filters;
@@ -954,6 +955,11 @@ export class RenewalFormService {
 
       if (currentUserId) {
         whereClause.currentUserId = currentUserId;
+      }
+
+      // Filter by specific license ID — only return renewals belonging to that license
+      if (licenseId) {
+        whereClause.licenseId = licenseId;
       }
 
       // Get total count
@@ -1009,8 +1015,18 @@ export class RenewalFormService {
           },
           criminalHistories: true,
           licenseHistories: true,
-          fileUploads: true,
           biometricData: true,
+          fileUploads: {
+            select: {
+              id: true,
+              applicationId: true,
+              fileType: true,
+              uploadedAt: true,
+              fileName: true,
+              fileSize: true,
+              // fileUrl intentionally excluded — base64 content is too large for list responses
+            },
+          },
           workflowHistories: {
             orderBy: { createdAt: 'desc' },
             include: {
