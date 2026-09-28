@@ -18,7 +18,6 @@ export async function preloadAdminPages(): Promise<void> {
         // Dynamically import admin components to warm up the module cache
         const imports = await Promise.allSettled([
             import('@/components/UserManagement/UserManagementContent'),
-            import('@/components/analytics/AnalyticsDashboard'),
             import('@/components/UserManagement/FlowMappingContent'),
             import('@/components/UserManagement/LocationsManagementContent'),
             import('@/components/UserManagement/ActionMappingContent'),
@@ -45,7 +44,6 @@ export async function preloadAdminPage(key: string): Promise<void> {
     try {
         const pathMap: Record<string, () => Promise<any>> = {
             'userManagement': () => import('@/components/UserManagement/UserManagementContent'),
-            'analytics': () => import('@/components/analytics/AnalyticsDashboard'),
             'flowMapping': () => import('@/components/UserManagement/FlowMappingContent'),
             'locationsManagement': () => import('@/components/UserManagement/LocationsManagementContent'),
             'actionMapping': () => import('@/components/UserManagement/ActionMappingContent'),

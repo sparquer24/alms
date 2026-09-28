@@ -9,9 +9,70 @@ import {
 } from './dto/analytics.dto';
 import { getISOWeek, getISOWeekYear, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { ROLE_CODES } from '../../constants/auth';
+import { STATUS_CODES } from '../../constants/workflow-actions';
 
 @Injectable()
 export class AnalyticsService {
+    /**
+     * Location-hierarchy scope for a request: ZS/DCP scope by zone, JTCP/CP scope
+     * by district, other roles (e.g. ADMIN) scope by state, SUPER_ADMIN is unscoped.
+     */
+    private buildLocationWhere(
+        roleCode?: string,
+        stateId?: number,
+        districtId?: number,
+        zoneId?: number,
+    ): { zoneId?: number } | { districtId?: number } | { stateId?: number } | undefined {
+        if (roleCode === ROLE_CODES.SUPER_ADMIN) {
+            return undefined;
+        }
+        if ((roleCode === ROLE_CODES.ZS || roleCode === ROLE_CODES.DCP) && zoneId) {
+            return { zoneId };
+        }
+        if ((roleCode === ROLE_CODES.JTCP || roleCode === ROLE_CODES.CP) && districtId) {
+            return { districtId };
+        }
+        if (stateId) {
+            return { stateId };
+        }
+        return undefined;
+    }
+
+    /**
+     * CancelFormRequests has no districtId/zoneId column of its own, so district/zone
+     * scoping goes through its Licenses and requester (Users) relations.
+     */
+    private buildCancelOrConditions(
+        roleCode?: string,
+        stateId?: number,
+        districtId?: number,
+        zoneId?: number,
+    ): any[] | undefined {
+        if (roleCode === ROLE_CODES.SUPER_ADMIN) {
+            return undefined;
+        }
+        if ((roleCode === ROLE_CODES.ZS || roleCode === ROLE_CODES.DCP) && zoneId) {
+            return [
+                { Licenses: { presentZoneId: zoneId } },
+                { requester: { zoneId } },
+            ];
+        }
+        if ((roleCode === ROLE_CODES.JTCP || roleCode === ROLE_CODES.CP) && districtId) {
+            return [
+                { Licenses: { presentDistrictId: districtId } },
+                { requester: { districtId } },
+            ];
+        }
+        if (stateId) {
+            return [
+                { stateId: stateId },
+                { Licenses: { presentStateId: stateId } },
+                { requester: { stateId: stateId } },
+            ];
+        }
+        return undefined;
+    }
+
     /**
      * Get applications aggregated by ISO week (Fresh, Renewal, and Cancel)
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
@@ -22,6 +83,7 @@ export class AnalyticsService {
         stateId?: number,
         roleCode?: string,
         zoneId?: number,
+        districtId?: number,
     ): Promise<ApplicationsDataDto[]> {
         try {
             const where: any = {};
@@ -39,44 +101,33 @@ export class AnalyticsService {
 
             // Filtering rules:
             // - SUPER_ADMIN bypasses filters
-            // - ZS users see applications for their Zone (when zoneId provided)
-            // - ADMIN (and others) can be filtered by stateId
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    where.permanentAddress = { stateId };
-                }
+            // - ZS/DCP scope by zone, JTCP/CP scope by district, others by state
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.permanentAddress = locationWhere;
             }
 
             // Build separate where clauses for the three address types
             const renewalWhere: any = {};
             const cancelWhere: any = {};
-            
+
             // Copy date filtering to renewal
             if (where.createdAt) {
                 renewalWhere.createdAt = { ...where.createdAt };
             }
 
-            // Apply state/zone filters to renewal
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    renewalWhere.permanentAddress = { stateId };
-                }
+            // Apply the same location scope to renewal
+            if (locationWhere) {
+                renewalWhere.permanentAddress = locationWhere;
             }
 
-            // For cancel, filter by createdAt and state
+            // For cancel, filter by createdAt and location scope
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
-                cancelWhere.OR = [
-                    { stateId: stateId },
-                    { Licenses: { presentStateId: stateId } },
-                    { requester: { stateId: stateId } },
-                ];
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            if (cancelOrConditions) {
+                cancelWhere.OR = cancelOrConditions;
             }
 
             // Fetch all three types of applications within date range
@@ -148,6 +199,7 @@ export class AnalyticsService {
         stateId?: number,
         roleCode?: string,
         zoneId?: number,
+        districtId?: number,
     ): Promise<RoleLoadDataDto[]> {
         try {
             const where: any = {
@@ -167,12 +219,9 @@ export class AnalyticsService {
                 }
             }
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    where.permanentAddress = { stateId };
-                }
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.permanentAddress = locationWhere;
             }
 
             // Build separate where clauses for renewal
@@ -180,12 +229,8 @@ export class AnalyticsService {
             if (where.createdAt) {
                 renewalWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    renewalWhere.permanentAddress = { stateId };
-                }
+            if (locationWhere) {
+                renewalWhere.permanentAddress = locationWhere;
             }
 
             // Get applications with their assigned roles (Fresh & Renewal)
@@ -261,6 +306,7 @@ export class AnalyticsService {
         stateId?: number,
         roleCode?: string,
         zoneId?: number,
+        districtId?: number,
     ): Promise<StateDataDto[]> {
         try {
             const where: any = {};
@@ -276,12 +322,9 @@ export class AnalyticsService {
                 }
             }
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    where.permanentAddress = { stateId };
-                }
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.permanentAddress = locationWhere;
             }
 
             // Build separate where clauses for renewal
@@ -289,25 +332,18 @@ export class AnalyticsService {
             if (where.createdAt) {
                 renewalWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    renewalWhere.permanentAddress = { stateId };
-                }
+            if (locationWhere) {
+                renewalWhere.permanentAddress = locationWhere;
             }
 
-            // For cancel, filter by date and state
+            // For cancel, filter by date and location scope
             const cancelWhere: any = {};
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
-                cancelWhere.OR = [
-                    { stateId: stateId },
-                    { Licenses: { presentStateId: stateId } },
-                    { requester: { stateId: stateId } },
-                ];
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            if (cancelOrConditions) {
+                cancelWhere.OR = cancelOrConditions;
             }
 
             // Get all applications with their status
@@ -330,15 +366,19 @@ export class AnalyticsService {
                         isPending: true,
                     },
                 }),
+                // CancelFormRequests has no isApproved/isRejected/isPending columns — its
+                // outcome lives on the linked workflowStatus (code CANCEL = approved/executed,
+                // REJECT = rejected, anything else including null = still pending).
                 prisma.cancelFormRequests.findMany({
                     where: cancelWhere,
                     select: {
                         id: true,
+                        workflowStatus: { select: { code: true } },
                     },
                 }),
             ]);
 
-            // Calculate state counts for fresh and renewal
+            // Calculate state counts for fresh, renewal and cancel
             const stateMap = {
                 approved: 0,
                 rejected: 0,
@@ -357,25 +397,28 @@ export class AnalyticsService {
                 });
             };
 
+            const cancelOutcome = (app: { workflowStatus: { code: string } | null }): 'approved' | 'rejected' | 'pending' => {
+                const code = app.workflowStatus?.code;
+                if (code === STATUS_CODES.CANCEL) return 'approved';
+                if (code === STATUS_CODES.REJECT) return 'rejected';
+                return 'pending';
+            };
+
             processFreshRenewal(freshApps);
             processFreshRenewal(renewalApps);
-
-            // Count cancel statuses as pending (not yet approved/rejected)
-            cancelApps.forEach((app) => {
-                stateMap.pending++;
-            });
+            cancelApps.forEach((app) => stateMap[cancelOutcome(app)]++);
 
             // Convert to array
             const result = Object.entries(stateMap).map(([state, count]) => ({
                 state,
                 count,
-                fresh: state === 'approved' ? freshApps.filter((a) => a.isApproved).length : 
-                       state === 'rejected' ? freshApps.filter((a) => a.isRejected).length : 
+                fresh: state === 'approved' ? freshApps.filter((a) => a.isApproved).length :
+                       state === 'rejected' ? freshApps.filter((a) => a.isRejected).length :
                        freshApps.filter((a) => !a.isApproved && !a.isRejected).length,
-                renewal: state === 'approved' ? renewalApps.filter((a) => a.isApproved).length : 
-                        state === 'rejected' ? renewalApps.filter((a) => a.isRejected).length : 
+                renewal: state === 'approved' ? renewalApps.filter((a) => a.isApproved).length :
+                        state === 'rejected' ? renewalApps.filter((a) => a.isRejected).length :
                         renewalApps.filter((a) => !a.isApproved && !a.isRejected).length,
-                cancel: state === 'pending' ? cancelApps.length : 0,
+                cancel: cancelApps.filter((a) => cancelOutcome(a) === state).length,
             }));
 
             return result;
@@ -400,6 +443,7 @@ export class AnalyticsService {
         stateId?: number,
         roleCode?: string,
         zoneId?: number,
+        districtId?: number,
     ): Promise<AdminActivityDto[]> {
         try {
             const where: any = {};
@@ -415,12 +459,9 @@ export class AnalyticsService {
                 }
             }
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.application = { permanentAddress: { zoneId } };
-                } else if (stateId) {
-                    where.application = { permanentAddress: { stateId } };
-                }
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.application = { permanentAddress: locationWhere };
             }
 
             // Build similar where clause for renewal
@@ -428,12 +469,8 @@ export class AnalyticsService {
             if (where.createdAt) {
                 renewalWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.application = { permanentAddress: { zoneId } };
-                } else if (stateId) {
-                    renewalWhere.application = { permanentAddress: { stateId } };
-                }
+            if (locationWhere) {
+                renewalWhere.application = { permanentAddress: locationWhere };
             }
 
             // For cancel, build similar where clause
@@ -441,14 +478,9 @@ export class AnalyticsService {
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
-                cancelWhere.application = {
-                    OR: [
-                        { stateId: stateId },
-                        { Licenses: { presentStateId: stateId } },
-                        { requester: { stateId: stateId } },
-                    ],
-                };
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            if (cancelOrConditions) {
+                cancelWhere.application = { OR: cancelOrConditions };
             }
 
             // Fetch workflow history for all three types
@@ -614,16 +646,13 @@ export class AnalyticsService {
      * Includes Fresh, Renewal, and Cancel applications
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
-    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number, type?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number, type?: string, districtId?: number, actionFilter?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
         try {
             const where: any = {};
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    where.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    where.permanentAddress = { stateId };
-                }
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            if (locationWhere) {
+                where.permanentAddress = locationWhere;
             }
 
             if (status) {
@@ -679,12 +708,8 @@ export class AnalyticsService {
                 }
             }
 
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                if (roleCode === ROLE_CODES.ZS && zoneId) {
-                    renewalWhere.permanentAddress = { zoneId };
-                } else if (stateId) {
-                    renewalWhere.permanentAddress = { stateId };
-                }
+            if (locationWhere) {
+                renewalWhere.permanentAddress = locationWhere;
             }
 
             if (where.createdAt) {
@@ -696,19 +721,59 @@ export class AnalyticsService {
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
-            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
-                cancelWhere.OR = [
-                    { stateId: stateId },
-                    { Licenses: { presentStateId: stateId } },
-                    { requester: { stateId: stateId } },
-                ];
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            if (cancelOrConditions) {
+                cancelWhere.OR = cancelOrConditions;
             }
+
+            // Apply the same criteria the Action Required cards use, so drilling into
+            // a card shows exactly the records that were counted for it.
+            let includeCancelFamily = wantCancel;
+            const normalizedActionFilter = actionFilter ? String(actionFilter).toLowerCase() : undefined;
+            if (normalizedActionFilter === 'under_verification') {
+                where.isPending = true;
+                where.currentUserId = { not: null };
+                renewalWhere.isPending = true;
+                renewalWhere.currentUserId = { not: null };
+                includeCancelFamily = false;
+            } else if (normalizedActionFilter === 'pending_over_15') {
+                const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+                where.isPending = true;
+                where.createdAt = { ...where.createdAt, lte: fifteenDaysAgo };
+                renewalWhere.isPending = true;
+                renewalWhere.createdAt = { ...renewalWhere.createdAt, lte: fifteenDaysAgo };
+                cancelWhere.createdAt = { ...cancelWhere.createdAt, lte: fifteenDaysAgo };
+            } else if (normalizedActionFilter === 'awaiting_action') {
+                where.isSubmit = true;
+                where.isPending = false;
+                where.isApproved = false;
+                where.isRejected = false;
+                where.currentUserId = null;
+                renewalWhere.isSubmit = true;
+                renewalWhere.isPending = false;
+                renewalWhere.isApproved = false;
+                renewalWhere.isRejected = false;
+                renewalWhere.currentUserId = null;
+                includeCancelFamily = false;
+            } else if (normalizedActionFilter === 'biometric_pending') {
+                // Biometric compliance is only tracked on fresh applications.
+                where.isSubmit = true;
+                where.isApproved = false;
+                where.isRejected = false;
+                where.biometricData = null;
+                includeCancelFamily = false;
+            }
+
+            const wantCancelResolved = normalizedActionFilter === 'biometric_pending' ? false
+                : normalizedActionFilter ? includeCancelFamily
+                : wantCancel;
+            const wantRenewalResolved = normalizedActionFilter === 'biometric_pending' ? false : wantRenewal;
 
             // Count total matching records from the requested source(s)
             const [freshCount, renewalCount, cancelCount] = await Promise.all([
                 wantFresh ? prisma.freshLicenseApplicationPersonalDetails.count({ where }) : Promise.resolve(0),
-                wantRenewal ? prisma.renewalFormPersonalDetails.count({ where: renewalWhere }) : Promise.resolve(0),
-                wantCancel ? prisma.cancelFormRequests.count({ where: cancelWhere }) : Promise.resolve(0),
+                wantRenewalResolved ? prisma.renewalFormPersonalDetails.count({ where: renewalWhere }) : Promise.resolve(0),
+                wantCancelResolved ? prisma.cancelFormRequests.count({ where: cancelWhere }) : Promise.resolve(0),
             ]);
 
             const total = freshCount + renewalCount + cancelCount;
@@ -778,7 +843,7 @@ export class AnalyticsService {
                     skip,
                     take: take ?? 200,
                 }),
-                !wantRenewal ? Promise.resolve([]) : prisma.renewalFormPersonalDetails.findMany({
+                !wantRenewalResolved ? Promise.resolve([]) : prisma.renewalFormPersonalDetails.findMany({
                     where: renewalWhere,
                     select: {
                         id: true,
@@ -810,7 +875,7 @@ export class AnalyticsService {
                     skip,
                     take: take ?? 200,
                 }),
-                !wantCancel ? Promise.resolve([]) : prisma.cancelFormRequests.findMany({
+                !wantCancelResolved ? Promise.resolve([]) : prisma.cancelFormRequests.findMany({
                     where: cancelWhere,
                     select: {
                         id: true,
@@ -921,4 +986,377 @@ export class AnalyticsService {
             return { data: [], total: 0 };
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: Application Funnel — counts per workflow stage (Fresh + Renewal)
+    // ─────────────────────────────────────────────────────────────────────────
+    async getApplicationFunnel(
+        stateId?: number,
+        roleCode?: string,
+        zoneId?: number,
+        districtId?: number,
+    ): Promise<{ stage: string; code: string; count: number; order: number }[]> {
+        try {
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            const freshWhere: any = locationWhere ? { permanentAddress: locationWhere } : {};
+            const renewalWhere: any = locationWhere ? { permanentAddress: locationWhere } : {};
+
+            // Count by isSubmit / workflow flags for fresh apps
+            const [
+                freshDraft, freshSubmitted, freshPending, freshApproved, freshRejected,
+                renewalDraft, renewalSubmitted, renewalPending, renewalApproved, renewalRejected,
+            ] = await Promise.all([
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isSubmit: false } }),
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isSubmit: true, isPending: false, isApproved: false, isRejected: false } }),
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isPending: true } }),
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isApproved: true } }),
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isRejected: true } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isSubmit: false } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isSubmit: true, isPending: false, isApproved: false, isRejected: false } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isPending: true } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isApproved: true } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isRejected: true } }),
+            ]);
+
+            // Also count how many approved fresh apps generated a license
+            const lw = locationWhere as any;
+            const licenseIssued = await prisma.licenses.count({
+                where: {
+                    ...(lw?.stateId ? { presentStateId: lw.stateId } :
+                        lw?.districtId ? { presentDistrictId: lw.districtId } :
+                        lw?.zoneId ? { presentZoneId: lw.zoneId } : {}),
+                },
+            });
+
+            const stages = [
+                { stage: 'Draft', code: 'DRAFT', count: freshDraft + renewalDraft, order: 1 },
+                { stage: 'Submitted', code: 'SUBMITTED', count: freshSubmitted + renewalSubmitted, order: 2 },
+                { stage: 'Under Verification', code: 'VERIFICATION', count: freshPending + renewalPending, order: 3 },
+                { stage: 'Approved', code: 'APPROVED', count: freshApproved + renewalApproved, order: 4 },
+                { stage: 'Rejected', code: 'REJECTED', count: freshRejected + renewalRejected, order: 5 },
+                { stage: 'License Issued', code: 'LICENSE_ISSUED', count: licenseIssued, order: 6 },
+            ];
+
+            return stages;
+        } catch (error) {
+            console.error('Error fetching application funnel:', error);
+            return [];
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: Application Aging — pending apps grouped by age buckets
+    // ─────────────────────────────────────────────────────────────────────────
+    async getAgingBuckets(
+        stateId?: number,
+        roleCode?: string,
+        zoneId?: number,
+        districtId?: number,
+    ): Promise<{ label: string; minDays: number; maxDays: number; count: number }[]> {
+        try {
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            const baseWhere: any = { isPending: true, ...(locationWhere ? { permanentAddress: locationWhere } : {}) };
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            const cancelBaseWhere: any = cancelOrConditions ? { OR: cancelOrConditions } : {};
+
+            const now = new Date();
+            const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
+
+            const buckets = [
+                { label: '0–3 days', minDays: 0, maxDays: 3 },
+                { label: '4–7 days', minDays: 4, maxDays: 7 },
+                { label: '8–15 days', minDays: 8, maxDays: 15 },
+                { label: '16–30 days', minDays: 16, maxDays: 30 },
+                { label: '30+ days', minDays: 31, maxDays: 9999 },
+            ];
+
+            const results = await Promise.all(buckets.map(async (b) => {
+                const createdAtFilter = b.maxDays >= 9999
+                    ? { lte: daysAgo(b.minDays) }
+                    : { gte: daysAgo(b.maxDays), lte: daysAgo(b.minDays) };
+
+                const [freshCount, renewalCount, cancelCount] = await Promise.all([
+                    prisma.freshLicenseApplicationPersonalDetails.count({
+                        where: { ...baseWhere, createdAt: createdAtFilter },
+                    }),
+                    prisma.renewalFormPersonalDetails.count({
+                        where: { ...baseWhere, createdAt: createdAtFilter },
+                    }),
+                    prisma.cancelFormRequests.count({
+                        where: { ...cancelBaseWhere, createdAt: createdAtFilter },
+                    }),
+                ]);
+
+                return { ...b, count: freshCount + renewalCount + cancelCount };
+            }));
+
+            return results;
+        } catch (error) {
+            console.error('Error fetching aging buckets:', error);
+            return [];
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: Action Required — 5 actionable item counts
+    // ─────────────────────────────────────────────────────────────────────────
+    async getActionRequired(
+        stateId?: number,
+        roleCode?: string,
+        zoneId?: number,
+        districtId?: number,
+    ): Promise<{ key: string; label: string; count: number; severity: 'critical' | 'warning' | 'info' }[]> {
+        try {
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            const freshWhere: any = locationWhere ? { permanentAddress: locationWhere } : {};
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            const cancelBaseWhere: any = cancelOrConditions ? { OR: cancelOrConditions } : {};
+            const lw2 = locationWhere as any;
+            const licenseWhere: any = lw2?.stateId ? { presentStateId: lw2.stateId } :
+                lw2?.districtId ? { presentDistrictId: lw2.districtId } :
+                lw2?.zoneId ? { presentZoneId: lw2.zoneId } : {};
+
+            const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+            const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+            const [
+                underVerification,
+                pendingOver15Fresh,
+                pendingOver15Renewal,
+                pendingOver15Cancel,
+                expiringLicenses,
+                freshWithCurrentUser,
+                renewalWithCurrentUser,
+                biometricPending,
+            ] = await Promise.all([
+                // Apps in active verification (isPending = true, has currentUserId)
+                prisma.freshLicenseApplicationPersonalDetails.count({
+                    where: { ...freshWhere, isPending: true, currentUserId: { not: null } },
+                }).then(async (f) => {
+                    const r = await prisma.renewalFormPersonalDetails.count({
+                        where: { ...freshWhere, isPending: true, currentUserId: { not: null } },
+                    });
+                    return f + r;
+                }),
+                // Pending fresh > 15 days
+                prisma.freshLicenseApplicationPersonalDetails.count({
+                    where: { ...freshWhere, isPending: true, createdAt: { lte: fifteenDaysAgo } },
+                }),
+                // Pending renewal > 15 days
+                prisma.renewalFormPersonalDetails.count({
+                    where: { ...freshWhere, isPending: true, createdAt: { lte: fifteenDaysAgo } },
+                }),
+                // Pending cancel > 15 days
+                prisma.cancelFormRequests.count({
+                    where: { ...cancelBaseWhere, createdAt: { lte: fifteenDaysAgo } },
+                }),
+                // Licenses expiring within 30 days
+                prisma.licenses.count({
+                    where: { ...licenseWhere, status: 'ACTIVE', validTill: { lte: thirtyDaysFromNow, gte: new Date() } },
+                }),
+                // Fresh awaiting action (has no current user = stuck at submission)
+                prisma.freshLicenseApplicationPersonalDetails.count({
+                    where: { ...freshWhere, isSubmit: true, isPending: false, isApproved: false, isRejected: false, currentUserId: null },
+                }),
+                // Renewal awaiting action
+                prisma.renewalFormPersonalDetails.count({
+                    where: { ...freshWhere, isSubmit: true, isPending: false, isApproved: false, isRejected: false, currentUserId: null },
+                }),
+                // Fresh apps missing biometric data
+                prisma.freshLicenseApplicationPersonalDetails.count({
+                    where: { ...freshWhere, isSubmit: true, isApproved: false, isRejected: false, biometricData: null },
+                }),
+            ]);
+
+            return [
+                { key: 'under_verification', label: 'Applications under verification', count: underVerification, severity: 'info' },
+                { key: 'pending_over_15', label: 'Applications pending > 15 days', count: pendingOver15Fresh + pendingOver15Renewal + pendingOver15Cancel, severity: 'warning' },
+                { key: 'expiring_licenses', label: 'Licenses expiring within 30 days', count: expiringLicenses, severity: 'warning' },
+                { key: 'awaiting_action', label: 'Applications awaiting admin action', count: freshWithCurrentUser + renewalWithCurrentUser, severity: 'critical' },
+                { key: 'biometric_pending', label: 'Applications with missing biometric', count: biometricPending, severity: 'info' },
+            ];
+        } catch (error) {
+            console.error('Error fetching action required:', error);
+            return [];
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: License Expiry Buckets — 30/60/90 days + expired
+    // ─────────────────────────────────────────────────────────────────────────
+    async getLicenseExpiryBuckets(
+        stateId?: number,
+        roleCode?: string,
+        zoneId?: number,
+        districtId?: number,
+    ): Promise<{ label: string; days: number; count: number }[]> {
+        try {
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            const lw3 = locationWhere as any;
+            const licenseWhere: any = lw3?.stateId ? { presentStateId: lw3.stateId } :
+                lw3?.districtId ? { presentDistrictId: lw3.districtId } :
+                lw3?.zoneId ? { presentZoneId: lw3.zoneId } : {};
+
+            const now = new Date();
+            const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            const in60 = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+            const in90 = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+            const [exp30, exp60, exp90, expired] = await Promise.all([
+                prisma.licenses.count({ where: { ...licenseWhere, status: 'ACTIVE', validTill: { gte: now, lte: in30 } } }),
+                prisma.licenses.count({ where: { ...licenseWhere, status: 'ACTIVE', validTill: { gt: in30, lte: in60 } } }),
+                prisma.licenses.count({ where: { ...licenseWhere, status: 'ACTIVE', validTill: { gt: in60, lte: in90 } } }),
+                prisma.licenses.count({ where: { ...licenseWhere, status: { in: ['EXPIRED', 'CANCELLED', 'REVOKED'] } } }),
+            ]);
+
+            return [
+                { label: 'Expiring in 30 days', days: 30, count: exp30 },
+                { label: 'Expiring in 31–60 days', days: 60, count: exp60 },
+                { label: 'Expiring in 61–90 days', days: 90, count: exp90 },
+                { label: 'Expired / Cancelled', days: 0, count: expired },
+            ];
+        } catch (error) {
+            console.error('Error fetching license expiry buckets:', error);
+            return [];
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: Monthly Comparison — this month vs last month
+    // ─────────────────────────────────────────────────────────────────────────
+    async getMonthlyComparison(
+        stateId?: number,
+        roleCode?: string,
+        zoneId?: number,
+        districtId?: number,
+    ): Promise<{
+        thisMonth: { submitted: number; approved: number; rejected: number };
+        lastMonth: { submitted: number; approved: number; rejected: number };
+    }> {
+        try {
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            const freshWhere: any = locationWhere ? { permanentAddress: locationWhere } : {};
+            const cancelOrConditions = this.buildCancelOrConditions(roleCode, stateId, districtId, zoneId);
+            const cancelBaseWhere: any = cancelOrConditions ? { OR: cancelOrConditions } : {};
+
+            const now = new Date();
+            const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+            const [
+                thisMonthFresh, thisMonthRenewal, thisMonthCancel,
+                lastMonthFresh, lastMonthRenewal, lastMonthCancel,
+                thisApprovedFresh, thisApprovedRenewal,
+                lastApprovedFresh, lastApprovedRenewal,
+                thisRejectedFresh, thisRejectedRenewal,
+                lastRejectedFresh, lastRejectedRenewal,
+            ] = await Promise.all([
+                // Submitted this month
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isSubmit: true, createdAt: { gte: startOfThisMonth } } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...freshWhere, isSubmit: true, createdAt: { gte: startOfThisMonth } } }),
+                prisma.cancelFormRequests.count({ where: { ...cancelBaseWhere, createdAt: { gte: startOfThisMonth } } }),
+                // Submitted last month
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isSubmit: true, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...freshWhere, isSubmit: true, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+                prisma.cancelFormRequests.count({ where: { ...cancelBaseWhere, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+                // Approved this month
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isApproved: true, updatedAt: { gte: startOfThisMonth } } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...freshWhere, isApproved: true, updatedAt: { gte: startOfThisMonth } } }),
+                // Approved last month
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isApproved: true, updatedAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...freshWhere, isApproved: true, updatedAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+                // Rejected this month
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isRejected: true, updatedAt: { gte: startOfThisMonth } } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...freshWhere, isRejected: true, updatedAt: { gte: startOfThisMonth } } }),
+                // Rejected last month
+                prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isRejected: true, updatedAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+                prisma.renewalFormPersonalDetails.count({ where: { ...freshWhere, isRejected: true, updatedAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+            ]);
+
+            return {
+                thisMonth: {
+                    submitted: thisMonthFresh + thisMonthRenewal + thisMonthCancel,
+                    approved: thisApprovedFresh + thisApprovedRenewal,
+                    rejected: thisRejectedFresh + thisRejectedRenewal,
+                },
+                lastMonth: {
+                    submitted: lastMonthFresh + lastMonthRenewal + lastMonthCancel,
+                    approved: lastApprovedFresh + lastApprovedRenewal,
+                    rejected: lastRejectedFresh + lastRejectedRenewal,
+                },
+            };
+        } catch (error) {
+            console.error('Error fetching monthly comparison:', error);
+            return {
+                thisMonth: { submitted: 0, approved: 0, rejected: 0 },
+                lastMonth: { submitted: 0, approved: 0, rejected: 0 },
+            };
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: Processing Performance — avg days, SLA %, delayed count
+    // ─────────────────────────────────────────────────────────────────────────
+    async getProcessingPerformance(
+        stateId?: number,
+        roleCode?: string,
+        zoneId?: number,
+        districtId?: number,
+    ): Promise<{
+        avgDays: number;
+        medianDays: number;
+        slaPercent: number;
+        delayedCount: number;
+        totalProcessed: number;
+    }> {
+        try {
+            const locationWhere = this.buildLocationWhere(roleCode, stateId, districtId, zoneId);
+            const freshWhere: any = { isApproved: true, ...(locationWhere ? { permanentAddress: locationWhere } : {}) };
+            const renewalWhere: any = { isApproved: true, ...(locationWhere ? { permanentAddress: locationWhere } : {}) };
+
+            const SLA_DAYS = 30; // SLA target
+
+            const [freshApps, renewalApps] = await Promise.all([
+                prisma.freshLicenseApplicationPersonalDetails.findMany({
+                    where: freshWhere,
+                    select: { createdAt: true, updatedAt: true },
+                    take: 1000,
+                    orderBy: { updatedAt: 'desc' },
+                }),
+                prisma.renewalFormPersonalDetails.findMany({
+                    where: renewalWhere,
+                    select: { createdAt: true, updatedAt: true },
+                    take: 1000,
+                    orderBy: { updatedAt: 'desc' },
+                }),
+            ]);
+
+            const allApps = [...freshApps, ...renewalApps];
+
+            if (allApps.length === 0) {
+                return { avgDays: 0, medianDays: 0, slaPercent: 0, delayedCount: 0, totalProcessed: 0 };
+            }
+
+            const dayDiffs = allApps.map((a) => {
+                const created = new Date(a.createdAt).getTime();
+                const updated = new Date(a.updatedAt).getTime();
+                return Math.max(0, Math.floor((updated - created) / (24 * 60 * 60 * 1000)));
+            });
+
+            dayDiffs.sort((a, b) => a - b);
+
+            const avgDays = Math.round(dayDiffs.reduce((s, d) => s + d, 0) / dayDiffs.length);
+            const medianDays = dayDiffs[Math.floor(dayDiffs.length / 2)];
+            const withinSla = dayDiffs.filter((d) => d <= SLA_DAYS).length;
+            const slaPercent = Math.round((withinSla / dayDiffs.length) * 100);
+            const delayedCount = dayDiffs.filter((d) => d > SLA_DAYS).length;
+
+            return { avgDays, medianDays, slaPercent, delayedCount, totalProcessed: allApps.length };
+        } catch (error) {
+            console.error('Error fetching processing performance:', error);
+            return { avgDays: 0, medianDays: 0, slaPercent: 0, delayedCount: 0, totalProcessed: 0 };
+        }
+    }
 }
+

@@ -36,11 +36,22 @@ export class CancelFormService {
       // Wrap creation and workflow history in a transaction for atomicity.
       // The CANCELLED status check runs INSIDE the transaction so it is atomic with the INSERT.
       const cancelRequest = await prisma.$transaction(async (tx: any) => {
-        // Check if the license has been CANCELLED (inside transaction for atomicity)
-        const targetLicense = await tx.licenses.findUnique({
-          where: { id: dto.licenseId },
-          select: { status: true, presentStateId: true, permanentStateId: true },
-        });
+        // Look up the target license
+        const targetLicense = dto.licenseId
+          ? await tx.licenses.findUnique({
+              where: { id: dto.licenseId },
+              select: { id: true, status: true, presentStateId: true, permanentStateId: true },
+            })
+          : dto.licenseNumber
+            ? await tx.licenses.findUnique({
+                where: { licenseNumber: dto.licenseNumber },
+                select: { id: true, status: true, presentStateId: true, permanentStateId: true },
+              })
+            : null;
+
+        if (!targetLicense) {
+          throw new NotFoundException('Target license not found. Cannot create cancellation request.');
+        }
 
         if (targetLicense && targetLicense.status === 'CANCELLED') {
           throw new BadRequestException(
@@ -51,7 +62,7 @@ export class CancelFormService {
         // Check if a PENDING cancellation request already exists for this license
         const existingPending = await tx.cancelFormRequests.findFirst({
           where: {
-            licenseId: dto.licenseId,
+            licenseId: targetLicense.id,
             actionedDate: null,
           },
           select: { id: true },
@@ -68,22 +79,10 @@ export class CancelFormService {
         // generate a unique acknowledgement number for the cancel request
         const acknowledgementNo = `CAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
         console.log('Generated acknowledgementNo:', acknowledgementNo);
-        console.log("create data:", {
-          licenseId: dto.licenseId,
-          applicationType: dto.applicationType,
-          cancellationReason: dto.cancellationReason,
-          remarks: dto.remarks || null,
-          requestedBy: currentUserId,
-          currentUserId: currentUserId,
-          stateId: resolvedStateId,
-          requestedDate: new Date(),
-          workFlowStatusId: initiateStatus?.id || null,
-          acknowledgementNo,
-          applicantName: dto.applicantName,
-        });
+        
         const created = await tx.cancelFormRequests.create({
           data: {
-            licenseId: dto.licenseId,
+            licenseId: targetLicense.id,
             applicationType: dto.applicationType,
             cancellationReason: dto.cancellationReason,
             remarks: dto.remarks || null,

@@ -14,6 +14,7 @@
     "seed": "ts-node prisma/seed.ts",
     "generate": "prisma generate",
     "update-roles": "ts-node prisma/update-roles.ts",
+    "fix-role-menu-items": "ts-node prisma/fix-role-menu-items.ts",
     "dev": "nest start --watch",
     "up": "prisma migrate deploy",
     "down": "prisma migrate reset --force",

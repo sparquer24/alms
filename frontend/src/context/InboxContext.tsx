@@ -15,6 +15,7 @@ const InboxContext = createContext<InboxContextValue | undefined>(undefined);
 
 export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const selectedTypeRef = useRef<string | null>(null);
   const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // request id to ignore stale responses when switching types quickly
@@ -28,17 +29,13 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
     if (!type) return;
     const normalized = String(type);
 
-    // Decide whether we should fetch. We use the functional updater to
-    // synchronously inspect previous selectedType and set the new one.
+    // Decide whether we should fetch using the ref to avoid async state issues
     let shouldFetch = false;
-    setSelectedType((prev) => {
-      if (prev === normalized && !force) {
-        shouldFetch = false;
-        return prev;
-      }
+    if (selectedTypeRef.current !== normalized || force) {
       shouldFetch = true;
-      return normalized;
-    });
+      selectedTypeRef.current = normalized;
+      setSelectedType(normalized);
+    }
 
     if (!shouldFetch) {
       setIsLoading(false);

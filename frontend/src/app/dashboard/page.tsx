@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
   Shield,
@@ -23,6 +24,12 @@ import {
   MousePointerClick,
   BarChart2,
   LineChart as LineChartIcon,
+  FilePlus,
+  XCircle,
+  BadgeCheck,
+  UserCog,
+  ShieldCheck,
+  ClipboardList,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -44,13 +51,16 @@ import {
 } from 'recharts';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { normalizeRole } from '@/utils/roleUtils';
+import { normalizeRole, canCreateApplications, isLicenseManagementRole, isAdminRole } from '@/utils/roleUtils';
 import { getRoleBasedRedirectPath } from '@/config/roleRedirections';
+import { useAdminTheme } from '@/context/AdminThemeContext';
+import ApplicationTypeChart from '@/components/analytics/ApplicationTypeChart';
+import ApplicationStatusChart from '@/components/analytics/ApplicationStatusChart';
 
 import { Sidebar } from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { LayoutProvider } from '@/config/layoutContext';
+import { LayoutProvider, useLayout } from '@/config/layoutContext';
 import {
   PageSubHeader,
   SubHeaderButton,
@@ -60,6 +70,7 @@ import {
   PublicDashboardData,
   SummaryKPIs,
 } from '@/services/publicDashboardService';
+import { analyticsService } from '@/services/analyticsService';
 
 import {
   DashboardCardDetailModal,
@@ -72,6 +83,12 @@ import {
   DashboardKpiCardsSkeleton,
   DashboardChartsSkeleton,
   DashboardActivitySkeleton,
+  ActionRequiredSection,
+  ApplicationFunnelSection,
+  AgingAnalysisSection,
+  ProcessingPerformanceSection,
+  MonthlyComparisonSection,
+  LicenseExpiryBucketsSection,
 } from '@/components/dashboard';
 
 // Color definitions matching the ALMS government palette
@@ -92,6 +109,34 @@ const COLORS = {
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EF4444'];
 const WEAPON_COLORS = ['#0F2D52', '#2563EB', '#0D9488', '#D97706', '#DC2626'];
 
+// Roles allowed to view the universal dashboard. Backend scopes the data
+// server-side: ZS/DCP by zone, JTCP/CP by district, AS/ARMS_SUPDT/ADMIN by state.
+const DASHBOARD_ALLOWED_ROLES = ['ADMIN', 'SUPER_ADMIN', 'ZS', 'DCP', 'JTCP', 'CP', 'AS', 'ARMS_SUPDT'];
+
+const DASHBOARD_ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Admin',
+  ZS: 'Zonal Superintendent',
+  DCP: 'DCP',
+  JTCP: 'Joint CP',
+  CP: 'Commissioner of Police',
+  AS: 'Arms Superintendent',
+  ARMS_SUPDT: 'Arms Superintendent',
+};
+
+function DashboardMain({ children }: { children: React.ReactNode }) {
+  const { headerHeight } = useLayout();
+
+  return (
+    <main
+      className="isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-hidden flex flex-col pt-[64px] md:pt-[78px]"
+      style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+    >
+      {children}
+    </main>
+  );
+}
+
 export default function UniversalDashboard() {
   const { user, userRole, userName, token, isLoading: authLoading, initialized: authInitialized } = useAuth();
   const router = useRouter();
@@ -99,13 +144,10 @@ export default function UniversalDashboard() {
 
   const [mounted, setMounted] = useState<boolean>(false);
   const [authChecked, setAuthChecked] = useState<boolean>(false);
-  const [data, setData] = useState<PublicDashboardData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [timeRange, setTimeRange] = useState<string>('all');
   const [appTypeFilter, setAppTypeFilter] = useState<string>('all');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Search & Lookup State
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -131,6 +173,9 @@ export default function UniversalDashboard() {
   // Active in-page drill-down tab
   const [activeDrillTab, setActiveDrillTab] = useState<DrillDownTab>('applications_all');
 
+  // ── Enhancement section data — cached via React Query, fetched once per
+  // authChecked session and served from cache on revisits within staleTime ──
+
   const openCardDetail = (
     category: CardCategoryType,
     title: string,
@@ -141,6 +186,7 @@ export default function UniversalDashboard() {
       initialStatus?: string;
       expiringDays?: number;
       drillTab?: DrillDownTab;
+      actionFilter?: string;
     }
   ) => {
     if (opts?.drillTab) {
@@ -161,6 +207,7 @@ export default function UniversalDashboard() {
       initialType: opts?.initialType || 'all',
       initialStatus: opts?.initialStatus || 'ALL',
       expiringDays: opts?.expiringDays,
+      actionFilter: opts?.actionFilter,
     });
   };
 
@@ -168,16 +215,63 @@ export default function UniversalDashboard() {
     return normalizeRole(userRole);
   }, [userRole]);
 
-  // Helper to determine analytics path based on role
-  const getAnalyticsPath = useCallback(() => {
-    return effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/analytics' : '/admin/analytics';
-  }, [effectiveRole]);
+  const { colors: adminColors } = useAdminTheme();
+  const adminBasePath = effectiveRole === 'SUPER_ADMIN' ? '/superAdmin' : '/admin';
+
+  const quickActions = useMemo(() => {
+    const actions: { key: string; label: string; href: string; icon: React.ReactNode }[] = [];
+    if (canCreateApplications(effectiveRole)) {
+      actions.push({
+        key: 'new-application',
+        label: 'New Application',
+        href: '/forms/createFreshApplication/personal-information',
+        icon: <FilePlus className="w-3.5 h-3.5" />,
+      });
+      actions.push({
+        key: 'cancel-form',
+        label: 'Cancel Form',
+        href: '/cancelForm/new',
+        icon: <XCircle className="w-3.5 h-3.5" />,
+      });
+    }
+    if (isLicenseManagementRole(effectiveRole)) {
+      actions.push({
+        key: 'license-management',
+        label: 'License Management',
+        href: '/licenses',
+        icon: <BadgeCheck className="w-3.5 h-3.5" />,
+      });
+    }
+    actions.push({
+      key: 'my-reports',
+      label: 'My Reports',
+      href: '/reports',
+      icon: <ClipboardList className="w-3.5 h-3.5" />,
+    });
+    if (isAdminRole(effectiveRole)) {
+      actions.push({
+        key: 'user-management',
+        label: 'User Management',
+        href: `${adminBasePath}/userManagement`,
+        icon: <UserCog className="w-3.5 h-3.5" />,
+      });
+      actions.push({
+        key: 'role-management',
+        label: 'Role Management',
+        href: `${adminBasePath}/roleMapping`,
+        icon: <ShieldCheck className="w-3.5 h-3.5" />,
+      });
+    }
+    return actions;
+  }, [effectiveRole, adminBasePath]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // ── Role-based Access Control Guard (ADMIN & SUPER_ADMIN only) ──
+  // ── Role-based Access Control Guard ──
+  // ADMIN/SUPER_ADMIN see unscoped or state-scoped data; ZS/DCP see zone-scoped
+  // data; JTCP/CP see district-scoped data (enforced server-side).
   useEffect(() => {
     if (!authInitialized || authLoading) return;
     if (authChecked) return;
@@ -192,7 +286,7 @@ export default function UniversalDashboard() {
       return;
     }
 
-    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'SUPER_ADMIN') {
+    if (!DASHBOARD_ALLOWED_ROLES.includes(effectiveRole)) {
       const redirectPath = getRoleBasedRedirectPath(effectiveRole);
       router.replace(redirectPath);
       return;
@@ -201,38 +295,112 @@ export default function UniversalDashboard() {
     setAuthChecked(true);
   }, [token, effectiveRole, authLoading, authInitialized, authChecked, router]);
 
-  // Fetch dashboard data
-  const fetchData = useCallback(async (range: string, type: string) => {
+  // Overview data — cached per (timeRange, appTypeFilter); background-polled
+  // every 30s while autoRefresh is on, without showing a loading spinner
+  // (isLoading is only true when there's no cached data to show yet).
+  const overviewQuery = useQuery({
+    queryKey: ['dashboardOverview', timeRange, appTypeFilter],
+    queryFn: () => publicDashboardService.getOverview(timeRange, appTypeFilter),
+    enabled: authChecked,
+    staleTime: 15_000,
+    refetchInterval: authChecked && autoRefresh ? 30_000 : false,
+  });
+  const data = overviewQuery.data ?? null;
+  const loading = overviewQuery.isLoading;
+  const lastUpdated = overviewQuery.dataUpdatedAt ? new Date(overviewQuery.dataUpdatedAt) : new Date();
+
+  // ── Enhancement section data — each cached independently so revisiting the
+  // dashboard within staleTime renders instantly from cache with no spinner ──
+  const actionRequiredQuery = useQuery({
+    queryKey: ['dashboard', 'actionRequired'],
+    queryFn: () => analyticsService.getActionRequired(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const funnelQuery = useQuery({
+    queryKey: ['dashboard', 'funnel'],
+    queryFn: () => analyticsService.getApplicationFunnel(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const agingQuery = useQuery({
+    queryKey: ['dashboard', 'aging'],
+    queryFn: () => analyticsService.getAgingBuckets(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const processingQuery = useQuery({
+    queryKey: ['dashboard', 'processing'],
+    queryFn: () => analyticsService.getProcessingPerformance(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const monthlyQuery = useQuery({
+    queryKey: ['dashboard', 'monthly'],
+    queryFn: () => analyticsService.getMonthlyComparison(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const expiryQuery = useQuery({
+    queryKey: ['dashboard', 'expiry'],
+    queryFn: () => analyticsService.getLicenseExpiryBuckets(),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+
+  // Application & license analytics (moved here from the removed Analytics sidebar page)
+  const analyticsRange = useMemo(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 30);
+    return { fromDate: from.toISOString().slice(0, 10), toDate: to.toISOString().slice(0, 10) };
+  }, []);
+  const applicationsByWeekQuery = useQuery({
+    queryKey: ['dashboard', 'applicationsByWeek', analyticsRange.fromDate, analyticsRange.toDate],
+    queryFn: () => analyticsService.getApplicationsByWeek(analyticsRange),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const applicationStatesQuery = useQuery({
+    queryKey: ['dashboard', 'applicationStates', analyticsRange.fromDate, analyticsRange.toDate],
+    queryFn: () => analyticsService.getApplicationStates(analyticsRange),
+    enabled: authChecked,
+    staleTime: 60_000,
+  });
+  const applicationTypeStatusSummary = useMemo(() => {
+    const byWeek = applicationsByWeekQuery.data ?? [];
+    const states = applicationStatesQuery.data ?? [];
+    return {
+      totalFresh: byWeek.reduce((sum: number, item: any) => sum + (item.fresh || 0), 0),
+      totalRenewal: byWeek.reduce((sum: number, item: any) => sum + (item.renewal || 0), 0),
+      totalCancel: byWeek.reduce((sum: number, item: any) => sum + (item.cancel || 0), 0),
+      totalApproved: states.find((s: any) => s.state === 'approved')?.count || 0,
+      totalPending: states.find((s: any) => s.state === 'pending')?.count || 0,
+      totalRejected: states.find((s: any) => s.state === 'rejected')?.count || 0,
+    };
+  }, [applicationsByWeekQuery.data, applicationStatesQuery.data]);
+  const applicationAnalyticsLoading = applicationsByWeekQuery.isLoading || applicationStatesQuery.isLoading;
+
+  const actionItems = actionRequiredQuery.data ?? [];
+  const actionLoading = actionRequiredQuery.isLoading;
+  const funnelStages = funnelQuery.data ?? [];
+  const funnelLoading = funnelQuery.isLoading;
+  const agingBuckets = agingQuery.data ?? [];
+  const agingLoading = agingQuery.isLoading;
+  const processingPerf = processingQuery.data ?? null;
+  const processingLoading = processingQuery.isLoading;
+  const monthlyData = monthlyQuery.data ?? null;
+  const monthlyLoading = monthlyQuery.isLoading;
+  const expiryBuckets = expiryQuery.data ?? [];
+  const expiryLoading = expiryQuery.isLoading;
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
     try {
-      const res = await publicDashboardService.getOverview(range, type);
-      setData(res);
-      setLastUpdated(new Date());
-    } catch (err) {
-      console.error('Error fetching dashboard overview:', err);
+      await overviewQuery.refetch();
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (authChecked) {
-      fetchData(timeRange, appTypeFilter);
-    }
-  }, [authChecked, timeRange, appTypeFilter, fetchData]);
-
-  // Auto-refresh interval (every 30 seconds if enabled)
-  useEffect(() => {
-    if (!autoRefresh || !authChecked) return;
-    const interval = setInterval(() => {
-      fetchData(timeRange, appTypeFilter);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, authChecked, timeRange, appTypeFilter, fetchData]);
-
-  const handleManualRefresh = () => {
-    setRefreshing(true);
-    fetchData(timeRange, appTypeFilter);
   };
 
   const handleLookupSubmit = async (e: React.FormEvent) => {
@@ -281,7 +449,7 @@ export default function UniversalDashboard() {
             breadcrumbs={[{ label: 'Admin' }, { label: 'Dashboard' }]}
             pageTitle="Executive Overview Dashboard"
           />
-          <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+          <DashboardMain>
             <PageSubHeader
               title="Executive Overview Dashboard"
               metaBadge="Loading Database Feed..."
@@ -293,17 +461,17 @@ export default function UniversalDashboard() {
                 </div>
               }
             />
-            <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div className="flex-grow max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5">
               <DashboardFullSkeleton />
             </div>
-          </main>
+          </DashboardMain>
         </div>
       </LayoutProvider>
     );
   }
 
   // Guard against unprivileged render while redirecting
-  if (!token || !effectiveRole || (effectiveRole !== 'ADMIN' && effectiveRole !== 'SUPER_ADMIN')) {
+  if (!token || !effectiveRole || !DASHBOARD_ALLOWED_ROLES.includes(effectiveRole)) {
     return null;
   }
 
@@ -318,14 +486,14 @@ export default function UniversalDashboard() {
         {/* Official Top Header with User Profile, Notifications & Role */}
         <Header
           breadcrumbs={[
-            { label: effectiveRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin' },
+            { label: DASHBOARD_ROLE_LABELS[effectiveRole] || effectiveRole },
             { label: 'Dashboard' },
           ]}
-          pageTitle={effectiveRole === 'SUPER_ADMIN' ? 'Super Admin Dashboard' : 'Admin Dashboard'}
+          pageTitle={`${DASHBOARD_ROLE_LABELS[effectiveRole] || effectiveRole} Dashboard`}
         />
 
         {/* Main Content Area with Header spacing */}
-        <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+        <DashboardMain>
 
           {/* Standardized Sticky Sub-header Navigation Bar */}
           <PageSubHeader
@@ -367,14 +535,6 @@ export default function UniversalDashboard() {
                   icon={<RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />}
                 />
 
-                {/* Print / Export */}
-                <SubHeaderButton
-                  onClick={handlePrint}
-                  title="Print Dashboard Report"
-                  icon={<Printer className="w-3.5 h-3.5" />}
-                >
-                  <span className="hidden sm:inline">Print</span>
-                </SubHeaderButton>
 
                 {/* Quick Status Lookup Trigger */}
                 <SubHeaderButton
@@ -390,15 +550,39 @@ export default function UniversalDashboard() {
           />
 
           {/* Main Dashboard Content Area */}
-          <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
-        
+          <div className="flex-grow min-h-0 overflow-y-auto max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
+
+        {/* ─────────────────────────────────────────────────────────────
+            0. QUICK ACTIONS (role-gated shortcuts)
+        ────────────────────────────────────────────────────────────── */}
+        {quickActions.length > 0 && (
+          <section className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mr-1">
+                Quick Actions
+              </span>
+              {quickActions.map(action => (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={() => router.push(action.href)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0F2D52]/5 text-[#0F2D52] hover:bg-[#0F2D52] hover:text-white border border-[#0F2D52]/10 transition-colors"
+                >
+                  {action.icon}
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ─────────────────────────────────────────────────────────────
             1. CORE APPLICATION & LICENSING METRIC CARDS (INTERACTIVE)
         ────────────────────────────────────────────────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#0F2D52]" />
                 Core Application &amp; Licensing Metrics
               </h2>
@@ -415,7 +599,7 @@ export default function UniversalDashboard() {
           {loading && !summary ? (
             <DashboardKpiCardsSkeleton />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
               {/* Card 1: Total Applications */}
               <div
                 role="button"
@@ -428,7 +612,7 @@ export default function UniversalDashboard() {
                   subtitle: 'All application lifecycles across Fresh, Renewal, and Cancellation requests',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0F2D52]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0F2D52]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -493,7 +677,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Operational arms licenses currently in force within your jurisdiction',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -542,7 +726,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Applications successfully verified and granted license issuance',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -593,7 +777,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Applications undergoing multi-level verification and scrutiny',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -628,7 +812,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Durations from application submission to final administrative disposal',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -663,7 +847,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Fingerprint and iris authentication verification records under MHA Rule 11',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -704,6 +888,40 @@ export default function UniversalDashboard() {
           )}
         </section>
 
+        {/* ─────────────────────────────────────────────────────────────
+            2. ACTION REQUIRED ALERT BANNER
+        ────────────────────────────────────────────────────────────── */}
+        <ActionRequiredSection
+          items={actionItems}
+          loading={actionLoading}
+          onItemClick={(key, label) => {
+            // Map action keys to modal configs
+            const MAP: Record<string, { category: CardCategoryType; status: string; drillTab: DrillDownTab; actionFilter?: string }> = {
+              under_verification: { category: 'applications', status: 'PENDING', drillTab: 'applications_all', actionFilter: 'under_verification' },
+              pending_over_15: { category: 'applications', status: 'PENDING', drillTab: 'applications_all', actionFilter: 'pending_over_15' },
+              expiring_licenses: { category: 'licenses', status: 'ACTIVE', drillTab: 'licenses_expiring' },
+              awaiting_action: { category: 'applications', status: 'ALL', drillTab: 'applications_all', actionFilter: 'awaiting_action' },
+              biometric_pending: { category: 'applications', status: 'ALL', drillTab: 'applications_all', actionFilter: 'biometric_pending' },
+            };
+            const cfg = MAP[key];
+            if (cfg) openCardDetail(cfg.category, label, { drillTab: cfg.drillTab, initialStatus: cfg.status, actionFilter: cfg.actionFilter });
+          }}
+        />
+
+        {/* ─────────────────────────────────────────────────────────────
+            2B. APPLICATION FUNNEL + AGING + PROCESSING PERFORMANCE
+        ────────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-1">
+            <ApplicationFunnelSection stages={funnelStages} loading={funnelLoading} />
+          </div>
+          <div className="lg:col-span-1">
+            <AgingAnalysisSection buckets={agingBuckets} loading={agingLoading} />
+          </div>
+          <div className="lg:col-span-1">
+            <ProcessingPerformanceSection data={processingPerf} loading={processingLoading} />
+          </div>
+        </div>
 
         {/* ─────────────────────────────────────────────────────────────
             3. INTERACTIVE CHARTS & VISUAL ANALYTICS SECTION
@@ -711,9 +929,9 @@ export default function UniversalDashboard() {
         {loading && !data?.trend ? (
           <DashboardChartsSkeleton />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Main Chart: Volume Inflow Trends (2 cols on lg) */}
-            <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between pb-4 border-b border-gray-100 gap-3">
                   <div>
@@ -1249,7 +1467,7 @@ export default function UniversalDashboard() {
             </div>
 
             {/* Ratio Breakdown / Donut Chart (1 col on lg) */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                   <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
@@ -1333,11 +1551,72 @@ export default function UniversalDashboard() {
         )}
 
         {/* ─────────────────────────────────────────────────────────────
+            4B. MONTHLY COMPARISON + LICENSE EXPIRY BUCKETS
+        ────────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MonthlyComparisonSection data={monthlyData} loading={monthlyLoading} />
+          <LicenseExpiryBucketsSection
+            buckets={expiryBuckets}
+            loading={expiryLoading}
+            onBucketClick={(days, label) => {
+              openCardDetail('licenses', label, {
+                drillTab: 'licenses_expiring',
+                initialStatus: days === 0 ? 'EXPIRED' : 'ACTIVE',
+                expiringDays: days > 0 ? days : undefined,
+              });
+            }}
+          />
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
+            4C. APPLICATION & LICENSE ANALYTICS (moved from the former
+            Analytics sidebar page: By Type / By Status / License Status)
+        ────────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-[#0F2D52]" />
+                Applications by Type
+              </h3>
+              <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
+            </div>
+            <div className="mt-4">
+              <ApplicationTypeChart
+                fresh={applicationTypeStatusSummary.totalFresh}
+                renewal={applicationTypeStatusSummary.totalRenewal}
+                cancel={applicationTypeStatusSummary.totalCancel}
+                colors={adminColors}
+                loading={applicationAnalyticsLoading}
+              />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Applications by Status
+              </h3>
+              <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
+            </div>
+            <div className="mt-4">
+              <ApplicationStatusChart
+                approved={applicationTypeStatusSummary.totalApproved}
+                pending={applicationTypeStatusSummary.totalPending}
+                rejected={applicationTypeStatusSummary.totalRejected}
+                colors={adminColors}
+                loading={applicationAnalyticsLoading}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
             5. WEAPON CATEGORIES & PURPOSE DISTRIBUTION
         ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Weapon Categories */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Target className="w-4 h-4 text-[#0F2D52]" />
@@ -1382,7 +1661,7 @@ export default function UniversalDashboard() {
           </div>
 
           {/* Purpose Breakdown */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-[#B8860B]" />
@@ -1421,7 +1700,7 @@ export default function UniversalDashboard() {
         {loading && !data?.recentActivities ? (
           <DashboardActivitySkeleton />
         ) : (
-          <section className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <section className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-blue-600" />
@@ -1458,90 +1737,11 @@ export default function UniversalDashboard() {
             </div>
           </section>
         )}
-
-        {/* ─────────────────────────────────────────────────────────────
-            7. ADMINISTRATIVE QUICK ACTIONS & MANAGEMENT CONSOLE
-        ────────────────────────────────────────────────────────────── */}
-        <section className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-2">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Shield className="w-5 h-5 text-[#0F2D52]" />
-                Administrative Quick Actions &amp; Management Console
-              </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Direct statutory controls and configurations for authorized {effectiveRole === 'SUPER_ADMIN' ? 'Super Administrators' : 'Administrators'}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Action 1: User & Hierarchy Management */}
-            <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-blue-50/40 to-white hover:border-[#0F2D52]/30 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-lg bg-[#0F2D52] text-white flex items-center justify-center mb-3">
-                  <Users className="w-5 h-5" />
-                </div>
-                <h4 className="text-sm font-bold text-gray-900">User &amp; Hierarchy Management</h4>
-                <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Manage officer accounts, role assignments, zonal jurisdiction mapping, and permission access across all police divisions.
-                </p>
-              </div>
-              <Link
-                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/userManagement' : '/admin/userManagement'}
-                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#0F2D52] hover:text-[#B8860B] transition-colors"
-              >
-                <span>Open User Console</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-
-            {/* Action 2: Workflow Configuration */}
-            <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-amber-50/40 to-white hover:border-[#B8860B]/30 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-lg bg-[#B8860B] text-white flex items-center justify-center mb-3">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <h4 className="text-sm font-bold text-gray-900">Workflow &amp; Stage Mapping</h4>
-                <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Configure multi-level approval hierarchies, statutory enquiry workflows, and action transition rules for licensing applications.
-                </p>
-              </div>
-              <Link
-                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/flowMapping' : '/admin/workflows'}
-                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#B8860B] hover:text-[#A0750A] transition-colors"
-              >
-                <span>Configure Workflows</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-
-            {/* Action 3: Analytics & Detailed Reports */}
-            <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-purple-50/40 to-white hover:border-purple-300 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-lg bg-purple-700 text-white flex items-center justify-center mb-3">
-                  <TrendingUp className="w-5 h-5" />
-                </div>
-                <h4 className="text-sm font-bold text-gray-900">Advanced Analytics &amp; Reports</h4>
-                <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Generate comprehensive audit reports, SLA compliance matrices, and jurisdictional workload exports across all districts.
-                </p>
-              </div>
-              <Link
-                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/analytics' : '/admin/analytics'}
-                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:text-purple-900 transition-colors"
-              >
-                <span>View Analytics Portal</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </div>
-        </section>
       </div>
 
       {/* Standard Portal Footer */}
       <Footer />
-    </main>
+    </DashboardMain>
   </div>
 
       {/* Application Lookup Modal */}
@@ -1607,19 +1807,28 @@ export default function UniversalDashboard() {
 
               {lookupResult && (
                 <div className="mt-4 p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3 text-xs">
-                  <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-                    <span className="font-bold text-gray-900">{lookupResult.acknowledgementNo || `ID #${lookupResult.applicationId}`}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        lookupResult.isApproved
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : lookupResult.isRejected
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {lookupResult.applicationStatus || 'In Process'}
-                    </span>
+                  <div className="flex flex-col gap-2 border-b border-gray-200 pb-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-gray-900">{lookupResult.acknowledgementNo || lookupResult.almsLicenseId || `ID #${lookupResult.applicationId}`}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          lookupResult.isApproved
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : lookupResult.isRejected
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {lookupResult.applicationStatus || 'In Process'}
+                      </span>
+                    </div>
+                    {lookupResult.applicationType && (
+                      <div>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0F2D52]/10 text-[#0F2D52]">
+                          {lookupResult.applicationType}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-gray-600">
@@ -1629,18 +1838,38 @@ export default function UniversalDashboard() {
                     </div>
                     <div>
                       <span className="block text-[10px] text-gray-400 uppercase">District</span>
-                      <span className="font-medium text-gray-800">{lookupResult.permanentAddress?.district || 'Registered District'}</span>
+                      <span className="font-medium text-gray-800">{lookupResult.permanentDistrict || lookupResult.presentDistrict || 'Registered District'}</span>
                     </div>
                     <div>
                       <span className="block text-[10px] text-gray-400 uppercase">Submission Date</span>
                       <span className="font-medium text-gray-800">
-                        {lookupResult.createdAt ? new Date(lookupResult.createdAt).toLocaleDateString() : 'Recorded'}
+                        {lookupResult.submittedDate ? new Date(lookupResult.submittedDate).toLocaleDateString() : 'Recorded'}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] text-gray-400 uppercase">Police Station</span>
-                      <span className="font-medium text-gray-800">{lookupResult.permanentAddress?.policeStation || 'Jurisdictional PS'}</span>
+                      <span className="block text-[10px] text-gray-400 uppercase">State</span>
+                      <span className="font-medium text-gray-800">{lookupResult.permanentState || lookupResult.presentState || 'Registered State'}</span>
                     </div>
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
+                    <button
+                      onClick={() => {
+                        if (lookupResult.applicationType === 'Cancellation Request') {
+                          router.push(`/cancelForm/${lookupResult.applicationId}`);
+                        } else {
+                          let typeParam = 'fresh';
+                          if (lookupResult.applicationType === 'Renewal Application') typeParam = 'renewal';
+                          else if (lookupResult.applicationType === 'Issued License') typeParam = 'license';
+                          
+                          router.push(`/application/${lookupResult.applicationId}?type=${typeParam}`);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#0F2D52] text-white hover:bg-[#1A365D] transition-colors"
+                    >
+                      View Full Details
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               )}

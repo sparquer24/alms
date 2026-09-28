@@ -18,3 +18,12 @@ export {
   DashboardActivitySkeleton,
   SkeletonShimmer,
 } from './DashboardSkeleton';
+
+// New dashboard enhancement sections
+export { default as ActionRequiredSection } from './ActionRequiredSection';
+export { default as ApplicationFunnelSection } from './ApplicationFunnelSection';
+export { default as AgingAnalysisSection } from './AgingAnalysisSection';
+export { default as ProcessingPerformanceSection } from './ProcessingPerformanceSection';
+export { default as MonthlyComparisonSection } from './MonthlyComparisonSection';
+export { default as LicenseExpiryBucketsSection } from './LicenseExpiryBucketsSection';
+

@@ -169,11 +169,102 @@ body::-webkit-scrollbar-thumb,
 /* ==============================
    Print styles
 ============================== */
-/* Print styles - hide chrome and make printable area full width */
+/* Print styles - every route renders its screen content inside a single
+   <main> element, sibling to the fixed <Sidebar>/<Header> shell (see
+   ApplicationDetailClient, dashboard, cancelForm/layout, inbox/layout, etc.).
+   The header's Print button just calls window.print(), so this stylesheet is
+   what has to guarantee "current route's <main>, nothing else, nothing cut
+   off" instead of relying on each page to manage its own print markup. */
 @media print {
-  /* hide app chrome */
-  aside, header, .action-button-container, .fixed, .md\:hidden, .no-print {
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* hide app chrome: sidebar, fixed header, floating/modal UI, mobile-only
+     elements, and anything explicitly opted out via .no-print. Elements
+     marked [data-print-root] (e.g. RecordInspectionModal, which is itself a
+     `fixed inset-0` overlay and IS the thing being printed) are the one
+     exception — see the reset below. */
+  aside, header, .action-button-container, .fixed:not([data-print-root]), .md\:hidden, .no-print {
     display: none !important;
+  }
+
+  /* Filter/search form controls are never the printable record itself, so
+     they're safe to hide everywhere. Buttons are NOT hidden globally here —
+     several tables (ApplicationTable, licenses) render their primary cell
+     value (Applicant Name, License Holder Name, etc.) as a clickable
+     <button>, not plain text, so a blanket "hide all buttons" rule silently
+     deletes that data from the printout. Pages hide their own action-only
+     buttons explicitly via Tailwind's `print:hidden` instead. */
+  main input, main select, main textarea,
+  [data-print-root] input, [data-print-root] select, [data-print-root] textarea {
+    display: none !important;
+  }
+
+  /* [data-print-root] (currently only RecordInspectionModal) uses icon-only
+     buttons for its own Print/Close/tab controls — no cell-value buttons —
+     so hiding all buttons there is safe. */
+  [data-print-root] button {
+    display: none !important;
+  }
+
+  /* A [data-print-root] element outside <main> (currently just
+     RecordInspectionModal) is its own printable root: pull it out of its
+     fixed/centered overlay positioning and let it — and everything inside
+     it — grow to full natural size instead of being clipped by max-h-[90vh]
+     + overflow-y-auto. */
+  [data-print-root] {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    display: block !important;
+    background: #fff !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  [data-print-root], [data-print-root] * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* On screen, <main> lives inside a fixed-height flex row (h-screen +
+     overflow-hidden) and scrolls internally via nested overflow-auto panes,
+     so only the currently-scrolled-into-view slice would otherwise render on
+     paper. :has() lets us reach every ancestor of <main> — regardless of how
+     many wrapper divs providers/layouts add — and every descendant inside it,
+     and force them all to their natural full height. */
+  *:has(main) {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  main, main * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* print only the current route's <main>, full width, with the on-screen
+     sidebar/header offsets (margin-left, padding-top) zeroed out so nothing
+     is pushed down/right into blank space or left overlapping now that the
+     header is hidden */
+  main {
+    position: static !important;
+    inset: auto !important;
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* sticky sub-headers (PageSubHeader, tab bars, etc.) must render in normal
+     flow instead of repeating/overlapping content across printed pages */
+  main .sticky {
+    position: static !important;
+    top: auto !important;
   }
 
   /* remove background decorations, ensure text is dark */
@@ -189,8 +280,8 @@ body::-webkit-scrollbar-thumb,
     border: none !important;
   }
 
-  /* ensure links and buttons are visible but not interactive */
-  a, button {
+  /* ensure links are visible but not interactive */
+  a {
     color: #000 !important;
     text-decoration: none !important;
     -webkit-print-color-adjust: exact;

@@ -342,47 +342,8 @@ const BiometricInformation = () => {
     };
   }, [applicantId]);
 
-  /** 📷 Handle camera permission state using Permissions API */
-  useEffect(() => {
-    if (!showWebcamModal) return;
-
-    let permissionStatus: PermissionStatus | null = null;
-
-    const handleStateChange = () => {
-      if (!permissionStatus) return;
-      if (permissionStatus.state === 'denied') {
-        setCameraPermissionDenied(true);
-        setStreamActive(false);
-      } else if (permissionStatus.state === 'granted') {
-        setCameraPermissionDenied(false);
-        setStreamActive(true);
-      } else if (permissionStatus.state === 'prompt') {
-        setCameraPermissionDenied(false);
-        setStreamActive(true);
-      }
-    };
-
-    const setupPermissionsQuery = async () => {
-      if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
-        try {
-          const status = await navigator.permissions.query({ name: 'camera' as PermissionName });
-          permissionStatus = status;
-          handleStateChange();
-          status.onchange = handleStateChange;
-        } catch (e) {
-          console.warn('[BiometricInformation] Camera Permissions API query not fully supported:', e);
-        }
-      }
-    };
-
-    setupPermissionsQuery();
-
-    return () => {
-      if (permissionStatus) {
-        permissionStatus.onchange = null;
-      }
-    };
-  }, [showWebcamModal]);
+  // Camera permissions are now handled natively by react-webcam via onUserMedia and onUserMediaError callbacks,
+  // which avoids browser incompatibilities with navigator.permissions.query({ name: 'camera' })
 
   /** 📸 Capture webcam photo */
   const capturePhoto = async () => {

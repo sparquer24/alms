@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { formatGender, formatApplicationType } from '../../../utils/formatters';
+import { resolveFileHref, getAuthToken } from '../../../services/fileHandler';
 
 interface PrintApplicationFormProps {
   application: any;
@@ -90,18 +91,54 @@ function PDFPreview({
           import.meta.url
         ).toString();
 
-        // Normalize URL - rewrite any URL containing '/files/' to use the local API files download proxy
-        let targetUrl = url;
-        if (url.includes('/files/')) {
-          const fileNameOnly = url.substring(url.indexOf('/files/') + '/files/'.length);
-          if (typeof window !== 'undefined') {
-            targetUrl = window.location.origin + '/api/files/download/' + fileNameOnly;
+        // Resolve the document to raw bytes ourselves instead of handing pdf.js a
+        // URL to fetch: uploaded documents are commonly stored as base64 `data:`
+        // URLs (see fileUploadService.uploadFileWithStorage), and server-hosted
+        // files require the same Bearer auth the rest of the app uses (see
+        // fileHandler.ts). Passing an unreachable/unauthenticated URL straight to
+        // pdfjsLib.getDocument({ url }) makes it fetch an error page instead of
+        // the PDF, which surfaces as "InvalidPDFException: Invalid PDF structure".
+        const trimmed = url.trim();
+        let pdfData: ArrayBuffer;
+        if (trimmed.startsWith('data:') || /^[A-Za-z0-9+/=]+$/.test(trimmed)) {
+          const base64 = trimmed.replace(/^data:.*;base64,/, '');
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
           }
-        } else if (typeof window !== 'undefined' && url.startsWith('/')) {
-          targetUrl = window.location.origin + url;
+          pdfData = bytes.buffer;
+        } else {
+          const href = trimmed.startsWith('blob:') ? trimmed : resolveFileHref(trimmed) || trimmed;
+          const headers: Record<string, string> = {};
+          const token = getAuthToken();
+          if (token) headers.Authorization = `Bearer ${token}`;
+          let response = await fetch(href, { credentials: 'include', headers }).catch(() => null);
+          
+          // If fetch fails (often due to CORS with external URLs rejecting Authorization headers),
+          // retry without credentials and headers.
+          if (!response || !response.ok) {
+             response = await fetch(href, { credentials: 'omit' }).catch(() => null);
+          }
+          
+          if (!response || !response.ok) {
+            throw new Error(`Failed to fetch document: ${response?.status} ${response?.statusText}`);
+          }
+          pdfData = await response.arrayBuffer();
+
+          // Some servers answer a missing/broken file path with a 200 OK
+          // fallback page (HTML or a JSON error body) instead of a proper
+          // 404, which passes the response.ok check above but isn't a PDF.
+          // Detect that here with a clear message instead of letting pdf.js
+          // fail deep inside with an opaque "Invalid PDF structure" error.
+          const header = new Uint8Array(pdfData.slice(0, 5));
+          const headerStr = String.fromCharCode(...header);
+          if (headerStr !== '%PDF-') {
+            throw new Error('This file is unavailable or is not a valid PDF.');
+          }
         }
 
-        const loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
         const pdf = await loadingTask.promise;
         if (!active) return;
 
@@ -135,7 +172,7 @@ function PDFPreview({
           setImgSrcs(urls);
         }
       } catch (err: any) {
-        console.error('Error rendering PDF thumbnail:', err);
+        console.warn('Preview unavailable (likely external file without CORS):', err?.message || String(err));
         if (active) {
           setError(err?.message || String(err));
         }

@@ -115,62 +115,65 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
   const roleSpecificMenuDefaults: Record<string, MenuItem[]> = {
     // Field Operational Roles
     'ZS': [
-      { name: 'freshform', statusIds: [9] },
-      { name: 'inbox', statusIds: [1, 9] },
-      { name: 'sent', statusIds: [11, 1, 9] },
-      { name: 'closed', statusIds: [10] },
-      { name: 'drafts', statusIds: [13] },
-      { name: 'Applications', statusIds: [11, 3] },
-      { name: 'analytics' },
+      { name: 'dashboard' },
+      { name: 'freshform', statusIds: [8] },
+      { name: 'inbox', statusIds: [1, 8] },
+      { name: 'sent', statusIds: [10, 1, 8] },
+      { name: 'closed', statusIds: [9] },
+      { name: 'drafts', statusIds: [12] },
+      { name: 'applications', statusIds: [9, 3] },
       { name: 'cancelform' },
     ],
     'SHO': [
-      { name: 'inbox', statusIds: [1, 9] },
-      { name: 'sent', statusIds: [11, 1] },
+      { name: 'inbox', statusIds: [1, 8] },
+      { name: 'sent', statusIds: [10, 1] },
     ],
     'ACP': [
-      { name: 'inbox', statusIds: [1, 9] },
-      { name: 'sent', statusIds: [11, 1] },
+      { name: 'inbox', statusIds: [1, 8] },
+      { name: 'sent', statusIds: [10, 1] },
     ],
     'DCP': [
-      { name: 'inbox', statusIds: [1, 9, 11] },
-      { name: 'sent', statusIds: [11, 3] },
+      { name: 'dashboard' },
+      { name: 'inbox', statusIds: [1, 8, 10] },
+      { name: 'sent', statusIds: [10, 3] },
     ],
 
     // Administrative & Support Roles
     'AS': [
-      { name: 'inbox', statusIds: [1, 9] },
-      { name: 'sent', statusIds: [11, 1] },
+      { name: 'dashboard' },
+      { name: 'inbox', statusIds: [1, 8] },
+      { name: 'sent', statusIds: [10, 1] },
     ],
     'ADO': [
-      { name: 'inbox', statusIds: [1, 9] },
-      { name: 'sent', statusIds: [11] },
+      { name: 'inbox', statusIds: [1, 8] },
+      { name: 'sent', statusIds: [10] },
     ],
     'CADO': [
-      { name: 'inbox', statusIds: [1, 9, 11] },
-      { name: 'sent', statusIds: [11, 3] },
+      { name: 'inbox', statusIds: [1, 8, 10] },
+      { name: 'sent', statusIds: [10, 3] },
     ],
     'JTCP': [
-      { name: 'inbox', statusIds: [1, 9, 11] },
-      { name: 'sent', statusIds: [11, 3] },
-      { name: 'analytics' },
+      { name: 'dashboard' },
+      { name: 'inbox', statusIds: [1, 8, 10] },
+      { name: 'sent', statusIds: [10, 3] },
     ],
     'CP': [
-      { name: 'inbox', statusIds: [1, 9, 11] },
-      { name: 'sent', statusIds: [11, 3] },
-      { name: 'analytics' },
+      { name: 'dashboard' },
+      { name: 'inbox', statusIds: [1, 8, 10] },
+      { name: 'sent', statusIds: [10, 3] },
     ],
     'ARMS_SUPDT': [
-      { name: 'inbox', statusIds: [1, 9] },
-      { name: 'sent', statusIds: [11, 1] },
+      { name: 'dashboard' },
+      { name: 'inbox', statusIds: [1, 8] },
+      { name: 'sent', statusIds: [10, 1] },
     ],
     'ARMS_SEAT': [
-      { name: 'inbox', statusIds: [1, 9] },
-      { name: 'sent', statusIds: [11] },
+      { name: 'inbox', statusIds: [1, 8] },
+      { name: 'sent', statusIds: [10] },
     ],
     'ACO': [
-      { name: 'inbox', statusIds: [1, 9] },
-      { name: 'sent', statusIds: [11] },
+      { name: 'inbox', statusIds: [1, 8] },
+      { name: 'sent', statusIds: [10] },
     ],
   };
 

@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
+import Footer from '../../../components/Footer';
+import { PageSubHeader, SubHeaderButton } from '@/components/common/PageSubHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
@@ -108,15 +111,16 @@ interface ApplicationDetailPageProps {
 }
 
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
+  const resolvedParams = React.use(params);
+  const applicationId = resolvedParams.id;
   const { isAuthenticated, user, userRole, isLoading: authLoading, initialized } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { setShowHeader, setShowSidebar } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
   const [application, setApplication] = useState<ApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
-  const [applicationId, setApplicationId] = useState<string | null>(null);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -179,6 +183,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const isRenewalView =
     searchParams?.get('type') === 'renewal' ||
     (typeof pathname === 'string' && pathname.includes('/renewalApplication'));
+  const isLicenseView = searchParams?.get('type') === 'license';
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
@@ -193,7 +198,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     params.set('tab', nextTab);
     router.replace(`${pathname}?${params.toString()}`);
 
-    // Clear stale data when switching to the Origin tab to prevent showing old content while loading.
     if (nextTab === 'original') {
       setOriginalLicenseData(null);
       setOriginalLicenseLoading(true);
@@ -204,9 +208,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   };
 
-  // Use sidebar counts hook here so we can trigger an immediate refresh
-  // after actions that move an application between inbox buckets.
-  // We pass !loading to give priority to the /application/4 dependence API first.
   const { refreshCounts } = useSidebarCounts(!loading);
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
   const currentDisplayApp = useMemo(() => {
@@ -236,11 +237,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const showFullApplicationDetails =
     !isRenewalView || activeTab === 'info' || activeTab === 'original';
 
-  // Workflow history for the printout: use the same source the on-screen
-  // timeline uses (the separately-fetched `workflowHistory` state / the Origin
-  // tab's `originalLicenseHistory`) rather than application.workflowHistories,
-  // which is often empty for renewals and caused "Application History" to be
-  // missing from the print output.
   const printWorkflowHistory = useMemo(() => {
     if (isRenewalView && activeTab === 'original') {
       return originalLicenseHistory && originalLicenseHistory.length > 0
@@ -252,12 +248,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       : (currentDisplayApp as any)?.workflowHistories || [];
   }, [isRenewalView, activeTab, originalLicenseHistory, workflowHistory, currentDisplayApp]);
 
-  // Base the printout on currentDisplayApp — the same source the on-screen
-  // details panel renders from — so printing the Original License Details
-  // tab prints the license's original data (currentDisplayApp swaps to
-  // originalLicenseData there) instead of always printing the renewal
-  // application's own data regardless of which tab is active. Documents get
-  // the same origin-tab override used by the on-screen Documents table.
   const printApplication = useMemo(() => {
     if (!currentDisplayApp) return null;
     if (
@@ -271,41 +261,39 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     return currentDisplayApp;
   }, [currentDisplayApp, isRenewalView, activeTab, originDocuments]);
 
-  // Handle params Promise for React 18 compatibility
-  useEffect(() => {
-    params.then(resolvedParams => {
-      setApplicationId(resolvedParams.id);
-    });
-  }, [params]);
-
   useEffect(() => {
     if (initialized && !isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, initialized, router]);
 
-  // Show header and sidebar like other pages (Settings, etc.)
   useEffect(() => {
     setShowHeader(true);
-    setShowSidebar(false); // Hide sidebar on Application Details page
-
-    // Cleanup: reset sidebar visibility when leaving this page
+    setShowSidebar(false);
     return () => {
       setShowSidebar(true);
     };
   }, [setShowHeader, setShowSidebar]);
 
   useEffect(() => {
-    // Fetch application using shared service which maps workflow history correctly
     const fetchApplication = async () => {
       setLoading(true);
       try {
+        let licenseAppFallback = null;
         if (isRenewalView) {
           const response = await RenewalService.getRenewalForm(applicationId!);
           const renewalData = (response as any)?.data ?? response;
           if (renewalData) {
             setRawRenewalData(renewalData);
             setApplication(normalizeRenewalApplication(renewalData));
+          } else {
+            setApplication(null);
+          }
+        } else if (isLicenseView) {
+          const license = await LicenseService.getLicenseById(Number(applicationId!));
+          if (license) {
+            licenseAppFallback = license;
+            setApplication(license as unknown as ApplicationData);
           } else {
             setApplication(null);
           }
@@ -318,7 +306,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           }
         }
 
-        // Fetch license data for this application
         const fetchLicense = async () => {
           setLicenseLoading(true);
           try {
@@ -600,9 +587,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           /* ignore */
         }
 
-        // Navigate to inbox/forwarded after successful processing
-        setActiveNavigationPath('/inbox/forwarded');
-        await router.push('/inbox/forwarded');
+        // Navigate back to the previous inbox tab or fallback to all
+        const returnType = searchParams?.get('returnType');
+        const targetPath = returnType ? `/inbox?type=${encodeURIComponent(returnType)}` : '/inbox?type=all';
+        setActiveNavigationPath(targetPath);
+        await router.push(targetPath);
       } catch (error) {
         setErrorMessage('Failed to process application. Please try again.');
         throw error;
@@ -642,9 +631,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           /* ignore */
         }
 
-        // Navigate to inbox/forwarded after successful forwarding
-        setActiveNavigationPath('/inbox/forwarded');
-        await router.push('/inbox/forwarded');
+        // Navigate back to the previous inbox tab or fallback to all
+        const returnType = searchParams?.get('returnType');
+        const targetPath = returnType ? `/inbox?type=${encodeURIComponent(returnType)}` : '/inbox?type=all';
+        setActiveNavigationPath(targetPath);
+        await router.push(targetPath);
       } catch (error) {
         setErrorMessage('Failed to forward application. Please try again.');
         throw error;
@@ -740,9 +731,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       /* ignore */
     }
 
-    // Redirect to inbox/all after successful proceedings action
+    // Redirect back to previous inbox tab after successful proceedings action
     setTimeout(() => {
-      router.push('/inbox?type=all');
+      const returnType = searchParams?.get('returnType');
+      const targetPath = returnType ? `/inbox?type=${encodeURIComponent(returnType)}` : '/inbox?type=all';
+      router.push(targetPath);
     }, 2000);
   };
 
@@ -756,11 +749,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }
 
   return (
-    <div className='flex flex-col min-h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
-      {/* Use shared Header with breadcrumbs and status badge */}
+    <>
+      <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
+        <Sidebar />
       <Header
+        showBackButton
         breadcrumbs={[
-          { label: 'Home', onClick: () => router.push('/') },
           { label: isRenewalView ? 'Renewal' : 'Fresh Application' },
           { label: applicationId ? `Application ID: ${applicationId}` : '...' },
         ]}
@@ -790,9 +784,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hideCreateForm={true}
         hidePrint={true}
       />
-
-      <main className='flex-1 p-6 overflow-y-auto mt-[120px]'>
-        <div className='bg-white rounded-lg shadow'>
+      <main
+        className='flex-1 ml-0 h-full overflow-y-auto flex flex-col pt-[72px] md:pt-[86px]'
+        style={headerHeight != null ? { paddingTop: headerHeight + 20 } : undefined}
+      >
+        <div className='flex-grow w-full mx-auto '>
           {/* Success Message - Fixed Position at Top */}
           {successMessage && (
             <div className='fixed top-4 right-4 z-50 max-w-md animate-slide-in'>
@@ -866,7 +862,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               </div>
             </div>
           )}
-        </div>
 
         {isRenewalView && application && (
           <div className='mb-6'>
@@ -875,7 +870,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               renewalId={application.id}
               acknowledgementNo={application.acknowledgementNo}
               licenseId={originalLicenseData?.id ?? rawRenewalData?.licenseId}
-              licenseNumber={originalLicenseData?.licenseNumber}
+              licenseNumber={originalLicenseData?.licenseNumber || rawRenewalData?.licenses?.licenseNumber || rawRenewalData?.Licenses?.licenseNumber || rawRenewalData?.licenseNumber}
               activeTab={activeTab === 'original' ? 'Original License Details' : 'Renewal Info'}
               onTabChange={handleTabChange}
             />
@@ -984,7 +979,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                       : 'Preparing document previews for printing…'
                                   }
                                 >
-                                  <Printer className='w-4.5 h-4.5 text-slate-500' />
+                                  <Printer className='w-4 h-4 text-slate-500' />
                                   {printReady ? 'Print Details' : 'Preparing…'}
                                 </button>
                               </div>
@@ -1667,21 +1662,32 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 License Record
                               </h3>
                             </div>
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                                licenseData.status === 'ACTIVE'
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : licenseData.status === 'EXPIRED'
-                                    ? 'bg-red-100 text-red-700'
-                                    : licenseData.status === 'CANCELLED'
-                                      ? 'bg-slate-100 text-slate-700'
-                                      : licenseData.status === 'SUSPENDED'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-rose-100 text-rose-700'
-                              }`}
-                            >
-                              {licenseData.status}
-                            </span>
+                            <div className='flex items-center gap-3'>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                  licenseData.status === 'ACTIVE'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : licenseData.status === 'EXPIRED'
+                                      ? 'bg-red-100 text-red-700'
+                                      : licenseData.status === 'CANCELLED'
+                                        ? 'bg-slate-100 text-slate-700'
+                                        : licenseData.status === 'SUSPENDED'
+                                          ? 'bg-amber-100 text-amber-700'
+                                          : 'bg-rose-100 text-rose-700'
+                                }`}
+                              >
+                                {licenseData.status}
+                              </span>
+                              <Link
+                                href={`/application/${licenseData.id}?type=license`}
+                                className='px-4 py-1.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-2'
+                              >
+                                View License Details
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </Link>
+                            </div>
                           </div>
                           <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
                             <div className='space-y-4'>
@@ -1970,24 +1976,23 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
               {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal */}
               {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
-                <div className='p-6 lg:p-8 border-t border-gray-100 bg-white overflow-hidden print:hidden'>
+                <div className='p-6 lg:p-8 border-t border-gray-100 bg-white print:hidden'>
                   <div
                     ref={containerRef}
-                    className='flex h-[600px] items-stretch gap-0 relative w-full overflow-hidden'
-                    style={{
-                      display: 'flex',
-                    }}
+                    className='flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-0 relative w-full'
                   >
                     {/* Action Buttons - Full Width Editor (2 columns) - Hidden on License Tab */}
                     {!(isRenewalView && activeTab === 'original') && (
                       <div
-                        className='flex flex-col h-full overflow-hidden pr-4'
-                        style={{
-                          width: `${dividerPosition}%`,
-                          transition: isDragging ? 'none' : 'width 0.1s ease',
-                        }}
+                        className='flex flex-col w-full lg:w-[var(--left-w)] lg:pr-4 lg:sticky lg:top-0 lg:max-h-[calc(100vh-32px)] lg:overflow-y-auto lg:pb-2'
+                        style={
+                          {
+                            '--left-w': `${dividerPosition}%`,
+                            transition: isDragging ? 'none' : 'width 0.1s ease',
+                          } as React.CSSProperties
+                        }
                       >
-                        <div className='flex items-center justify-between mb-4'>
+                        <div className='flex items-center justify-between mb-4 lg:sticky lg:top-0 lg:z-10 lg:bg-white lg:pb-2'>
                           <div>
                             <h3 className='text-2xl font-bold text-gray-900 flex items-center'>
                               <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
@@ -1995,7 +2000,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             </h3>
                           </div>
                         </div>
-                        <div className='flex flex-col gap-4 flex-1 overflow-hidden'>
+                        <div className='flex flex-col gap-4 flex-1'>
                           {(() => {
                             // Determine which application to use based on active tab
                             const displayApp: ApplicationData | null =
@@ -2017,7 +2022,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             // If on license tab and still loading, show loading state
                             if (isLoading) {
                               return (
-                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col items-center justify-center'>
+                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center py-16'>
                                   <div className='flex flex-col items-center gap-3'>
                                     <div className='w-8 h-8 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin'></div>
                                     <p className='text-sm text-gray-600'>Loading License...</p>
@@ -2150,9 +2155,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             return canTakeAction ? (
                               <>
                                 {/* Proceedings Form - Always Open */}
-                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col'>
-                                  <div className='p-2 bg-gray-50 flex-1 overflow-auto'>
-                                    <div className='p-2 h-full'>
+                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col'>
+                                  <div className='p-2 bg-gray-50 flex-1'>
+                                    <div className='p-2'>
                                       <ProceedingsForm
                                         applicationId={String(displayAppId)}
                                         onSuccess={handleProceedingsSuccess}
@@ -2209,7 +2214,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       <div
                         ref={dividerRef}
                         onMouseDown={handleDividerMouseDown}
-                        className='w-1 bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-blue-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
+                        className='hidden lg:block w-1 self-stretch bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-blue-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
                         style={{
                           cursor: 'col-resize',
                           userSelect: 'none',
@@ -2222,24 +2227,26 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                     {/* Application Timeline/History - Right Side with Scroll */}
                     <div
-                      className={`flex flex-col h-full overflow-hidden ${isRenewalView && activeTab === 'original' ? '' : 'pl-4'}`}
-                      style={{
-                        width:
-                          isRenewalView && activeTab === 'original'
-                            ? '100%'
-                            : `${100 - dividerPosition}%`,
-                        transition: isDragging ? 'none' : 'width 0.1s ease',
-                      }}
+                      className={`flex flex-col w-full lg:sticky lg:top-0 lg:max-h-[calc(100vh-32px)] lg:overflow-y-auto ${isRenewalView && activeTab === 'original' ? '' : 'lg:w-[var(--right-w)] lg:pl-4'}`}
+                      style={
+                        {
+                          '--right-w':
+                            isRenewalView && activeTab === 'original'
+                              ? '100%'
+                              : `${100 - dividerPosition}%`,
+                          transition: isDragging ? 'none' : 'width 0.1s ease',
+                        } as React.CSSProperties
+                      }
                     >
-                      <div className='flex items-center justify-between mb-4'>
+                      <div className='flex items-center justify-between mb-4 lg:sticky lg:top-0 lg:z-10 lg:bg-white lg:pb-2'>
                         <h3 className='text-lg font-semibold text-gray-900 flex items-center'>
                           <div className='w-1 h-5 bg-green-600 rounded-full mr-3'></div>
                           Application History
                         </h3>
                       </div>
 
-                      <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
-                        <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
+                      <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm'>
+                        <div className='p-6 custom-scrollbar'>
                           {isRenewalView && activeTab === 'original' && originalLicenseLoading ? (
                             <div className='flex flex-col items-center justify-center h-full'>
                               <div className='w-8 h-8 border-4 border-green-100 border-t-green-600 rounded-full animate-spin mb-3'></div>
@@ -2746,6 +2753,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             </div>
           )}
         </div>
+        </div>
+        <Footer />
       </main>
 
       {/* Loading Overlay */}
@@ -2766,6 +2775,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           </div>
         </div>
       )}
+
+      </div>
 
       {/* Print-Only Layout Component */}
       {printApplication && (
@@ -2854,6 +2865,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }

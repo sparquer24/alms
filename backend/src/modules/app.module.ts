@@ -9,6 +9,7 @@ import { StatusModule } from '../modules/status/status.module';
 import { ActionesModule } from './actions/actiones.module';
 import { WeaponsModule } from './weapons/weapons.module'
 import { RolesModule } from './roles/roles.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FlowMappingModule } from './flowMapping/flow-mapping.module';
 import { HealthModule } from './health/health.module';
@@ -25,7 +26,7 @@ import { AuditModule } from './audit/audit.module';
 import { DocumentsModule } from './documents/documents.module';
 
 @Module({
-  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, RenewalFormModule, CancelFormModule, VerificationModule, LicensesModule, HearingsModule, NotificationsModule, SchedulerModule, AuditModule, DocumentsModule],
+  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, PermissionsModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, RenewalFormModule, CancelFormModule, VerificationModule, LicensesModule, HearingsModule, NotificationsModule, SchedulerModule, AuditModule, DocumentsModule],
 
 })
 export class AppModule { }

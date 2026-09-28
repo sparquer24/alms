@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { ROLE_CODES } from '../../constants/auth';
+import { STATUS_CODES } from '../../constants/workflow-actions';
 
 /**
  * Public Service - Handles public-facing data retrieval
@@ -13,79 +14,114 @@ export class PublicService {
      * Returns sanitized application data suitable for public viewing via QR code scan
      */
     async getPublicApplicationDetails(
-        applicationId: number,
+        identifier: string | number,
         type?: string
     ): Promise<[any | null, any | null]> {
         try {
-            if (type === 'renewal') {
-                const application = await prisma.renewalFormPersonalDetails.findUnique({
-                    where: { id: applicationId },
-                    include: {
-                        workflowStatus: {
-                            select: {
-                                id: true,
-                                code: true,
-                                name: true,
-                            },
-                        },
-                        permanentAddress: {
-                            include: {
-                                state: { select: { id: true, name: true } },
-                                district: { select: { id: true, name: true } },
-                                policeStation: { select: { id: true, name: true } },
-                            },
-                        },
-                        presentAddress: {
-                            include: {
-                                state: { select: { id: true, name: true } },
-                                district: { select: { id: true, name: true } },
-                                policeStation: { select: { id: true, name: true } },
-                            },
-                        },
-                        licenseDetails: {
-                            include: {
-                                requestedWeapons: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        description: true,
-                                    },
-                                },
-                            },
-                        },
-                        fileUploads: {
-                            where: {
-                                fileType: 'PHOTOGRAPH',
-                            },
-                            orderBy: {
-                                uploadedAt: 'desc',
-                            },
-                            take: 1,
-                        },
-                    },
-                });
+            const strIdentifier = String(identifier).trim();
+            const idNum = Number(strIdentifier);
+            const isId = !isNaN(idNum) && /^\d+$/.test(strIdentifier);
 
-                if (!application) {
-                    return ['Application not found', null];
+            const renewalWhere: any = isId
+                ? { OR: [{ id: idNum }, { acknowledgementNo: strIdentifier }, { renewalLicenseId: strIdentifier }] }
+                : { OR: [{ acknowledgementNo: strIdentifier }, { renewalLicenseId: strIdentifier }] };
+
+            const freshWhere: any = isId
+                ? { OR: [{ id: idNum }, { acknowledgementNo: strIdentifier }, { almsLicenseId: strIdentifier }] }
+                : { OR: [{ acknowledgementNo: strIdentifier }, { almsLicenseId: strIdentifier }] };
+
+            const cancelWhere: any = isId
+                ? { OR: [{ id: idNum }, { acknowledgementNo: strIdentifier }] }
+                : { acknowledgementNo: strIdentifier };
+
+            const licenseWhere: any = isId
+                ? { OR: [{ id: idNum }, { licenseNumber: strIdentifier }, { almsLicenseId: strIdentifier }] }
+                : { OR: [{ licenseNumber: strIdentifier }, { almsLicenseId: strIdentifier }] };
+
+            const fetchRenewal = async () => prisma.renewalFormPersonalDetails.findFirst({
+                where: renewalWhere,
+                include: {
+                    workflowStatus: { select: { id: true, code: true, name: true } },
+                    permanentAddress: { include: { state: { select: { id: true, name: true } }, district: { select: { id: true, name: true } }, policeStation: { select: { id: true, name: true } } } },
+                    presentAddress: { include: { state: { select: { id: true, name: true } }, district: { select: { id: true, name: true } }, policeStation: { select: { id: true, name: true } } } },
+                    licenseDetails: { include: { requestedWeapons: { select: { id: true, name: true, description: true } } } },
+                    fileUploads: { where: { fileType: 'PHOTOGRAPH' }, orderBy: { uploadedAt: 'desc' }, take: 1 },
+                },
+            });
+
+            const fetchFresh = async () => prisma.freshLicenseApplicationPersonalDetails.findFirst({
+                where: freshWhere,
+                include: {
+                    workflowStatus: { select: { id: true, code: true, name: true } },
+                    permanentAddress: { include: { state: { select: { id: true, name: true } }, district: { select: { id: true, name: true } }, policeStation: { select: { id: true, name: true } } } },
+                    presentAddress: { include: { state: { select: { id: true, name: true } }, district: { select: { id: true, name: true } }, policeStation: { select: { id: true, name: true } } } },
+                    licenseDetails: { include: { requestedWeapons: { select: { id: true, name: true, description: true } } } },
+                    fileUploads: { where: { fileType: 'PHOTOGRAPH' }, orderBy: { uploadedAt: 'desc' }, take: 1 },
+                },
+            });
+
+            const fetchCancel = async () => prisma.cancelFormRequests.findFirst({
+                where: cancelWhere,
+                include: {
+                    workflowStatus: { select: { id: true, code: true, name: true } },
+                    state: { select: { id: true, name: true } }
+                }
+            });
+
+            const fetchLicense = async () => prisma.licenses.findFirst({
+                where: licenseWhere,
+                include: {
+                    endorsedWeapons: { select: { id: true, name: true, description: true } }
+                }
+            });
+
+            const formatData = (application: any, typeInfo: string) => {
+                if (typeInfo === 'cancel') {
+                    return {
+                        applicationId: application.id,
+                        acknowledgementNo: application.acknowledgementNo,
+                        almsLicenseId: null,
+                        applicantName: application.applicantName || 'Unknown',
+                        applicationStatus: application.workflowStatus?.name || 'Unknown',
+                        statusCode: application.workflowStatus?.code || null,
+                        presentState: application.state?.name || null,
+                        submittedDate: application.createdAt,
+                        lastUpdatedDate: application.updatedAt,
+                        applicationType: 'Cancellation Request'
+                    };
+                }
+                
+                if (typeInfo === 'license') {
+                    return {
+                        applicationId: application.id,
+                        acknowledgementNo: null,
+                        almsLicenseId: application.almsLicenseId || application.licenseNumber,
+                        applicantName: `${application.firstName} ${application.middleName || ''} ${application.lastName}`.trim(),
+                        sex: application.sex,
+                        dateOfBirth: application.dateOfBirth,
+                        applicationStatus: application.status || 'ACTIVE',
+                        licenseDetails: [{
+                            armsCategory: application.armsCategory,
+                            areaOfValidity: application.areaOfValidity,
+                            ammunitionDescription: application.ammunitionDescription,
+                            requestedWeapons: application.endorsedWeapons?.map((w: any) => ({ name: w.name, description: w.description }))
+                        }],
+                        submittedDate: application.createdAt,
+                        lastUpdatedDate: application.updatedAt,
+                        applicationType: 'Issued License'
+                    };
                 }
 
+                // Fresh or Renewal
                 const photoUpload = application.fileUploads?.[0];
-                const photoUrl = photoUpload?.fileUrl || null;
-
-                const publicData = {
+                return {
                     applicationId: application.id,
                     acknowledgementNo: application.acknowledgementNo,
-                    almsLicenseId: application.renewalLicenseId || null,
-
-                    // Applicant Basic Info (limited)
+                    almsLicenseId: typeInfo === 'renewal' ? (application.renewalLicenseId || null) : application.almsLicenseId,
                     applicantName: `${application.firstName} ${application.middleName || ''} ${application.lastName}`.trim(),
                     sex: application.sex,
                     dateOfBirth: application.dateOfBirth,
-
-                    // Photo URL
-                    photoUrl: photoUrl,
-
-                    // Application Status
+                    photoUrl: photoUpload?.fileUrl || null,
                     applicationStatus: application.workflowStatus?.name || 'Unknown',
                     statusCode: application.workflowStatus?.code || null,
                     isApproved: application.isApproved,
@@ -93,134 +129,64 @@ export class PublicService {
                     isPending: application.isPending,
                     isRecommended: application.isRecommended,
                     isNotRecommended: application.isNotRecommended,
-
-                    // License Details (public info only)
                     licenseDetails: application.licenseDetails?.map((ld: any) => ({
                         needForLicense: ld.needForLicense,
                         armsCategory: ld.armsCategory,
                         areaOfValidity: ld.areaOfValidity,
                         ammunitionDescription: ld.ammunitionDescription,
-                        requestedWeapons: ld.requestedWeapons?.map((w: any) => ({
-                            name: w.name,
-                            description: w.description,
-                        })),
+                        requestedWeapons: ld.requestedWeapons?.map((w: any) => ({ name: w.name, description: w.description })),
                     })),
-
-                    // Basic Location (State & District only, no full address)
                     presentState: application.presentAddress?.state?.name || null,
                     presentDistrict: application.presentAddress?.district?.name || null,
                     permanentState: application.permanentAddress?.state?.name || null,
                     permanentDistrict: application.permanentAddress?.district?.name || null,
-
-                    // Timestamps
                     submittedDate: application.createdAt,
                     lastUpdatedDate: application.updatedAt,
+                    applicationType: typeInfo === 'renewal' ? 'Renewal Application' : 'Fresh Application'
                 };
+            };
 
-                return [null, publicData];
+            let appData = null;
+            let foundType = '';
+
+            if (type === 'renewal') {
+                appData = await fetchRenewal();
+                foundType = 'renewal';
+            } else if (type === 'fresh') {
+                appData = await fetchFresh();
+                foundType = 'fresh';
+            } else if (type === 'cancel') {
+                appData = await fetchCancel();
+                foundType = 'cancel';
+            } else if (type === 'license') {
+                appData = await fetchLicense();
+                foundType = 'license';
+            } else {
+                // Try sequentially
+                appData = await fetchFresh();
+                if (appData) foundType = 'fresh';
+                
+                if (!appData) {
+                    appData = await fetchRenewal();
+                    if (appData) foundType = 'renewal';
+                }
+                
+                if (!appData) {
+                    appData = await fetchCancel();
+                    if (appData) foundType = 'cancel';
+                }
+                
+                if (!appData) {
+                    appData = await fetchLicense();
+                    if (appData) foundType = 'license';
+                }
             }
 
-            // Default: Fresh Application
-            const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-                where: { id: applicationId },
-                include: {
-                    workflowStatus: {
-                        select: {
-                            id: true,
-                            code: true,
-                            name: true,
-                        },
-                    },
-                    permanentAddress: {
-                        include: {
-                            state: { select: { id: true, name: true } },
-                            district: { select: { id: true, name: true } },
-                            policeStation: { select: { id: true, name: true } },
-                        },
-                    },
-                    presentAddress: {
-                        include: {
-                            state: { select: { id: true, name: true } },
-                            district: { select: { id: true, name: true } },
-                            policeStation: { select: { id: true, name: true } },
-                        },
-                    },
-                    licenseDetails: {
-                        include: {
-                            requestedWeapons: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    description: true,
-                                },
-                            },
-                        },
-                    },
-                    fileUploads: {
-                        where: {
-                            fileType: 'PHOTOGRAPH',
-                        },
-                        orderBy: {
-                            uploadedAt: 'desc',
-                        },
-                        take: 1,
-                    },
-                },
-            });
-
-            if (!application) {
+            if (!appData) {
                 return ['Application not found', null];
             }
 
-            const photoUpload = application.fileUploads?.[0];
-            const photoUrl = photoUpload?.fileUrl || null;
-
-            const publicData = {
-                applicationId: application.id,
-                acknowledgementNo: application.acknowledgementNo,
-                almsLicenseId: application.almsLicenseId,
-
-                // Applicant Basic Info (limited)
-                applicantName: `${application.firstName} ${application.middleName || ''} ${application.lastName}`.trim(),
-                sex: application.sex,
-                dateOfBirth: application.dateOfBirth,
-
-                // Photo URL
-                photoUrl: photoUrl,
-
-                // Application Status
-                applicationStatus: application.workflowStatus?.name || 'Unknown',
-                statusCode: application.workflowStatus?.code || null,
-                isApproved: application.isApproved,
-                isRejected: application.isRejected,
-                isPending: application.isPending,
-                isRecommended: application.isRecommended,
-                isNotRecommended: application.isNotRecommended,
-
-                // License Details (public info only)
-                licenseDetails: application.licenseDetails?.map((ld: any) => ({
-                    needForLicense: ld.needForLicense,
-                    armsCategory: ld.armsCategory,
-                    areaOfValidity: ld.areaOfValidity,
-                    ammunitionDescription: ld.ammunitionDescription,
-                    requestedWeapons: ld.requestedWeapons?.map((w: any) => ({
-                        name: w.name,
-                        description: w.description,
-                    })),
-                })),
-
-                // Basic Location (State & District only, no full address)
-                presentState: application.presentAddress?.state?.name || null,
-                presentDistrict: application.presentAddress?.district?.name || null,
-                permanentState: application.permanentAddress?.state?.name || null,
-                permanentDistrict: application.permanentAddress?.district?.name || null,
-
-                // Timestamps
-                submittedDate: application.createdAt,
-                lastUpdatedDate: application.updatedAt,
-            };
-
-            return [null, publicData];
+            return [null, formatData(appData, foundType)];
         } catch (error: any) {
             console.error('[PublicService] Error fetching public application details:', error);
             return [error?.message || 'Failed to fetch application details', null];
@@ -237,6 +203,8 @@ export class PublicService {
         typeFilter?: string,
         stateId?: number,
         roleCode?: string,
+        districtId?: number,
+        zoneId?: number,
     ) {
         try {
             const now = new Date();
@@ -252,22 +220,44 @@ export class PublicService {
                 dateFilter = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
             }
 
-            const isStateScoped = Boolean(stateId && roleCode !== ROLE_CODES.SUPER_ADMIN);
+            // Location-hierarchy scoping: ZS/DCP see their zone, JTCP/CP see their
+            // district, ADMIN sees their state, SUPER_ADMIN is unscoped.
+            const isZoneScoped = Boolean(zoneId && (roleCode === ROLE_CODES.ZS || roleCode === ROLE_CODES.DCP));
+            const isDistrictScoped = !isZoneScoped && Boolean(districtId && (roleCode === ROLE_CODES.JTCP || roleCode === ROLE_CODES.CP));
+            const isStateScoped = !isZoneScoped && !isDistrictScoped && Boolean(stateId && roleCode !== ROLE_CODES.SUPER_ADMIN);
+            const isScoped = isZoneScoped || isDistrictScoped || isStateScoped;
+
+            const addressScope: any = isZoneScoped
+                ? { zoneId }
+                : isDistrictScoped
+                    ? { districtId }
+                    : isStateScoped
+                        ? { stateId }
+                        : {};
+            const licenseScopeField = isZoneScoped ? 'presentZoneId' : isDistrictScoped ? 'presentDistrictId' : 'presentStateId';
+            const requesterScopeField = isZoneScoped ? 'zoneId' : isDistrictScoped ? 'districtId' : 'stateId';
+            const scopeValue = isZoneScoped ? zoneId : isDistrictScoped ? districtId : stateId;
 
             const freshWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
             const renewalWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
             const cancelWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
             const licenseWhere: any = {};
 
+            // CancelFormRequests has no districtId/zoneId column of its own, so it is
+            // scoped only through its Licenses and requester (Users) relations.
+            const cancelOrConditions: any[] = [
+                { Licenses: { [licenseScopeField]: scopeValue } },
+                { requester: { [requesterScopeField]: scopeValue } },
+            ];
             if (isStateScoped) {
-                freshWhere.permanentAddress = { stateId };
-                renewalWhere.permanentAddress = { stateId };
-                cancelWhere.OR = [
-                    { stateId: stateId },
-                    { Licenses: { presentStateId: stateId } },
-                    { requester: { stateId: stateId } },
-                ];
-                licenseWhere.presentStateId = stateId;
+                cancelOrConditions.unshift({ stateId: scopeValue });
+            }
+
+            if (isScoped) {
+                freshWhere.permanentAddress = addressScope;
+                renewalWhere.permanentAddress = addressScope;
+                cancelWhere.OR = cancelOrConditions;
+                licenseWhere[licenseScopeField] = scopeValue;
             }
 
             const [
@@ -302,10 +292,13 @@ export class PublicService {
                 prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isPending: true } }).catch(() => 0),
                 prisma.renewalFormPersonalDetails.count({ where: { ...renewalWhere, isRejected: true } }).catch(() => 0),
 
+                // CancelFormRequests has no isApproved/isPending/isRejected columns — its
+                // outcome lives on the linked workflowStatus (code CANCEL = approved/executed,
+                // REJECT = rejected, anything else including null = still pending).
                 prisma.cancelFormRequests.count({ where: cancelWhere }).catch(() => 0),
-                prisma.cancelFormRequests.count({ where: { ...cancelWhere, isApproved: true } }).catch(() => 0),
-                prisma.cancelFormRequests.count({ where: { ...cancelWhere, isPending: true } }).catch(() => 0),
-                prisma.cancelFormRequests.count({ where: { ...cancelWhere, isRejected: true } }).catch(() => 0),
+                prisma.cancelFormRequests.count({ where: { ...cancelWhere, workflowStatus: { code: STATUS_CODES.CANCEL } } }).catch(() => 0),
+                prisma.cancelFormRequests.count({ where: { ...cancelWhere, NOT: { workflowStatus: { code: { in: [STATUS_CODES.CANCEL, STATUS_CODES.REJECT] } } } } }).catch(() => 0),
+                prisma.cancelFormRequests.count({ where: { ...cancelWhere, workflowStatus: { code: STATUS_CODES.REJECT } } }).catch(() => 0),
 
                 prisma.licenses.count({ where: licenseWhere }).catch(() => 0),
                 prisma.licenses.count({ where: { ...licenseWhere, status: 'ACTIVE' as any } }).catch(() => 0),
@@ -351,8 +344,8 @@ export class PublicService {
 
             // Real average processing turnaround calculation
             const completedFreshWhere: any = { OR: [{ isApproved: true }, { isRejected: true }] };
-            if (isStateScoped) {
-                completedFreshWhere.permanentAddress = { stateId };
+            if (isScoped) {
+                completedFreshWhere.permanentAddress = addressScope;
             }
 
             const completedFresh = await prisma.freshLicenseApplicationPersonalDetails.findMany({
@@ -368,7 +361,7 @@ export class PublicService {
             }
 
             // Real Biometric compliance rate
-            const biometricsWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
+            const biometricsWhere: any = isScoped ? { application: { permanentAddress: addressScope } } : {};
             const totalBiometrics = await prisma.fLAFBiometricDatas.count({ where: biometricsWhere }).catch(() => 0);
             const biometricComplianceRate = totalFresh > 0 ? Number(((totalBiometrics / totalFresh) * 100).toFixed(1)) : 0;
 
@@ -410,14 +403,10 @@ export class PublicService {
                     const trendRenewalWhere: any = { createdAt: { gte: m.start, lt: m.end } };
                     const trendCancelWhere: any = { createdAt: { gte: m.start, lt: m.end } };
 
-                    if (isStateScoped) {
-                        trendFreshWhere.permanentAddress = { stateId };
-                        trendRenewalWhere.permanentAddress = { stateId };
-                        trendCancelWhere.OR = [
-                            { stateId: stateId },
-                            { Licenses: { presentStateId: stateId } },
-                            { requester: { stateId: stateId } },
-                        ];
+                    if (isScoped) {
+                        trendFreshWhere.permanentAddress = addressScope;
+                        trendRenewalWhere.permanentAddress = addressScope;
+                        trendCancelWhere.OR = cancelOrConditions;
                     }
 
                     const [freshCount, renewalCount, cancelCount, approvedFresh, approvedRenewal] = await Promise.all([
@@ -444,24 +433,20 @@ export class PublicService {
             const totalAppCount = totalApplications > 0 ? totalApplications : 1;
 
             let statusDistribution: any[] = [];
-            if (isStateScoped) {
+            if (isScoped) {
                 const statuses = await prisma.statuses.findMany({
                     include: {
                         applications: {
-                            where: { permanentAddress: { stateId } },
+                            where: { permanentAddress: addressScope },
                             select: { id: true },
                         },
                         renewalApplications: {
-                            where: { permanentAddress: { stateId } },
+                            where: { permanentAddress: addressScope },
                             select: { id: true },
                         },
                         cancelFormRequests: {
                             where: {
-                                OR: [
-                                    { stateId: stateId },
-                                    { Licenses: { presentStateId: stateId } },
-                                    { requester: { stateId: stateId } },
-                                ],
+                                OR: cancelOrConditions,
                             },
                             select: { id: true },
                         },
@@ -512,7 +497,7 @@ export class PublicService {
             }
 
             // Real weapon categories & purposes from License details
-            const appDetailsWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
+            const appDetailsWhere: any = isScoped ? { application: { permanentAddress: addressScope } } : {};
             const [freshLicenseDetails, renewalLicenseDetails] = await Promise.all([
                 prisma.fLAFLicenseDetails.findMany({
                     where: appDetailsWhere,
@@ -567,14 +552,26 @@ export class PublicService {
                     { purpose: 'Crop Protection & Agriculture', count: 0, percentage: 0, icon: 'Trees' },
                 ];
 
-            // Real Zonal Workloads from DB (filtered for state if scoped)
-            const zoneFilter: any = isStateScoped ? {
-                OR: [
-                    { RangeOffices: { district: { stateId } } },
-                    { addresses: { some: { stateId } } },
-                    { renewalAddresses: { some: { stateId } } },
-                ],
-            } : {};
+            // Real Zonal Workloads from DB (filtered by zone/district/state scope)
+            const zoneFilter: any = isZoneScoped
+                ? { id: zoneId }
+                : isDistrictScoped
+                    ? {
+                        OR: [
+                            { RangeOffices: { districtId } },
+                            { addresses: { some: { districtId } } },
+                            { renewalAddresses: { some: { districtId } } },
+                        ],
+                    }
+                    : isStateScoped
+                        ? {
+                            OR: [
+                                { RangeOffices: { district: { stateId } } },
+                                { addresses: { some: { stateId } } },
+                                { renewalAddresses: { some: { stateId } } },
+                            ],
+                        }
+                        : {};
 
             const zonesWithCounts = await prisma.zones.findMany({
                 where: zoneFilter,
@@ -582,10 +579,10 @@ export class PublicService {
                     id: true,
                     name: true,
                     divisions: { select: { id: true, name: true } },
-                    addresses: isStateScoped ? { where: { stateId }, select: { id: true } } : { select: { id: true } },
-                    renewalAddresses: isStateScoped ? { where: { stateId }, select: { id: true } } : { select: { id: true } },
+                    addresses: isScoped ? { where: addressScope, select: { id: true } } : { select: { id: true } },
+                    renewalAddresses: isScoped ? { where: addressScope, select: { id: true } } : { select: { id: true } },
                 },
-                take: isStateScoped ? 20 : 10,
+                take: isScoped ? 20 : 10,
             }).catch(() => []);
 
             const zoneLoads = zonesWithCounts.map((z) => {
@@ -601,14 +598,10 @@ export class PublicService {
             });
 
             // Real Live Activity Feed from workflow histories or recent applications
-            const historyWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
-            const cancelHistoryWhere: any = isStateScoped ? {
+            const historyWhere: any = isScoped ? { application: { permanentAddress: addressScope } } : {};
+            const cancelHistoryWhere: any = isScoped ? {
                 application: {
-                    OR: [
-                        { stateId: stateId },
-                        { Licenses: { presentStateId: stateId } },
-                        { requester: { stateId: stateId } },
-                    ],
+                    OR: cancelOrConditions,
                 },
             } : {};
 

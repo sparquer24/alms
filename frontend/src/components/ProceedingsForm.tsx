@@ -1141,7 +1141,7 @@ ${content}
       <div className={styles.scrollPanel}>
         <div className={styles.proceedingsPanel}>
           {hasBeenClosedViaSubmit ? (
-            <div className='flex flex-col items-center justify-center py-16 px-8 text-center'>
+            <div className='flex flex-col items-center justify-center py-10 px-8 text-center'>
               <div className='w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4'>
                 <svg className='w-8 h-8 text-slate-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} d='M12 15v2m0 0v2m0-2h2m-2 0H10m9.364-7.364A9 9 0 1112 3a9 9 0 017.364 12.636z' />
@@ -1182,89 +1182,96 @@ ${content}
             {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
             {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
 
-            {/* Action Type Selection */}
-            <div
-              className={`${styles.formSection} ${missingFields.action ? styles.invalidField : ''}`}
-              ref={actionRef}
-            >
-              <label className={styles.formLabel}>
-                Action Type <span className={styles.required}>*</span>
-              </label>
-              <div className={styles.selectContainer}>
-                <SelectFixed
-                  options={actionOptions}
-                  value={selectedAction}
-                  onChange={(opt: any) => setSelectedAction((opt as ActionOption) || null)}
-                  placeholder={actionsLoading ? 'Loading actions...' : 'Select action type'}
-                  isLoading={actionsLoading}
-                  isDisabled={isSubmitting || actionsLoading}
-                  className='text-sm'
-                  styles={{
-                    control: (provided: any, state: any) => ({
-                      ...provided,
-                      borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-                      boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
-                      '&:hover': {
-                        borderColor: '#3B82F6',
-                      },
-                    }),
-                  }}
-                />
-              </div>
-              {actionsError && (
-                <p className={styles.helpText}>
-                  Failed to load actions from server. Using defaults. Error: {actionsError}
-                </p>
-              )}
-              {missingFields.action && <p className={styles.fieldError}>{missingFields.action}</p>}
-            </div>
-
-            {/* Next User Selection */}
-            <div
-              className={`${styles.formSection} ${missingFields.nextUser ? styles.invalidField : ''}`}
-            >
-              <label className={styles.formLabel}>
-                Forward To (Next User/Role)
-                <span className={styles.required}>*</span>
-              </label>
-              <div className={styles.selectContainer} ref={nextUserRef}>
-                <SelectFixed
-                  options={isCloseAction && currentZSUserOption ? [currentZSUserOption] : userOptions}
-                  value={isCloseAction && currentZSUserOption ? currentZSUserOption : nextUser}
-                  onChange={setNextUser}
-                  placeholder={
-                    fetchingUsers ? 'Loading users...' : 'Select user (next proceeding officer)'
-                  }
-                  isLoading={fetchingUsers}
-                  isDisabled={isSubmitting || fetchingUsers || isCloseAction}
-                  className='text-sm'
-                  styles={{
-                    control: (provided: any, state: any) => ({
-                      ...provided,
-                      borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-                      boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
-                      '&:hover': {
-                        borderColor: '#3B82F6',
-                      },
-                      backgroundColor: 'white',
-                    }),
-                  }}
-                />
-              </div>
-              {fetchingUsers && (
-                <div className={styles.loadingText}>
-                  <LoadingSpinner size='sm' />
-                  <span>Loading available users...</span>
+            {/* Action Type + Forward To Selection */}
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
+              <div
+                className={`${styles.formSection} ${missingFields.action ? styles.invalidField : ''}`}
+                ref={actionRef}
+              >
+                <label className={styles.formLabel}>
+                  Action Type <span className={styles.required}>*</span>
+                </label>
+                <div className={styles.selectContainer}>
+                  <SelectFixed
+                    options={actionOptions}
+                    value={selectedAction}
+                    onChange={(opt: any) => setSelectedAction((opt as ActionOption) || null)}
+                    placeholder={actionsLoading ? 'Loading actions...' : 'Select action type'}
+                    isLoading={actionsLoading}
+                    isDisabled={isSubmitting || actionsLoading}
+                    className='text-sm'
+                    styles={{
+                      control: (provided: any, state: any) => ({
+                        ...provided,
+                        minHeight: '34px',
+                        borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
+                        boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
+                        '&:hover': {
+                          borderColor: '#3B82F6',
+                        },
+                      }),
+                    }}
+                  />
                 </div>
-              )}
-              {!fetchingUsers && userOptions.length === 0 && (
-                <p className={styles.helpText}>
-                  No users available. Please try refreshing the page.
-                </p>
-              )}
-              {missingFields.nextUser && (
-                <p className={styles.fieldError}>{missingFields.nextUser}</p>
-              )}
+                {actionsError && (
+                  <p className={styles.helpText}>
+                    Failed to load actions from server. Using defaults. Error: {actionsError}
+                  </p>
+                )}
+                {missingFields.action && (
+                  <p className={styles.fieldError}>{missingFields.action}</p>
+                )}
+              </div>
+
+              <div
+                className={`${styles.formSection} ${missingFields.nextUser ? styles.invalidField : ''}`}
+              >
+                <label className={styles.formLabel}>
+                  Forward To (Next User/Role)
+                  <span className={styles.required}>*</span>
+                </label>
+                <div className={styles.selectContainer} ref={nextUserRef}>
+                  <SelectFixed
+                    options={
+                      isCloseAction && currentZSUserOption ? [currentZSUserOption] : userOptions
+                    }
+                    value={isCloseAction && currentZSUserOption ? currentZSUserOption : nextUser}
+                    onChange={setNextUser}
+                    placeholder={
+                      fetchingUsers ? 'Loading users...' : 'Select user (next proceeding officer)'
+                    }
+                    isLoading={fetchingUsers}
+                    isDisabled={isSubmitting || fetchingUsers || isCloseAction}
+                    className='text-sm'
+                    styles={{
+                      control: (provided: any, state: any) => ({
+                        ...provided,
+                        minHeight: '34px',
+                        borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
+                        boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
+                        '&:hover': {
+                          borderColor: '#3B82F6',
+                        },
+                        backgroundColor: 'white',
+                      }),
+                    }}
+                  />
+                </div>
+                {fetchingUsers && (
+                  <div className={styles.loadingText}>
+                    <LoadingSpinner size='sm' />
+                    <span>Loading available users...</span>
+                  </div>
+                )}
+                {!fetchingUsers && userOptions.length === 0 && (
+                  <p className={styles.helpText}>
+                    No users available. Please try refreshing the page.
+                  </p>
+                )}
+                {missingFields.nextUser && (
+                  <p className={styles.fieldError}>{missingFields.nextUser}</p>
+                )}
+              </div>
             </div>
 
             {/* Remarks/Text Area */}
@@ -1283,8 +1290,8 @@ ${content}
                   onChange={setRemarks}
                   placeholder='Enter your remarks here. You can add tables (paste from Excel/Word), formatted lists, and styled text...'
                   disabled={isSubmitting}
-                  minHeight='300px'
-                  maxHeight='600px'
+                  minHeight='160px'
+                  maxHeight='320px'
                 />
               </div>
               <p className={styles.helpText}>
@@ -1317,8 +1324,8 @@ ${content}
                     value={draftLetter}
                     onChange={setDraftLetter}
                     placeholder='Draft letter will appear here...'
-                    minHeight='300px'
-                    maxHeight='700px'
+                    minHeight='160px'
+                    maxHeight='320px'
                   />
                   <p className={styles.helpText}>
                     This letter is required. Edit as needed. Use the toolbar for formatting (bold,
@@ -1462,7 +1469,7 @@ ${content}
 
             {/* DCP Hearing Section */}
             {selectedAction?.code === 'SCHEDULE_HEARING' && (
-              <div className='mt-8 border-t pt-6'>
+              <div className='mt-4 border-t pt-4'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='text-md font-semibold text-gray-800'>Hearing Details</h4>
                 </div>
@@ -1493,29 +1500,26 @@ ${content}
             )}
 
             {/* Attachment Section */}
-            <div id='attachments-section' className='mt-8 border-t pt-6'>
-              <div className='flex items-center justify-between mb-3'>
-                <h4 className='text-md font-semibold text-gray-800'>Attachment</h4>
+            <div id='attachments-section' className='mt-3 border-t pt-3'>
+              <div className='flex items-center justify-between mb-1.5'>
+                <h4 className='text-sm font-semibold text-gray-800'>Attachment</h4>
               </div>
-              <div className='bg-gray-50 p-4 rounded-lg'>
-                <div className='flex flex-col gap-3'>
+              <div className='bg-gray-50 p-2.5 rounded-lg'>
+                <div className='flex flex-col gap-2'>
                   <div>
-                    <label className='block text-sm font-medium text-gray-700 mb-1'>
-                      Upload documents
-                    </label>
                     <input
                       type='file'
                       multiple
                       accept='.pdf,.jpg,.jpeg,.png,.doc,.docx,.txt,.csv,.xlsx,.xls,image/*,application/pdf'
                       onChange={onAttachmentSelect}
                       disabled={isSubmitting}
-                      className='block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
+                      className='block w-full text-xs text-gray-900 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
                     />
-                    <p className={styles.helpText}>
+                    <p className='text-xs text-gray-500 mt-1'>
                       Max 4 files, each up to 1MB. Allowed: PDF, images, Word.
                     </p>
                     {attachmentError && (
-                      <p className='text-sm text-red-600 mt-2' role='alert'>
+                      <p className='text-xs text-red-600 mt-1' role='alert'>
                         {attachmentError}
                       </p>
                     )}
@@ -1526,11 +1530,11 @@ ${content}
                       {attachmentFiles.map((file, idx) => (
                         <li
                           key={idx}
-                          className='flex items-center justify-between px-3 py-2 text-sm'
+                          className='flex items-center justify-between px-2.5 py-1 text-xs'
                         >
                           <div className='flex items-center min-w-0'>
                             <svg
-                              className='w-4 h-4 text-gray-500 mr-2'
+                              className='w-3.5 h-3.5 text-gray-500 mr-1.5 flex-shrink-0'
                               fill='none'
                               stroke='currentColor'
                               viewBox='0 0 24 24'
@@ -1550,14 +1554,14 @@ ${content}
                             >
                               {file.name}
                             </button>
-                            <span className='ml-2 text-gray-500'>
+                            <span className='ml-2 text-gray-500 flex-shrink-0'>
                               ({Math.round(file.size / 1024)} KB)
                             </span>
                           </div>
                           <button
                             type='button'
                             onClick={() => removeAttachment(idx)}
-                            className='text-red-600 hover:text-red-700'
+                            className='text-red-600 hover:text-red-700 ml-2 flex-shrink-0'
                             disabled={isSubmitting}
                           >
                             Remove
@@ -1629,8 +1633,8 @@ ${content}
                 value={draftLetter}
                 onChange={setDraftLetter}
                 placeholder='Draft letter will appear here...'
-                minHeight='400px'
-                maxHeight='700px'
+                minHeight='240px'
+                maxHeight='420px'
               />
               <p className={styles.helpText}>
                 Edit the draft letter content as needed. Use the toolbar for formatting (bold,

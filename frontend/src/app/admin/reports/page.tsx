@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sidebar } from "@/components/Sidebar";
-import Header from "@/components/Header";
+import { PageSubHeader } from "@/components/common/PageSubHeader";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { useLayout } from "@/config/layoutContext";
 import { fetchAllApplications } from "@/services/sidebarApiCalls";
@@ -101,13 +100,14 @@ export default function ReportsPage() {
 
   const stats = getStats();
   return (
-    <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
-      <Sidebar />
-      <Header />
+    <div className="flex flex-col flex-grow">
+      <PageSubHeader
+        title="Admin Reports"
+        metaBadge={`${stats.total} Total Applications`}
+      />
 
-  <main className="flex-1 p-2 overflow-y-auto ml-0 md:ml-66">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h1 className="text-2xl font-bold mb-6">My Reports</h1>
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6 flex-grow">
+        <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 p-6">
 
           {isLoading ? (
             <div className="space-y-8">
@@ -279,7 +279,7 @@ export default function ReportsPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

@@ -208,28 +208,80 @@ export class WorkflowService {
     }
   }
 
-  private async resolveApplicationTypeFromId(applicationId: number): Promise<RoleFlowApplicationType> {
-    const cancelRequest = await prisma.cancelFormRequests.findUnique({
-      where: { id: applicationId },
-      select: { id: true },
-    });
-    if (cancelRequest) return 'CANCEL';
+  private async resolveApplicationTypeFromId(applicationId: number, clientApplicationType?: string): Promise<RoleFlowApplicationType> {
+    const checks: Array<{ type: RoleFlowApplicationType; exists: () => Promise<boolean> }> = [
+      {
+        type: 'CANCEL',
+        exists: async () => !!(await prisma.cancelFormRequests.findUnique({ where: { id: applicationId }, select: { id: true } })),
+      },
+      {
+        type: 'RENEWAL',
+        exists: async () => !!(await prisma.renewalFormPersonalDetails.findUnique({ where: { id: applicationId }, select: { id: true } })),
+      },
+      {
+        type: 'FRESH',
+        exists: async () => !!(await prisma.freshLicenseApplicationPersonalDetails.findUnique({ where: { id: applicationId }, select: { id: true } })),
+      },
+    ];
 
-    const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
-      where: { id: applicationId },
-      select: { id: true },
-    });
-    if (renewalApp) return 'RENEWAL';
+    // IMPORTANT: applicationId is NOT globally unique — each application table
+    // (Fresh/Renewal/Cancel) has its own independent autoincrement id, so the
+    // same numeric id can legitimately exist in more than one table at once.
+    // We still don't blindly trust the client's applicationType (a caller could
+    // lie to hit a different table), but we DO use it as a hint and verify it
+    // against the DB first. This avoids the fixed CANCEL -> RENEWAL -> FRESH
+    // probing order silently picking the wrong table (and wrong record!) when
+    // ids collide, which previously surfaced as a confusing 400 from deep
+    // inside the cancel-request handler for what was actually a fresh/renewal
+    // application action.
+    let hint: RoleFlowApplicationType | null = null;
+    try {
+      const normalized = normalizeApplicationType(clientApplicationType);
+      if (normalized !== 'ALL') hint = normalized;
+    } catch {
+      // Unrecognized/absent client applicationType — fall back to probing below.
+    }
 
-    const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-      where: { id: applicationId },
-      select: { id: true },
-    });
-    if (freshApp) return 'FRESH';
+    if (hint) {
+      const hinted = checks.find((c) => c.type === hint);
+      if (hinted && (await hinted.exists())) return hinted.type;
+    }
+
+    for (const check of checks) {
+      if (await check.exists()) return check.type;
+    }
 
     throw new BadRequestException(
       `Application with ID ${applicationId} not found in any application table.`,
     );
+  }
+
+  /**
+   * Fetch the userId the given application/cancel-request is currently
+   * assigned to, per its resolved type. Returns null if the record or its
+   * currentUserId is unset (e.g. a freshly-initiated application with no
+   * assignment yet) so callers can skip the ownership check in that case.
+   */
+  private async getCurrentHolderUserId(applicationType: RoleFlowApplicationType, applicationId: number): Promise<number | null> {
+    if (applicationType === 'RENEWAL') {
+      const app = await prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: { currentUserId: true },
+      });
+      return app?.currentUserId ?? null;
+    }
+    if (applicationType === 'CANCEL') {
+      const cancelRequest = await prisma.cancelFormRequests.findUnique({
+        where: { id: applicationId },
+        select: { currentUserId: true },
+      });
+      return cancelRequest?.currentUserId ?? null;
+    }
+    const app = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      where: { id: applicationId },
+      select: { currentUserId: true },
+    });
+    return app?.currentUserId ?? null;
   }
 
   async checkRoleActionPermission(roleId: number, actionId: number, applicationType?: string): Promise<boolean> {
@@ -886,7 +938,22 @@ export class WorkflowService {
      // 1. Resolve the true application type from the database.
      // SECURITY: Never trust the client-supplied applicationType. The backend
      // determines the actual type by probing which table holds the applicationId.
-     const applicationType = await this.resolveApplicationTypeFromId(payload.applicationId);
+     const applicationType = await this.resolveApplicationTypeFromId(payload.applicationId, clientApplicationType);
+
+     // 1a. Ownership check: only the user the application is currently assigned
+     // to may act on it. Without this, the /users-in-hierarchy dropdown (built
+     // from the ASSIGNED holder's role) and this endpoint's role-mapping check
+     // (built from the ACTUAL caller's role) can silently disagree whenever the
+     // caller isn't the current holder — e.g. the application was forwarded to
+     // someone else after the page loaded — producing a confusing 403 about the
+     // target user's role instead of the real problem (stale assignment).
+     const currentHolderId = await this.getCurrentHolderUserId(applicationType, payload.applicationId);
+     if (currentHolderId !== null && currentHolderId !== payload.currentUserId) {
+       throw new ForbiddenException(
+         `This application is no longer assigned to you (it is currently with user id ${currentHolderId}). ` +
+         `It may have already been actioned by someone else — please refresh and try again.`,
+       );
+     }
 
      // 1b. Fetch current user's roleId
     const currentUser = await prisma.users.findUnique({

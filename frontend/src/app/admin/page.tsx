@@ -273,11 +273,6 @@ export default function AdminDashboard() {
               <a className='text-blue-600 hover:underline'>Role Mapping</a>
             </LinkFixed>
           </li>
-          <li>
-            <LinkFixed href='/admin/analytics'>
-              <a className='text-blue-600 hover:underline'>Analytics</a>
-            </LinkFixed>
-          </li>
         </ul>
       </div>
 

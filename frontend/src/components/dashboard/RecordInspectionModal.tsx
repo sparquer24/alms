@@ -113,8 +113,11 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[90vh]">
+    <div
+      data-print-root
+      className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 print:p-0 print:bg-white"
+    >
+      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[90vh] print:max-w-none print:shadow-none print:border-0 print:rounded-none">
         {/* Modal Header */}
         <div className="bg-[#0F2D52] text-white px-6 py-4 flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
@@ -163,7 +166,7 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="px-6 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-2 shrink-0 overflow-x-auto">
+        <div className="px-6 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-2 shrink-0 overflow-x-auto print:hidden">
           {[
             { key: 'overview', label: 'Personal & Profile', icon: User },
             { key: 'weapons', label: 'Weapons & Purpose', icon: Target },

@@ -1,21 +1,29 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRenewalApplicationForm } from '../../../../hooks/useRenewalApplicationForm';
 import RenewalSummary from '../../../../components/forms/renewal/RenewalSummary';
 
-// Renewal step section components
-import PersonalDetailsSection from '../../../../components/forms/renewal/sections/PersonalDetailsSection';
-import AddressDetailsSection from '../../../../components/forms/renewal/sections/AddressDetailsSection';
-import OccupationSection from '../../../../components/forms/renewal/sections/OccupationSection';
-import CriminalHistory from '../../../../components/forms/renewal/sections/CriminalHistory';
-import LicenseHistory from '../../../../components/forms/renewal/sections/LicenseHistory';
-import LicenseDetailsSection from '../../../../components/forms/renewal/sections/LicenseDetailsSection';
-import BiometricInformation from '../../../../components/forms/renewal/sections/BiometricInformation';
-import DocumentsSection from '../../../../components/forms/renewal/sections/DocumentsSection';
-import DeclarationSection from '../../../../components/forms/renewal/sections/DeclarationSection';
-import ApplicationPreview from '../../../../components/forms/renewal/sections/ApplicationPreview';
+// Renewal step section components — loaded on demand so navigating to one
+// step doesn't force-download the code for every other step (Biometric alone
+// is 1,600+ lines).
+const sectionLoading = () => (
+  <div className='p-8 flex items-center justify-center min-h-[300px]'>
+    <div className='w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin' />
+  </div>
+);
+const PersonalDetailsSection = dynamic(() => import('../../../../components/forms/renewal/sections/PersonalDetailsSection'), { loading: sectionLoading });
+const AddressDetailsSection = dynamic(() => import('../../../../components/forms/renewal/sections/AddressDetailsSection'), { loading: sectionLoading });
+const OccupationSection = dynamic(() => import('../../../../components/forms/renewal/sections/OccupationSection'), { loading: sectionLoading });
+const CriminalHistory = dynamic(() => import('../../../../components/forms/renewal/sections/CriminalHistory'), { loading: sectionLoading });
+const LicenseHistory = dynamic(() => import('../../../../components/forms/renewal/sections/LicenseHistory'), { loading: sectionLoading });
+const LicenseDetailsSection = dynamic(() => import('../../../../components/forms/renewal/sections/LicenseDetailsSection'), { loading: sectionLoading });
+const BiometricInformation = dynamic(() => import('../../../../components/forms/renewal/sections/BiometricInformation'), { loading: sectionLoading, ssr: false });
+const DocumentsSection = dynamic(() => import('../../../../components/forms/renewal/sections/DocumentsSection'), { loading: sectionLoading });
+const DeclarationSection = dynamic(() => import('../../../../components/forms/renewal/sections/DeclarationSection'), { loading: sectionLoading });
+const ApplicationPreview = dynamic(() => import('../../../../components/forms/renewal/sections/ApplicationPreview'), { loading: sectionLoading });
 
 interface StepPageProps {
   params: Promise<{ step: string }>;

@@ -21,10 +21,10 @@ export default function LandingHeader({ navLinks, logoSrc = "/icon-alms.svg" }: 
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 ${
+      className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-sm border-b transition-all duration-300 ${
         scrolled
-          ? "bg-[#0F2D52] shadow-lg py-2"
-          : "bg-[#0F2D52] py-3"
+          ? "bg-[#0F2D52]/70 border-white/10 shadow-lg py-2"
+          : "bg-[#0F2D52]/40 border-white/5 py-3"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -34,13 +34,13 @@ export default function LandingHeader({ navLinks, logoSrc = "/icon-alms.svg" }: 
             <img
               src={logoSrc}
               alt="ALMS Logo"
-              className="h-9 w-auto"
+              className="h-12 w-auto"
             />
             <div className="hidden sm:block">
-              <span className="text-lg font-bold text-white tracking-tight block leading-tight">
+              <span className="text-2xl font-bold text-white tracking-tight block leading-tight">
                 ALMS
               </span>
-              <span className="text-[10px] text-[#B8860B] tracking-wider uppercase block leading-tight">
+              <span className="text-xs text-[#B8860B] tracking-wider uppercase block leading-tight">
                 Arms License Management
               </span>
             </div>

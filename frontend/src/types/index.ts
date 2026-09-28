@@ -663,6 +663,34 @@ export interface LicenseData {
   permanentZone?: string | null;
   permanentDivision?: string | null;
 
+  // Address hierarchy ids as stored on the license
+  presentStateId?: number | null;
+  presentDistrictId?: number | null;
+  presentPoliceStationId?: number | null;
+  presentZoneId?: number | null;
+  presentDivisionId?: number | null;
+  presentRangeOfficeId?: number | null;
+  permanentStateId?: number | null;
+  permanentDistrictId?: number | null;
+  permanentPoliceStationId?: number | null;
+  permanentZoneId?: number | null;
+  permanentDivisionId?: number | null;
+  permanentRangeOfficeId?: number | null;
+
+  // Address hierarchy names, resolved server-side for display
+  presentStateName?: string | null;
+  presentDistrictName?: string | null;
+  presentPoliceStationName?: string | null;
+  presentZoneName?: string | null;
+  presentDivisionName?: string | null;
+  presentRangeOfficeName?: string | null;
+  permanentStateName?: string | null;
+  permanentDistrictName?: string | null;
+  permanentPoliceStationName?: string | null;
+  permanentZoneName?: string | null;
+  permanentDivisionName?: string | null;
+  permanentRangeOfficeName?: string | null;
+
   // Occupation
   occupation?: string | null;
   officeAddress?: string | null;

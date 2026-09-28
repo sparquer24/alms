@@ -16,6 +16,10 @@ interface AdminCardProps {
   className?: string;
   onClick?: () => void;
   loading?: boolean;
+  /** When true, the card and its body flex to fill the available height of a
+   * flex-column ancestor instead of sizing to content - used for cards that
+   * wrap a scrollable table/content region so only that region scrolls. */
+  fill?: boolean;
 }
 
 export const AdminCard: React.FC<AdminCardProps> = ({
@@ -25,6 +29,7 @@ export const AdminCard: React.FC<AdminCardProps> = ({
   className = '',
   onClick,
   loading = false,
+  fill = false,
 }) => {
   const { colors } = useAdminTheme();
 
@@ -37,6 +42,7 @@ export const AdminCard: React.FC<AdminCardProps> = ({
         transition-all duration-250
         ${onClick ? 'cursor-pointer hover:shadow-lg' : ''}
         ${loading ? 'opacity-75' : ''}
+        ${fill ? 'flex flex-col flex-1 min-h-0' : ''}
         ${className}
       `}
       style={{
@@ -71,7 +77,11 @@ export const AdminCard: React.FC<AdminCardProps> = ({
           {description}
         </p>
       )}
-      <div className={loading ? 'opacity-50 pointer-events-none' : ''}>{children}</div>
+      <div
+        className={`${loading ? 'opacity-50 pointer-events-none' : ''} ${fill ? 'flex flex-col flex-1 min-h-0' : ''}`}
+      >
+        {children}
+      </div>
     </div>
   );
 };

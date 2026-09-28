@@ -9,7 +9,7 @@ export type AdminMenuItemKey =
     | 'dashboard'
     | 'userManagement'
     | 'roleMapping'
-    | 'analytics'
+    | 'permissions'
     | 'flowMapping'
     | 'locationsManagement'
     | 'actionMapping';
@@ -47,11 +47,11 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
         path: '/admin/roleMapping',
         order: 3,
     },
-    analytics: {
-        name: 'analytics',
-        key: 'analytics',
-        label: 'Analytics',
-        path: '/admin/analytics',
+    permissions: {
+        name: 'permissions',
+        key: 'permissions',
+        label: 'Permissions',
+        path: '/admin/permissions',
         order: 4,
     },
     flowMapping: {
@@ -136,13 +136,15 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'rolesmanagement': 'roleMapping',
         'roles_management': 'roleMapping',
         'roles-management': 'roleMapping',
-        'analytics': 'analytics',
+        'permissions': 'permissions',
+        'permission': 'permissions',
+        'permission_management': 'permissions',
+        'permission-management': 'permissions',
+        'permissionmanagement': 'permissions',
+        'permissionsmanagement': 'permissions',
         'flowmapping': 'flowMapping',
         'flow_mapping': 'flowMapping',
         'flow-mapping': 'flowMapping',
-        // 'flowmanagement': 'flowMapping',
-        // 'flow_management': 'flowMapping',
-        // 'flow-management': 'flowMapping',
         'flowmap': 'flowMapping',
         'flow': 'flowMapping',
         'locationsmanagement': 'locationsManagement',

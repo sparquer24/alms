@@ -12,7 +12,6 @@ export type SuperAdminMenuItemKey =
     | 'dashboard'
     | 'userManagement'
     | 'roleMapping'
-    | 'analytics'
     | 'flowMapping'
     | 'locationsManagement'
     | 'actionMapping';
@@ -50,33 +49,26 @@ export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMen
         path: '/superAdmin/roleMapping',
         order: 3,
     },
-    analytics: {
-        name: 'analytics',
-        key: 'analytics',
-        label: 'Global Analytics',
-        path: '/superAdmin/analytics',
-        order: 4,
-    },
     flowMapping: {
         name: 'flowMapping',
         key: 'flowMapping',
         label: 'Flow Mapping',
         path: '/superAdmin/flowMapping',
-        order: 5,
+        order: 4,
     },
     locationsManagement: {
         name: 'locationsManagement',
         key: 'locationsManagement',
         label: 'Locations Management',
         path: '/superAdmin/locationsManagement',
-        order: 6,
+        order: 5,
     },
     actionMapping: {
         name: 'actionMapping',
         key: 'actionMapping',
         label: 'Action Mapping',
         path: '/superAdmin/actionMapping',
-        order: 7,
+        order: 6,
     }
 };
 
@@ -140,7 +132,6 @@ export function normalizeSuperAdminMenuItem(name: string): SuperAdminMenuItemKey
         'rolesmanagement': 'roleMapping',
         'roles_management': 'roleMapping',
         'roles-management': 'roleMapping',
-        'analytics': 'analytics',
         'flowmapping': 'flowMapping',
         'flow_mapping': 'flowMapping',
         'flow-mapping': 'flowMapping',

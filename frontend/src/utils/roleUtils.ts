@@ -75,6 +75,8 @@ export const LICENSE_MANAGEMENT_ROLES = [
   'ARMS_SUPDT',
   'ARMS_SEAT',
   'ACO',
+  'ADMIN',
+  'SUPER_ADMIN',
 ];
 
 /**
@@ -89,17 +91,6 @@ export const isLicenseManagementRole = (role: RoleValue): boolean =>
  */
 export const CREATE_APPLICATION_ROLES = [
   'ZS',
-  'SHO',
-  'ACP',
-  'DCP',
-  'AS',
-  'ADO',
-  'CADO',
-  'JTCP',
-  'CP',
-  'ARMS_SUPDT',
-  'ARMS_SEAT',
-  'ACO',
 ];
 
 /**

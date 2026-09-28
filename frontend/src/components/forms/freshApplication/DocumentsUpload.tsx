@@ -292,8 +292,7 @@ const DocumentsUpload = () => {
 	const handlePrevious = async () => {
 		if (applicantId) {
 			await loadExistingData(applicantId);
-			// Biometric step removed - go back to license details
-			navigateToNext(FORM_ROUTES.LICENSE_DETAILS, applicantId);
+			navigateToNext(FORM_ROUTES.BIOMETRIC_INFO, applicantId);
 		} else {
 			router.back();
 		}
