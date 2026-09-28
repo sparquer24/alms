@@ -573,7 +573,7 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
         </div>
         )}
 
-        <div className={`${styles.tableWrapper} w-full min-w-0 flex-1 min-h-0 overflow-y-auto`}>
+        <div className={`${styles.tableWrapper} w-full min-w-0 flex-initial min-h-0 overflow-y-auto`}>
           <table className='w-full table-fixed border-separate border-spacing-0'>
             <colgroup>
               {(() => {
@@ -641,15 +641,15 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
 
         {/* Pagination Container */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-slate-200 bg-white flex-shrink-0 flex items-center justify-between">
-            <div className="text-sm text-slate-500 font-medium">
+          <div className="px-4 py-1.5 border-t border-slate-200 bg-white flex-shrink-0 flex items-center justify-between gap-3">
+            <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
               Showing <span className="text-slate-800 font-semibold">{Math.min((currentPage - 1) * pageSize + 1, totalItems)}</span> to <span className="text-slate-800 font-semibold">{Math.min(currentPage * pageSize, totalItems)}</span> of <span className="text-slate-800 font-semibold">{totalItems}</span> entries
             </div>
-            <div className="flex space-x-1.5">
+            <div className="flex space-x-1">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
               </button>
@@ -670,7 +670,7 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
                     <button
                       key={i}
                       onClick={() => handlePageChange(i)}
-                      className={`min-w-[32px] px-2 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      className={`min-w-[28px] px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                         i === currentPage
                           ? 'bg-[#001F54] text-white border border-[#001F54]'
                           : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800'
@@ -686,7 +686,7 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
               </button>

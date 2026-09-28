@@ -1,10 +1,14 @@
 import React, { forwardRef, useImperativeHandle, useEffect, useState } from 'react';
 import { Input, TextArea } from '../../elements/Input';
 import { Select } from '../../elements/Select';
-import { Checkbox } from '../../elements/Checkbox';
 import { FileUpload } from '../../elements/FileUpload';
 import { WeaponsService, Weapon } from '../../../../services/weapons';
 import { openDocumentFile } from '../../../../services/fileHandler';
+import {
+  AREA_OF_VALIDITY,
+  AREA_OF_VALIDITY_OPTIONS,
+  normalizeAreaOfValidity,
+} from '../../../../utils/areaOfValidity';
 import {
   deleteRenewalDocument,
   getDocumentUploadMeta,
@@ -41,6 +45,10 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     onStatus?: (message: string | null) => void;
     errors?: ErrorsMap;
     isReadOnly?: boolean;
+    /** Weapons endorsed on the license; when set, a renewal cannot change them. */
+    lockedWeaponIds?: number[];
+    /** Arms category is fixed by the license. */
+    lockArmsCategory?: boolean;
   },
   ref: any
 ) {
@@ -54,7 +62,11 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     onStatus,
     errors = {},
     isReadOnly = false,
+    lockedWeaponIds = [],
+    lockArmsCategory = false,
   } = props;
+  const weaponsLocked = lockedWeaponIds.length > 0;
+  const selectedArea = normalizeAreaOfValidity(formData.areaOfValidity);
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [loadingWeapons, setLoadingWeapons] = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
@@ -156,7 +168,9 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
 
     // --- File size validation ---
     if (file.size > MAX_FILE_SIZE) {
-      onError?.(`File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 10 MB.`);
+      onError?.(
+        `File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 10 MB.`
+      );
       return;
     }
 
@@ -237,33 +251,31 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             Areas within which applicant wishes to carry arms{' '}
             <span className='text-red-500 ml-1'>*</span>
           </p>
-          <p className='text-xs text-gray-500 mb-2'>Tick any of the options</p>
-          {errors['carryAreaDistrict'] &&
-            !formData.carryAreaDistrict &&
-            !formData.carryAreaState &&
-            !formData.carryAreaIndia && (
-              <p className='text-red-500 text-xs mb-2'>{errors['carryAreaDistrict']}</p>
-            )}
-          <div className='flex flex-wrap items-center gap-4'>
-            <Checkbox
-              label='District'
-              name='carryAreaDistrict'
-              checked={Boolean(formData.carryAreaDistrict)}
-              onChange={v => onChange({ target: { name: 'carryAreaDistrict', value: v } })}
-            />
-            <Checkbox
-              label='State'
-              name='carryAreaState'
-              checked={Boolean(formData.carryAreaState)}
-              onChange={v => onChange({ target: { name: 'carryAreaState', value: v } })}
-            />
-            <Checkbox
-              label='Throughout India'
-              name='carryAreaIndia'
-              checked={Boolean(formData.carryAreaIndia)}
-              onChange={v => onChange({ target: { name: 'carryAreaIndia', value: v } })}
-            />
+          <p className='text-xs text-gray-500 mb-2'>Select one option</p>
+          {errors['areaOfValidity'] && !selectedArea && (
+            <p className='text-red-500 text-xs mb-2'>{errors['areaOfValidity']}</p>
+          )}
+          <div id='areaOfValidity' className='flex flex-wrap items-center gap-4'>
+            {AREA_OF_VALIDITY_OPTIONS.map(option => (
+              <label key={option.value} className='inline-flex items-center gap-2'>
+                <input
+                  type='radio'
+                  name='areaOfValidity'
+                  value={option.value}
+                  checked={selectedArea === option.value}
+                  onChange={onChange}
+                  disabled={isReadOnly}
+                />
+                <span className='text-sm'>{option.label}</span>
+              </label>
+            ))}
           </div>
+          {selectedArea === AREA_OF_VALIDITY.INDIA && (
+            <p className='mt-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs text-yellow-800'>
+              A license valid throughout India cannot be approved locally: the Commissioner of
+              Police can only recommend or not recommend it.
+            </p>
+          )}
         </div>
 
         <div>
@@ -283,6 +295,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
                   value='RESTRICTED'
                   checked={String(formData.armsOptionType || '').toUpperCase() === 'RESTRICTED'}
                   onChange={onChange}
+                  disabled={lockArmsCategory}
                 />
                 <span className='text-sm'>Restricted</span>
               </label>
@@ -293,6 +306,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
                   value='PERMISSIBLE'
                   checked={String(formData.armsOptionType || '').toUpperCase() === 'PERMISSIBLE'}
                   onChange={onChange}
+                  disabled={lockArmsCategory}
                 />
                 <span className='text-sm'>Permissible</span>
               </label>
@@ -303,23 +317,32 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
               </p>
             )}
           </div>
-          <Select
-            label='(b) Select weapon types (multiple allowed)'
-            name='weaponType'
-            value=''
-            onChange={handleWeaponAdd}
-            onFocus={loadWeapons}
-            required
-            error={errors['weaponType']}
-            placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}
-            options={weapons.map(weapon => ({
-              value: String(weapon.id),
-              label: weapon.name,
-            }))}
-          />
+          {weaponsLocked ? (
+            <p className='mt-2 text-xs text-gray-600'>
+              (b) Weapons endorsed on the existing license. A renewal cannot add, remove or change
+              weapons; that needs a separate application to the licensing authority.
+            </p>
+          ) : (
+            <Select
+              label='(b) Select weapon types (multiple allowed)'
+              name='weaponType'
+              value=''
+              onChange={handleWeaponAdd}
+              onFocus={loadWeapons}
+              required
+              error={errors['weaponType']}
+              placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}
+              options={weapons.map(weapon => ({
+                value: String(weapon.id),
+                label: weapon.name,
+              }))}
+            />
+          )}
           {selectedWeaponIds.length > 0 && (
             <div className='mt-2'>
-              <p className='text-sm font-medium text-gray-700 mb-1'>Selected weapons</p>
+              <p className='text-sm font-medium text-gray-700 mb-1'>
+                {weaponsLocked ? 'Endorsed weapons' : 'Selected weapons'}
+              </p>
               <div className='flex flex-wrap gap-2'>
                 {selectedWeaponIds.map(weaponId => {
                   const weapon = weapons.find(w => w.id === weaponId);
@@ -329,14 +352,16 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
                       className='inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800'
                     >
                       {weapon?.name || `Weapon #${weaponId}`}
-                      <button
-                        type='button'
-                        className='text-blue-700 hover:text-blue-900'
-                        onClick={() => removeWeapon(weaponId)}
-                        aria-label={`Remove ${weapon?.name || 'weapon'}`}
-                      >
-                        ×
-                      </button>
+                      {!weaponsLocked && (
+                        <button
+                          type='button'
+                          className='text-blue-700 hover:text-blue-900'
+                          onClick={() => removeWeapon(weaponId)}
+                          aria-label={`Remove ${weapon?.name || 'weapon'}`}
+                        >
+                          ×
+                        </button>
+                      )}
                     </span>
                   );
                 })}

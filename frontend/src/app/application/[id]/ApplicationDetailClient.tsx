@@ -17,7 +17,6 @@ import LicenseService from '../../../services/licenseService';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
-import EnhancedApplicationTimeline from '../../../components/EnhancedApplicationTimeline';
 import {
   PageLayoutSkeleton,
   ApplicationCardSkeleton,
@@ -1119,21 +1118,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   applicationId={applicationId}
                                   applicantName={applicantName}
                                 />
-                                <div className='bg-slate-50/50 rounded-2xl border border-slate-100 p-6 overflow-hidden relative group'>
-                                  <div className='absolute inset-0 bg-gradient-to-br from-blue-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none'></div>
-                                  <div className='relative z-10'>
-                                    <LazySection minHeight='400px'>
-                                      <EnhancedApplicationTimeline
-                                        application={application!}
-                                        workflowHistory={
-                                          activeTab === 'original'
-                                            ? application.workflowHistories || []
-                                            : workflowHistory
-                                        }
-                                      />
-                                    </LazySection>
-                                  </div>
-                                </div>
                               </div>
                             </div>
                           </div>

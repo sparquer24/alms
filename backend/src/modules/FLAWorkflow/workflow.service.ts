@@ -5,6 +5,18 @@ import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
 import { normalizeApplicationType } from '../../constants/flow-mapping';
 import { CancelWorkflowHandler } from './handlers/cancel-workflow.handler';
+import {
+  approvalRuleRestrictionMessage,
+  decisionCodesForRole,
+  isDecisionAction,
+  resolveApprovalRuleForApplication,
+} from '../approvalRules/approval-rules.resolver';
+import {
+  LOCKED_IDENTITY_FIELDS,
+  computeRenewedValidTill,
+  pickLockedIdentity,
+  statusAfterRenewal,
+} from '../renewal/renewal-rules';
 
 @Injectable()
 export class WorkflowService {
@@ -807,35 +819,42 @@ export class WorkflowService {
     // If licenseId is not set, fall back to licenseNumber lookup
     const existingLicense = renewalApp.licenseId
       ? await prisma.licenses.findUnique({
-          where: { id: renewalApp.licenseId }
+          where: { id: renewalApp.licenseId },
+          include: { endorsedWeapons: { select: { id: true } } },
         })
       : await prisma.licenses.findUnique({
-          where: { licenseNumber: renewalApp.licenseNumber }
+          where: { licenseNumber: renewalApp.licenseNumber },
+          include: { endorsedWeapons: { select: { id: true } } },
         });
 
     if (!existingLicense) return;
 
     const licDetail = renewalApp.licenseDetails?.[0];
-    const validTill = new Date();
-    validTill.setFullYear(validTill.getFullYear() + 2);
+    const validTill = computeRenewedValidTill(existingLicense.validTill);
+    const renewedStatus = statusAfterRenewal(existingLicense.status) as LicenseStatus;
+
+    // A renewal cannot change the holder: it only fills identity values the
+    // license is missing (e.g. an imported license without a PAN).
+    const lockedIdentity = pickLockedIdentity(existingLicense);
+    const identityFill = Object.fromEntries(
+      LOCKED_IDENTITY_FIELDS
+        .filter((field) => !(field in lockedIdentity) && (renewalApp as any)[field] != null)
+        .map((field) => [field, (renewalApp as any)[field]]),
+    );
+    // Weapons endorsed on the license stay as they are; only a license with
+    // none recorded takes the weapons from the renewal.
+    const licenseHasWeapons = existingLicense.endorsedWeapons.length > 0;
 
     const updated = await prisma.$transaction(async (tx: any) => {
       const updatedLicense = await tx.licenses.update({
         where: { id: existingLicense.id },
         data: {
-        // Update personal details if changed
-        firstName: renewalApp.firstName,
-        middleName: renewalApp.middleName,
-        lastName: renewalApp.lastName,
-        parentOrSpouseName: renewalApp.parentOrSpouseName,
-        dateOfBirth: renewalApp.dateOfBirth || undefined,
-        aadharNumber: renewalApp.aadharNumber,
-        panNumber: renewalApp.panNumber,
+        ...identityFill,
 
         // Update license terms
         validTill,
         lastRenewedDate: new Date(),
-        armsCategory: licDetail?.armsCategory || existingLicense.armsCategory,
+        armsCategory: existingLicense.armsCategory ?? licDetail?.armsCategory,
         areaOfValidity: licDetail?.areaOfValidity || existingLicense.areaOfValidity,
         ammunitionDescription: licDetail?.ammunitionDescription || existingLicense.ammunitionDescription,
         licencePlaceArea: licDetail?.licencePlaceArea || existingLicense.licencePlaceArea,
@@ -879,10 +898,9 @@ export class WorkflowService {
         ),
         lastModifiedAppType: 'RENEWAL',
         lastModifiedAppId: renewalApplicationId,
-        status: LicenseStatus.ACTIVE,
+        status: renewedStatus,
 
-        // Update endorsed weapons
-        endorsedWeapons: licDetail?.requestedWeapons?.length
+        endorsedWeapons: !licenseHasWeapons && licDetail?.requestedWeapons?.length
           ? { set: licDetail.requestedWeapons.map((w: any) => ({ id: w.id })) }
           : undefined,
       }
@@ -896,7 +914,7 @@ export class WorkflowService {
         applicationId: renewalApplicationId,
         applicationType: 'RENEWAL',
         previousStatus: existingLicense.status,
-        newStatus: LicenseStatus.ACTIVE,
+        newStatus: renewedStatus,
         changedBy,
         remarks: 'License renewed upon renewal application approval',
       }
@@ -965,15 +983,42 @@ export class WorkflowService {
     }
     const currentRoleId = currentUser.roleId;
 
-    // 2. Validate User Permission using RolesActionsMapping
-    // Uses the server-resolved applicationType — a FRESH-only mapping will NOT
-    // grant access when the application is actually a RENEWAL.
-    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId, applicationType);
-    if (!hasPermission) {
-      throw new ForbiddenException(
-        `You are not authorized to perform this action for ${applicationType} applications. ` +
-        `Your role does not have permission for action ID: ${payload.actionId}`,
-      );
+    // 2. Validate User Permission.
+    // The action is identified by payload.actionId; the code sent alongside it
+    // must match, otherwise a permitted id could carry a different action code.
+    const actionRecord = await prisma.actiones.findUnique({
+      where: { id: payload.actionId },
+      select: { code: true },
+    });
+    if (actionRecord && actionRecord.code.toUpperCase() !== String(payload.action?.code ?? '').toUpperCase()) {
+      throw new BadRequestException('Action code does not match the selected action.');
+    }
+    const requestedActionCode = String(actionRecord?.code ?? payload.action?.code ?? '').toUpperCase();
+
+    // 2a. Approve / Reject / Recommend / Not Recommend on fresh and renewal
+    // applications are governed by the approval rule for the application's
+    // district, purpose and area: only the rule's decision role may take them,
+    // and only the ones its decision allows.
+    const resolvedRule =
+      (applicationType === 'FRESH' || applicationType === 'RENEWAL') && isDecisionAction(requestedActionCode)
+        ? await resolveApprovalRuleForApplication(applicationType, payload.applicationId)
+        : null;
+
+    if (resolvedRule) {
+      if (!decisionCodesForRole(resolvedRule, currentRoleId).includes(requestedActionCode)) {
+        throw new ForbiddenException(approvalRuleRestrictionMessage(resolvedRule, currentRoleId));
+      }
+    } else {
+      // 2b. Every other action: RolesActionsMapping, scoped by the
+      // server-resolved applicationType — a FRESH-only mapping will NOT grant
+      // access when the application is actually a RENEWAL.
+      const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId, applicationType);
+      if (!hasPermission) {
+        throw new ForbiddenException(
+          `You are not authorized to perform this action for ${applicationType} applications. ` +
+          `Your role does not have permission for action ID: ${payload.actionId}`,
+        );
+      }
     }
 
      // 3. Determine next user and validate based on action type

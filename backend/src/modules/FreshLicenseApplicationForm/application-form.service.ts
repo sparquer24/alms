@@ -4,6 +4,7 @@ import { Sex, FileType, LicensePurpose, Prisma, RoleFlowApplicationType } from '
 import { UploadFileDto } from './dto/upload-file.dto';
 import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
 import { normalizeHierarchyApplicationType } from '../../constants/flow-mapping';
+import { AREA_OF_VALIDITY, normalizeAreaOfValidity } from '../../constants/area-of-validity';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -432,6 +433,20 @@ export class ApplicationFormService {
 
       if (!existingApplication) {
         return [new BadRequestException(`Application with ID ${applicationId} not found`), null];
+      }
+
+      // Store one canonical area of validity; it drives which actions officers get
+      if (Array.isArray(data?.licenseDetails)) {
+        for (const detail of data.licenseDetails) {
+          if (!detail?.areaOfValidity) continue;
+          const area = normalizeAreaOfValidity(detail.areaOfValidity);
+          if (!area) {
+            return [new BadRequestException(
+              `Invalid area of validity '${detail.areaOfValidity}'. Choose one of: ${Object.values(AREA_OF_VALIDITY).join(', ')}.`,
+            ), null];
+          }
+          detail.areaOfValidity = area;
+        }
       }
 
       // Validate declaration fields only when submitting

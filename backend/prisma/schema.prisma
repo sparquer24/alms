@@ -48,6 +48,7 @@ model States {
   users              Users[]                             @relation("StateUsers")
   roleFlowMappings   RoleFlowMapping[]
   cancelFormRequests CancelFormRequests[]
+  approvalRules      ApprovalRule[]
 }
 
 model Districts {
@@ -64,6 +65,7 @@ model Districts {
   renewalAddresses   RenewalAddressesAndContactDetails[]
   renewalOccupations RenewalOccupationAndBusiness[]
   users              Users[]                             @relation("DistrictUsers")
+  approvalRules      ApprovalRule[]
 }
 
 model Zones {
@@ -129,6 +131,7 @@ model Roles {
   currentRoleFlowMappings        RoleFlowMapping[]                               @relation("CurrentRole")
   rolesActionsMapping            RolesActionsMapping[]
   users                          Users[]
+  approvalRules                  ApprovalRule[]                                  @relation("ApprovalRuleApproverRole")
 }
 
 // Definitions of individual permission flags (the keys used inside Roles.permissions'
@@ -977,4 +980,43 @@ enum LicenseResult {
   APPROVED
   REJECTED
   PENDING
+}
+
+/// Area of validity an approval rule applies to (see src/constants/area-of-validity.ts)
+enum ApprovalRuleArea {
+  DISTRICT
+  STATE
+  INDIA
+}
+
+/// What the decision role may do: Approve/Reject locally, or only Recommend/Not Recommend
+enum ApprovalDecision {
+  APPROVE
+  RECOMMEND
+}
+
+/// Which role makes the final decision on an application, and whether it approves
+/// or only recommends. The most specific active rule wins: district > state >
+/// default (both null), then a specific purpose > ALL, then a specific
+/// application type > ALL. With no matching rule the built-in default applies
+/// (see src/modules/approvalRules/approval-rules.resolver.ts).
+model ApprovalRule {
+  id              Int                     @id @default(autoincrement())
+  applicationType RoleFlowApplicationType @default(ALL)
+  stateId         Int?
+  districtId      Int?
+  purpose         RoleFlowPurpose         @default(ALL)
+  area            ApprovalRuleArea
+  approverRoleId  Int
+  decision        ApprovalDecision
+  isActive        Boolean                 @default(true)
+  updatedBy       Int?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  approverRole    Roles                   @relation("ApprovalRuleApproverRole", fields: [approverRoleId], references: [id], onDelete: Cascade)
+  state           States?                 @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  district        Districts?              @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationType, stateId, districtId, purpose, area])
+  @@index([stateId, districtId])
 }

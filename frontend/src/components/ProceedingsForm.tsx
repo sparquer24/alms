@@ -13,6 +13,41 @@ import jsPDF from 'jspdf';
 
 import { ApplicationData } from '../types';
 
+// Approval rule for the application (GET /approval-rules/application): who
+// makes the final decision here, and whether they approve or only recommend.
+type ApplicationApprovalRule = {
+  approverRoleCode: string;
+  approverRoleName: string;
+  decision: 'APPROVE' | 'RECOMMEND';
+  area: 'DISTRICT' | 'STATE' | 'INDIA';
+  purpose: string;
+  isCurrentUserDecisionRole: boolean;
+};
+
+const RULE_AREA_LABELS: Record<ApplicationApprovalRule['area'], string> = {
+  DISTRICT: 'District-wide',
+  STATE: 'State-wide',
+  INDIA: 'Throughout India',
+};
+
+const RULE_PURPOSE_LABELS: Record<string, string> = {
+  SELF_PROTECTION: 'Self protection',
+  SPORTS: 'Sports / target shooting',
+  HEIRLOOM_POLICY: 'Heirloom policy',
+  CROP_PROTECTION: 'Crop protection',
+};
+
+const describeApprovalRule = (rule: ApplicationApprovalRule): string => {
+  const scope = [RULE_PURPOSE_LABELS[rule.purpose], RULE_AREA_LABELS[rule.area]].filter(Boolean).join(' · ');
+  const options = rule.decision === 'APPROVE' ? 'Approve or Reject' : 'Recommend or Not Recommend';
+  if (rule.isCurrentUserDecisionRole) {
+    return rule.decision === 'APPROVE'
+      ? `${scope}: you make the final decision — ${options}.`
+      : `${scope}: this application cannot be approved locally — you can only ${options}.`;
+  }
+  return `${scope}: final decision by ${rule.approverRoleName} (${rule.approverRoleCode}) — ${options}.`;
+};
+
 interface UserOption {
   value: string;
   label: string;
@@ -219,6 +254,26 @@ export default function ProceedingsForm({
 
   const hierarchyApplicationType = resolveHierarchyApplicationType(applicationData?.applicationType);
   const workflowApplicationType = resolveWorkflowApplicationType(applicationData?.applicationType);
+
+  // The backend narrows the decision actions by the approval rule; explain why here
+  const [approvalRule, setApprovalRule] = useState<ApplicationApprovalRule | null>(null);
+  useEffect(() => {
+    const appliesToRules =
+      workflowApplicationType === 'FreshLicenseApplicationForm' ||
+      workflowApplicationType === 'RenewalApplicationForm';
+    if (!applicationId || !appliesToRules) {
+      setApprovalRule(null);
+      return;
+    }
+    let active = true;
+    const params = new URLSearchParams({ applicationType: workflowApplicationType, applicationId: String(applicationId) });
+    fetchData(`/approval-rules/application?${params.toString()}`)
+      .then((res: any) => active && setApprovalRule(res?.data ?? null))
+      .catch(() => active && setApprovalRule(null));
+    return () => {
+      active = false;
+    };
+  }, [applicationId, workflowApplicationType]);
 
   const currentRole = roleFromCookie || userRole;
 
@@ -1213,6 +1268,17 @@ ${content}
                     }}
                   />
                 </div>
+                {approvalRule && (
+                  <p
+                    className={`mt-1 rounded-md border px-2 py-1 text-xs ${
+                      approvalRule.decision === 'RECOMMEND'
+                        ? 'border-yellow-300 bg-yellow-50 text-yellow-800'
+                        : 'border-gray-200 bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    {describeApprovalRule(approvalRule)}
+                  </p>
+                )}
                 {actionsError && (
                   <p className={styles.helpText}>
                     Failed to load actions from server. Using defaults. Error: {actionsError}

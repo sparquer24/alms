@@ -37,7 +37,8 @@ const DOCUMENT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   { key: 'trainingCertificateUploaded', label: 'Training certificate' },
   { key: 'medicalCertificateUploaded', label: 'Medical Certificate', required: true },
   { key: 'otherStateLicenseUploaded', label: 'Other state Arms License (optional)' },
-  { key: 'existingArmsLicenseUploaded', label: 'Existing Arms License (optional)' },
+  // A renewal is for an existing license, so a copy of it is always required
+  { key: 'existingArmsLicenseUploaded', label: 'Existing Arms License (license being renewed)', required: true },
   { key: 'safeCustodyUploaded', label: 'Safe custody (optional)' },
 ];
 

@@ -182,8 +182,10 @@ const LicenseHistory = forwardRef(function LicenseHistory(
     <div className='space-y-4'>
       <div className='space-y-5'>
         <div>
-          <p className='text-sm font-medium'>Whether the applicant has applied for -</p>
-          <p className='text-sm mt-2'>(a) Arms License before?</p>
+          <p className='text-sm font-medium'>
+            Since the license was granted or last renewed, whether the applicant has -
+          </p>
+          <p className='text-sm mt-2'>(a) Applied for any other arms license?</p>
           {yn('hasAppliedBefore', Boolean(formData.hasAppliedBefore))}
           {formData.hasAppliedBefore && (
             <div className='mt-3 grid grid-cols-1 md:grid-cols-2 gap-4'>
@@ -299,7 +301,7 @@ const LicenseHistory = forwardRef(function LicenseHistory(
         </div>
 
         <div>
-          <p className='text-sm'>(b) License been revoked or suspended</p>
+          <p className='text-sm'>(b) Had this or any other license revoked or suspended?</p>
           {yn('licenseRevokedOrSuspended', Boolean(formData.licenseRevokedOrSuspended))}
           {formData.licenseRevokedOrSuspended && (
             <div className='mt-3 grid grid-cols-1 md:grid-cols-2 gap-4'>

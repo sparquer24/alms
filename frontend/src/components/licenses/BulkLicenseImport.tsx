@@ -612,13 +612,13 @@ export default function BulkLicenseImport({ onChanged, onViewLicenses }: BulkLic
             <table className='w-full min-w-[900px] border-separate border-spacing-0 text-sm'>
               <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                 <tr>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>Row</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>License Number</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>Holder</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>District</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>State</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>Status</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>Issues</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>Row</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>License Number</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>Holder</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>District</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>State</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>Status</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>Issues</th>
                 </tr>
               </thead>
               <tbody>
@@ -634,20 +634,20 @@ export default function BulkLicenseImport({ onChanged, onViewLicenses }: BulkLic
                     const Icon = style.icon;
                     return (
                       <tr key={row.rowNumber} className='align-top odd:bg-white even:bg-gray-50'>
-                        <td className='border-b border-gray-100 px-3 py-2 text-gray-500'>{row.rowNumber}</td>
-                        <td className='border-b border-gray-100 px-3 py-2 text-gray-800'>
+                        <td className='border-b border-gray-100 px-3 py-0.5 text-gray-500'>{row.rowNumber}</td>
+                        <td className='border-b border-gray-100 px-3 py-0.5 text-gray-800'>
                           {row.display.licenseNumber ?? '-'}
                         </td>
-                        <td className='border-b border-gray-100 px-3 py-2 text-gray-700'>
+                        <td className='border-b border-gray-100 px-3 py-0.5 text-gray-700'>
                           {row.display.holderName ?? '-'}
                         </td>
-                        <td className='border-b border-gray-100 px-3 py-2 text-gray-700'>
+                        <td className='border-b border-gray-100 px-3 py-0.5 text-gray-700'>
                           {row.display.district ?? '-'}
                         </td>
-                        <td className='border-b border-gray-100 px-3 py-2 text-gray-700'>
+                        <td className='border-b border-gray-100 px-3 py-0.5 text-gray-700'>
                           {row.display.state ?? '-'}
                         </td>
-                        <td className='border-b border-gray-100 px-3 py-2'>
+                        <td className='border-b border-gray-100 px-3 py-0.5'>
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${style.chip}`}
                           >
@@ -655,7 +655,7 @@ export default function BulkLicenseImport({ onChanged, onViewLicenses }: BulkLic
                             {style.label}
                           </span>
                         </td>
-                        <td className='border-b border-gray-100 px-3 py-2'>
+                        <td className='border-b border-gray-100 px-3 py-0.5'>
                           <ul className='space-y-1'>
                             {row.errors.map(message => (
                               <li key={message} className='text-xs text-red-700'>
@@ -775,10 +775,10 @@ export default function BulkLicenseImport({ onChanged, onViewLicenses }: BulkLic
             <table className='w-full min-w-[760px] border-separate border-spacing-0 text-sm'>
               <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                 <tr>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>Row</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>Status</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>License</th>
-                  <th className='border-b border-[#001F54] px-3 py-2 font-semibold'>Details</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>Row</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>Status</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>License</th>
+                  <th className='border-b border-[#001F54] px-3 py-1.5 font-semibold'>Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -787,8 +787,8 @@ export default function BulkLicenseImport({ onChanged, onViewLicenses }: BulkLic
                   const Icon = style.icon;
                   return (
                     <tr key={row.rowNumber} className='align-top odd:bg-white even:bg-gray-50'>
-                      <td className='border-b border-gray-100 px-3 py-2 text-gray-500'>{row.rowNumber}</td>
-                      <td className='border-b border-gray-100 px-3 py-2'>
+                      <td className='border-b border-gray-100 px-3 py-0.5 text-gray-500'>{row.rowNumber}</td>
+                      <td className='border-b border-gray-100 px-3 py-0.5'>
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${style.chip}`}
                         >
@@ -796,11 +796,11 @@ export default function BulkLicenseImport({ onChanged, onViewLicenses }: BulkLic
                           {style.label}
                         </span>
                       </td>
-                      <td className='border-b border-gray-100 px-3 py-2 text-gray-800'>
+                      <td className='border-b border-gray-100 px-3 py-0.5 text-gray-800'>
                         {row.licenseNumber ?? '-'}
                         {row.licenseId ? <span className='text-gray-400'> (#{row.licenseId})</span> : null}
                       </td>
-                      <td className='border-b border-gray-100 px-3 py-2'>
+                      <td className='border-b border-gray-100 px-3 py-0.5'>
                         <ul className='space-y-1'>
                           {row.errors.map(message => (
                             <li key={message} className='text-xs text-red-700'>

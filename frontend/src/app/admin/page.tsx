@@ -219,17 +219,17 @@ export default function AdminDashboard() {
         <table className='w-full text-left'>
           <thead>
             <tr>
-              <th className='border-b p-2'>Activity</th>
-              <th className='border-b p-2'>User</th>
-              <th className='border-b p-2'>Date</th>
+              <th className='border-b px-2 py-1.5'>Activity</th>
+              <th className='border-b px-2 py-1.5'>User</th>
+              <th className='border-b px-2 py-1.5'>Date</th>
             </tr>
           </thead>
           <tbody>
             {dashboardData.recentActivities.map((activity, index) => (
               <tr key={index}>
-                <td className='border-b p-2'>{activity.description}</td>
-                <td className='border-b p-2'>{activity.user}</td>
-                <td className='border-b p-2'>{activity.date}</td>
+                <td className='border-b px-2 py-0.5'>{activity.description}</td>
+                <td className='border-b px-2 py-0.5'>{activity.user}</td>
+                <td className='border-b px-2 py-0.5'>{activity.date}</td>
               </tr>
             ))}
           </tbody>

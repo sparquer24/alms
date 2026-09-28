@@ -547,6 +547,64 @@ export class LicensesService {
       renewalIds: license.renewalIds ?? [],
     };
 
+    // The license row is the source of truth for the license itself. These are
+    // spread last so a source application's own `id`/`status` (or a cancel
+    // request lacking applicant fields) can never shadow the license's values.
+    const licenseFields: Record<string, any> = {
+      id: license.id,
+      status: license.status,
+      isSubmit: true,
+      sourceApplicationId: sourceApplication?.id ?? null,
+      sourceApplicationType: this.normalizeApplicationType(license.lastModifiedAppType),
+      firstName: license.firstName,
+      middleName: license.middleName,
+      lastName: license.lastName,
+      parentOrSpouseName: license.parentOrSpouseName,
+      sex: license.sex,
+      dateOfBirth: license.dateOfBirth,
+      placeOfBirth: license.placeOfBirth,
+      aadharNumber: license.aadharNumber,
+      panNumber: license.panNumber,
+      issueDate: license.issueDate,
+      validFrom: license.validFrom,
+      validTill: license.validTill,
+      lastRenewedDate: license.lastRenewedDate ?? null,
+      renewalCount: license.renewalCount ?? 0,
+      armsCategory: license.armsCategory,
+      areaOfValidity: license.areaOfValidity,
+      ammunitionDescription: license.ammunitionDescription,
+      licencePlaceArea: license.licencePlaceArea,
+      specialConsiderationReason: license.specialConsiderationReason,
+      needForLicense: license.needForLicense,
+      endorsedWeapons: license.endorsedWeapons ?? [],
+      presentAddressLine: license.presentAddressLine,
+      presentStateId: license.presentStateId,
+      presentDistrictId: license.presentDistrictId,
+      presentPoliceStationId: license.presentPoliceStationId,
+      presentZoneId: license.presentZoneId,
+      presentDivisionId: license.presentDivisionId,
+      presentRangeOfficeId: license.presentRangeOfficeId,
+      presentStateName: license.presentStateName ?? null,
+      presentDistrictName: license.presentDistrictName ?? null,
+      presentPoliceStationName: license.presentPoliceStationName ?? null,
+      presentZoneName: license.presentZoneName ?? null,
+      presentDivisionName: license.presentDivisionName ?? null,
+      presentRangeOfficeName: license.presentRangeOfficeName ?? null,
+      permanentAddressLine: license.permanentAddressLine,
+      permanentStateId: license.permanentStateId,
+      permanentDistrictId: license.permanentDistrictId,
+      permanentPoliceStationId: license.permanentPoliceStationId,
+      permanentZoneId: license.permanentZoneId,
+      permanentDivisionId: license.permanentDivisionId,
+      permanentRangeOfficeId: license.permanentRangeOfficeId,
+      permanentStateName: license.permanentStateName ?? null,
+      permanentDistrictName: license.permanentDistrictName ?? null,
+      permanentPoliceStationName: license.permanentPoliceStationName ?? null,
+      permanentZoneName: license.permanentZoneName ?? null,
+      permanentDivisionName: license.permanentDivisionName ?? null,
+      permanentRangeOfficeName: license.permanentRangeOfficeName ?? null,
+    };
+
     // If no source application found, this is typically a bulk-imported license
     // (lastModifiedAppType 'IMPORT') that was never created through the fresh/renewal
     // application flow. Its applicant/address/license details live directly on the
@@ -558,12 +616,15 @@ export class LicensesService {
       if (!hasOwnApplicantData) {
         return {
           ...baseMetadata,
+          id: license.id,
+          status: license.status,
           applicantName: null,
         };
       }
 
       return {
         ...baseMetadata,
+        ...licenseFields,
         isSubmit: true,
         status: license.status,
         firstName: license.firstName,
@@ -640,7 +701,8 @@ export class LicensesService {
     const transformed: Record<string, any> = {
       ...sourceApplication,
       ...baseMetadata,
-      applicantName: [sourceApplication.firstName, sourceApplication.middleName, sourceApplication.lastName].filter(Boolean).join(' '),
+      ...licenseFields,
+      applicantName: [license.firstName, license.middleName, license.lastName].filter(Boolean).join(' '),
       // Always expose documents from the most recently approved application (fresh or renewal).
       // The sourceApplication already reflects the last approved application per loadApplicationForLicense.
       documents: sourceApplication.fileUploads ?? [],
@@ -1139,45 +1201,26 @@ export class LicensesService {
    * Otherwise falls through to the standard license -> source application flow.
    */
   async getLicenseById(id: string) {
-    const isLicenseNumber = id.toUpperCase().startsWith('LUAN');
-
-    // First check: is there an existing draft renewal for this license?
-    // With multi-renewal support, multiple renewals can share the same licenseNumber.
-    // We order by createdAt descending to get the most recent draft.
-    const draftRenewal = await this.prisma.renewalFormPersonalDetails.findFirst({
-      where: isLicenseNumber
-        ? { licenseNumber: id, isSubmit: false }
-        : {
-          OR: [
-            { licenseId: Number(id) },
-            { id: Number(id) },
-          ],
-          isSubmit: false,
-        },
-      orderBy: { createdAt: 'desc' },
-      include: this.buildRenewalApplicationInclude(),
-    });
-    console.log('Draft Renewal Check:', draftRenewal);
-    if (draftRenewal) {
-      return draftRenewal;
-    }
-    console.log('No draft renewal found, proceeding to standard license lookup for id:', id); ``
-    // Fall through to standard license lookup
+    // Always resolve the Licenses record itself. Draft renewals are NOT returned
+    // here: every caller (license detail page, renewal/cancel forms) reads
+    // `id`/`licenseId`/`status` as the license's own values, and draft renewals
+    // are resumed via the renewal-forms endpoints instead.
+    // Numeric input is the license PK; anything else (LUAN-prefixed or imported
+    // numbers) is treated as a license number.
+    const numericId = /^\d+$/.test(id.trim()) ? Number(id.trim()) : null;
     const licenseRecord = await this.prisma.licenses.findUnique({
-      where: isLicenseNumber
-        ? { licenseNumber: id }
-        : { id: Number(id) },
+      where: numericId !== null ? { id: numericId } : { licenseNumber: id.trim() },
       include: {
         endorsedWeapons: true,
       },
-    })
-    console.log('License Record:', licenseRecord);
+    });
     if (!licenseRecord) {
       return null;
     }
 
+    const [licenseWithNames] = await this.attachLocationNames([licenseRecord as any]);
     const sourceApplication = await this.loadApplicationForLicense(licenseRecord as any);
-    const mapped = this.buildLicenseDetailResponse(licenseRecord, sourceApplication);
+    const mapped = this.buildLicenseDetailResponse(licenseWithNames, sourceApplication);
 
     if (!mapped) {
       return null;

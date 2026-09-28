@@ -214,10 +214,10 @@ export function DocumentTable({ documents }: { documents: any[] }) {
         <table className='min-w-full divide-y divide-slate-200 text-left text-sm'>
           <thead className='bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider text-xs'>
             <tr>
-              <th className='px-6 py-4'>Document Type</th>
-              <th className='px-6 py-4'>File Name</th>
-              <th className='px-6 py-4'>Uploaded On</th>
-              <th className='px-6 py-4 text-right print:hidden'>Actions</th>
+              <th className='px-6 py-1.5'>Document Type</th>
+              <th className='px-6 py-1.5'>File Name</th>
+              <th className='px-6 py-1.5'>Uploaded On</th>
+              <th className='px-6 py-1.5 text-right print:hidden'>Actions</th>
             </tr>
           </thead>
           <tbody className='divide-y divide-slate-100 bg-white'>
@@ -237,7 +237,7 @@ export function DocumentTable({ documents }: { documents: any[] }) {
 
               return (
                 <tr key={idx} className='hover:bg-slate-50/80 transition-colors'>
-                  <td className='px-6 py-4 whitespace-nowrap'>
+                  <td className='px-6 py-0.5 whitespace-nowrap'>
                     <div className='flex items-center gap-3'>
                       <div
                         className={`p-2 rounded-lg ${isImage ? 'bg-emerald-50 text-emerald-600' : isPdf ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}
@@ -248,13 +248,13 @@ export function DocumentTable({ documents }: { documents: any[] }) {
                     </div>
                   </td>
                   <td
-                    className='px-6 py-4 font-medium text-slate-500 truncate max-w-xs md:max-w-md'
+                    className='px-6 py-0.5 font-medium text-slate-500 truncate max-w-xs md:max-w-md'
                     title={docName}
                   >
                     {docName}
                   </td>
-                  <td className='px-6 py-4 text-slate-500 font-medium whitespace-nowrap'>{dateStr}</td>
-                  <td className='px-6 py-4 text-right whitespace-nowrap print:hidden'>
+                  <td className='px-6 py-0.5 text-slate-500 font-medium whitespace-nowrap'>{dateStr}</td>
+                  <td className='px-6 py-0.5 text-right whitespace-nowrap print:hidden'>
                     <div className='inline-flex gap-2'>
                       <button
                         onClick={() => openAttachment(doc)}

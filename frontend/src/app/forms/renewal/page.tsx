@@ -41,6 +41,7 @@ import {
   validateArea,
 } from '../../../utils/validation/validators';
 import { filterPan, filterDigits, filterArea } from '../../../utils/validation/inputFilters';
+import { normalizeAreaOfValidity } from '../../../utils/areaOfValidity';
 
 // Fields that get their characters restricted in real time as the user types,
 // matching Fresh Application's input filtering (e.g. PAN forced uppercase A-Z0-9,
@@ -137,9 +138,8 @@ type RenewalFormState = {
   applicationType: string;
   armsOptionType: string;
   ammunitionDescription: string;
-  carryAreaDistrict: boolean;
-  carryAreaState: boolean;
-  carryAreaIndia: boolean;
+  /** One of AREA_OF_VALIDITY; decides whether the application can be approved locally */
+  areaOfValidity: string;
   specialConsiderationClaim: string;
   formIVPlaceArea: string;
   formIVWildBeastsSpec: string;
@@ -276,9 +276,7 @@ const initialFormState: RenewalFormState = {
   applicationType: 'Renewal',
   armsOptionType: '',
   ammunitionDescription: '',
-  carryAreaDistrict: false,
-  carryAreaState: false,
-  carryAreaIndia: false,
+  areaOfValidity: '',
   specialConsiderationClaim: '',
   formIVPlaceArea: '',
   formIVWildBeastsSpec: '',
@@ -763,9 +761,7 @@ const LICENSE_HISTORY_EXTRA_KEYS = [
 
 const LICENSE_DETAIL_FORM_KEYS: (keyof RenewalFormState)[] = [
   'armsOptionType',
-  'carryAreaDistrict',
-  'carryAreaState',
-  'carryAreaIndia',
+  'areaOfValidity',
   'ammunitionDescription',
   'specialConsiderationClaim',
   'formIVPlaceArea',
@@ -814,34 +810,6 @@ const mapArmsOptionToCategory = (armsOption?: string): string => {
     return 'RESTRICTED';
   }
   return 'RESTRICTED'; // default to RESTRICTED
-};
-
-const parseCarryAreaFlags = (areaOfValidity?: string) => {
-  const area = String(areaOfValidity || '').trim();
-  if (!area) {
-    return {
-      carryAreaDistrict: false,
-      carryAreaState: false,
-      carryAreaIndia: false,
-    };
-  }
-
-  return {
-    carryAreaDistrict: area.includes('District-wide') || /\bDISTRICT\b/i.test(area),
-    carryAreaState:
-      area.includes('State-wide') || (/\bSTATE\b/i.test(area) && !/Throughout India/i.test(area)),
-    carryAreaIndia: area.includes('Throughout India') || /\bINDIA\b/i.test(area),
-  };
-};
-
-const buildAreaOfValidityPayload = (formData: RenewalFormState) => {
-  const areas = [
-    formData.carryAreaDistrict ? 'District-wide' : '',
-    formData.carryAreaState ? 'State-wide' : '',
-    formData.carryAreaIndia ? 'Throughout India' : '',
-  ].filter(Boolean);
-
-  return areas.length ? areas.join(', ') : undefined;
 };
 
 const BIOMETRIC_FORM_KEYS: (keyof RenewalFormState)[] = [
@@ -1123,7 +1091,7 @@ const mergeRenewalStateOverFresh = (
     const partialLicenseKeys: string[] = [];
 
     if (!String(renewalLicense?.areaOfValidity || '').trim()) {
-      partialLicenseKeys.push('carryAreaDistrict', 'carryAreaState', 'carryAreaIndia');
+      partialLicenseKeys.push('areaOfValidity');
     }
     if (!normalizeArmsCategory(renewalLicense?.armsCategory)) {
       partialLicenseKeys.push('armsOptionType', 'licenseType');
@@ -1147,11 +1115,7 @@ const mergeRenewalStateOverFresh = (
         renewalValue === null ||
         renewalValue === undefined ||
         renewalValue === '' ||
-        (Array.isArray(renewalValue) && renewalValue.length === 0) ||
-        (typeof renewalValue === 'boolean' &&
-          key.startsWith('carryArea') &&
-          renewalValue === false &&
-          freshValue === true);
+        (Array.isArray(renewalValue) && renewalValue.length === 0);
       if (renewalEmpty) {
         (merged as Record<string, unknown>)[key] = freshValue;
       }
@@ -1267,7 +1231,7 @@ const mapLicenseDetailFields = (data: any) => {
     armsOptionType: normalizeArmsCategory(
       primary?.armsCategory ?? primary?.armsOption ?? data?.armsOption
     ),
-    ...parseCarryAreaFlags(primary?.areaOfValidity),
+    areaOfValidity: normalizeAreaOfValidity(primary?.areaOfValidity),
     ammunitionDescription: getTextValue(
       primary?.ammunitionDescription,
       data?.ammunitionDescription
@@ -1734,6 +1698,63 @@ const buildRenewalPayload = (formData: RenewalFormState) => ({
   hasSubmittedTrueInfo: formData.hasSubmittedTrueInfo,
 });
 
+// Values a renewal cannot change: returned by GET /renewal-forms/:id as `renewalLocks`.
+type RenewalLocks = {
+  identity?: Record<string, unknown>;
+  weaponIds?: number[];
+  armsCategory?: string | null;
+};
+
+// Backend identity field -> renewal form key
+const IDENTITY_FORM_KEYS: Record<string, keyof RenewalFormState> = {
+  firstName: 'applicantName',
+  middleName: 'applicantMiddleName',
+  lastName: 'applicantLastName',
+  parentOrSpouseName: 'fatherName',
+  sex: 'applicantGender',
+  dateOfBirth: 'applicantDateOfBirth',
+  placeOfBirth: 'placeOfBirth',
+  aadharNumber: 'aadharNumber',
+  panNumber: 'panNumber',
+};
+
+const getLockedIdentityKeys = (locks?: RenewalLocks | null): Set<string> =>
+  new Set(
+    Object.keys(locks?.identity ?? {})
+      .map(field => IDENTITY_FORM_KEYS[field] as string)
+      .filter(Boolean)
+  );
+
+const toLockedFormValue = (field: string, value: unknown) => {
+  if (field === 'dateOfBirth') return String(value).split('T')[0];
+  if (field === 'sex') return String(value).toUpperCase();
+  return String(value);
+};
+
+/**
+ * Overwrite locked form values with the license's own values. Returns the same
+ * object when nothing differs so it can run on every form change without looping.
+ */
+const applyRenewalLocks = (form: RenewalFormState, locks?: RenewalLocks | null): RenewalFormState => {
+  if (!locks) return form;
+  const patch: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(locks.identity ?? {})) {
+    const key = IDENTITY_FORM_KEYS[field];
+    const lockedValue = toLockedFormValue(field, value);
+    if (key && (form as any)[key] !== lockedValue) patch[key] = lockedValue;
+  }
+  const weaponIds = locks.weaponIds ?? [];
+  const currentIds = Array.isArray(form.requestedWeaponIds) ? form.requestedWeaponIds : [];
+  if (weaponIds.length && currentIds.map(Number).join(',') !== weaponIds.join(',')) {
+    patch.requestedWeaponIds = weaponIds;
+    patch.weaponId = String(weaponIds[0]);
+  }
+  if (locks.armsCategory && form.armsOptionType !== locks.armsCategory) {
+    patch.armsOptionType = locks.armsCategory;
+  }
+  return Object.keys(patch).length ? { ...form, ...patch } : form;
+};
+
 const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   // Build nested structure matching the new API request format
   const payload: Record<string, any> = {};
@@ -1774,6 +1795,24 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   if (formData.officeMobile) addressDetails.officeMobileNumber = formData.officeMobile;
   if (formData.alternativeMobile) addressDetails.alternativeMobile = formData.alternativeMobile;
 
+  // Permanent address is saved as its own record; "same as present" reuses the present values
+  const permanentAddressDetails: Record<string, any> = formData.sameAsPresent ? { ...addressDetails } : {};
+  if (!formData.sameAsPresent) {
+    if (formData.permanentAddress) permanentAddressDetails.addressLine = formData.permanentAddress;
+    const permanentIds: Array<[string, unknown]> = [
+      ['stateId', formData.permanentState],
+      ['districtId', formData.permanentDistrict],
+      ['rangeOfficeId', formData.permanentRangeOffice],
+      ['policeStationId', formData.permanentPoliceStation],
+      ['zoneId', formData.permanentZone],
+      ['divisionId', formData.permanentDivision],
+    ];
+    for (const [key, value] of permanentIds) {
+      const id = toNumber(value);
+      if (id !== undefined) permanentAddressDetails[key] = id;
+    }
+  }
+
   // Occupation and Business
   if (formData.occupation) occupationAndBusiness.occupation = formData.occupation;
   if (formData.officeBusinessAddress)
@@ -1794,19 +1833,14 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   }
 
   // Map arms category from weaponType or armsOptionType
-  const armsCategory = mapArmsOptionToCategory(formData.weaponType || formData.armsOptionType);
+  // The explicit Restricted/Permissible choice wins over a category guessed from the weapon name
+  const armsCategory = mapArmsOptionToCategory(formData.armsOptionType || formData.weaponType);
   if (armsCategory) {
     licenseDetails.armsCategory = armsCategory;
   }
 
-  // Map area of validity from checkboxes
-  const areaOfValidityParts: string[] = [];
-  if (formData.carryAreaDistrict) areaOfValidityParts.push('DISTRICT');
-  if (formData.carryAreaState) areaOfValidityParts.push('STATE');
-  if (formData.carryAreaIndia) areaOfValidityParts.push('INDIA');
-  if (areaOfValidityParts.length > 0) {
-    licenseDetails.areaOfValidity = areaOfValidityParts.join(', ');
-  }
+  const areaOfValidity = normalizeAreaOfValidity(formData.areaOfValidity);
+  if (areaOfValidity) licenseDetails.areaOfValidity = areaOfValidity;
 
   if (formData.ammunitionDescription)
     licenseDetails.ammunitionDescription = formData.ammunitionDescription;
@@ -1833,7 +1867,11 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
 
   // Add non-empty sections to payload
   if (Object.keys(personalDetails).length > 0) payload.personalDetails = personalDetails;
-  if (Object.keys(addressDetails).length > 0) payload.addressDetails = addressDetails;
+  if (Object.keys(addressDetails).length > 0) {
+    payload.addressDetails = addressDetails;
+    // Always sent with addressDetails so the backend never copies present into permanent
+    payload.permanentAddressDetails = permanentAddressDetails;
+  }
   if (Object.keys(occupationAndBusiness).length > 0)
     payload.occupationAndBusiness = occupationAndBusiness;
   if (Object.keys(licenseDetails).length > 0) payload.licenseDetails = licenseDetails;
@@ -2123,6 +2161,12 @@ const createDraftRenewalFromFreshApplication = async (
     }
 
     createdRenewalIdRef.current = newRenewalId;
+    // Load the saved record so the form knows which values are locked to the license
+    try {
+      setRenewalRecord(extractData(await RenewalService.getRenewalForm(newRenewalId)));
+    } catch {
+      // Locks are still enforced server-side on save
+    }
     const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
       newRenewalId,
       prefilledForm
@@ -2182,6 +2226,13 @@ function RenewalFormPageContent() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [renewalRecord, setRenewalRecord] = useState<any>(null);
   const [formData, setFormData] = useState<RenewalFormState>(initialFormState);
+  const renewalLocks: RenewalLocks | null = renewalRecord?.renewalLocks ?? null;
+  const lockedIdentityKeys = React.useMemo(() => getLockedIdentityKeys(renewalLocks), [renewalLocks]);
+
+  // Keep license-locked values in place whenever the form is rebuilt from a record
+  useEffect(() => {
+    if (renewalLocks) setFormData(prev => applyRenewalLocks(prev, renewalLocks));
+  }, [renewalLocks, formData]);
   const activeRenewalId = renewalId || createdRenewalIdRef.current || '';
 
   // Biometric verification states
@@ -3266,8 +3317,8 @@ function RenewalFormPageContent() {
       if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
     };      requireField('weaponReason', 'Need for license (15)');
     requireField('ammunitionDescription', 'Ammunition Description');
-    if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
-      errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
+    if (!normalizeAreaOfValidity(data.areaOfValidity)) {
+      errs['areaOfValidity'] = 'Select the area for carrying arms (17)';
     }
     if (!data.armsOptionType) {
       errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
@@ -3409,6 +3460,8 @@ function RenewalFormPageContent() {
     if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
     if (!data.medicalCertificateUploaded)
       errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
+    if (!data.existingArmsLicenseUploaded)
+      errs['existingArmsLicenseUploaded'] = 'A copy of the license being renewed is required.';
     return errs;
   };
 
@@ -3474,7 +3527,9 @@ function RenewalFormPageContent() {
       case 'personal':
         return full.personalDetails ? { personalDetails: full.personalDetails } : {};
       case 'address':
-        return full.addressDetails ? { addressDetails: full.addressDetails } : {};
+        return full.addressDetails
+          ? { addressDetails: full.addressDetails, permanentAddressDetails: full.permanentAddressDetails }
+          : {};
       case 'occupation':
         return full.occupationAndBusiness
           ? { occupationAndBusiness: full.occupationAndBusiness }
@@ -4776,6 +4831,7 @@ function RenewalFormPageContent() {
                 {currentStepIndex === 0 && (
                   <PersonalDetailsSection
                     ref={personalSectionRef}
+                    lockedFields={lockedIdentityKeys}
                     formData={formData}
                     onChange={handleChange}
                     errors={personalErrors}
@@ -4812,6 +4868,8 @@ function RenewalFormPageContent() {
                 {currentStepIndex === 4 && (
                   <LicenseDetailsSection
                     formData={formData}
+                    lockedWeaponIds={renewalLocks?.weaponIds ?? []}
+                    lockArmsCategory={Boolean(renewalLocks?.armsCategory)}
                     renewalId={activeRenewalId}
                     isSyncingPrefilled={isSyncingEvidence}
                     onChange={handleChange}

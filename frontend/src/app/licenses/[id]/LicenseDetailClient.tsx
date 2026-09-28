@@ -30,6 +30,10 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+// Licenses table PK. `licenseId` is always the license's own id in the
+// /licenses/:id response; `id` is the fallback for older payload shapes.
+const getLicensePk = (license: any): number | undefined => license?.licenseId ?? license?.id;
+
 const getFullName = (license: LicenseData | null | undefined) =>
   [license?.firstName, license?.middleName, license?.lastName].filter(Boolean).join(' ') || '-';
 
@@ -73,7 +77,6 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
   const { userRole } = useAuth();
   const role = useMemo(() => normalizeRole(userRole), [userRole]);
   const isZS = role === 'ZS';
-  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
   
   const [license, setLicense] = useState<LicenseData | null>(null);
   const [auditRows, setAuditRows] = useState<any[]>([]);
@@ -106,9 +109,6 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
         const res: any = await apiClient.get(`/licenses/${resolvedParams.id}`);
         const licenseData = res.data?.data || res.data;
         setLicense(licenseData);
-        // Use the Licenses table PK (licenseId) for the audit call.
-        // When a draft renewal is returned, licenseData.id is the renewal ID;
-        // licenseData.licenseId is the actual Licenses record ID.
         const auditId = licenseData?.licenseId ?? licenseData?.id;
         if (auditId) {
           try {
@@ -139,17 +139,14 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
       const fetchFresh = async () => {
         setIsFetchingFresh(true);
         try {
+          // Only a real fresh application belongs in this tab; imported licenses
+          // have none, and renewals are listed in the Renewals tab.
           if (license.freshApplicationId) {
             const freshRes: any = await apiClient.get(`/application-form/?applicationId=${license.freshApplicationId}`);
             const data = freshRes.data?.data || freshRes.data || freshRes;
             setFreshApp(Array.isArray(data) ? data[0] : data);
-            freshFetched.current = true;
-          } else if (license.sourceApplicationId) {
-            const renewalRes: any = await apiClient.get(`/renewal-forms/${license.sourceApplicationId}`);
-            const data = renewalRes.data?.data || renewalRes.data || renewalRes;
-            setFreshApp(Array.isArray(data) ? data[0] : data);
-            freshFetched.current = true;
           }
+          freshFetched.current = true;
         } catch (err) {
           console.error('Error fetching fresh app', err);
         } finally {
@@ -166,10 +163,12 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
       const fetchRenewals = async () => {
         setIsFetchingRenewals(true);
         try {
-          const res: any = await apiClient.get(`/renewal-forms?licenseId=${license.id}`);
-          const list = res.data?.data || res.data || [];
-          setRenewals(list);
+          const res: any = await apiClient.get(`/renewal-forms?licenseId=${getLicensePk(license)}&limit=100`);
+          const list = res.data?.data ?? res.data ?? [];
+          setRenewals(Array.isArray(list) ? list : []);
           renewalsFetched.current = true;
+        } catch (err) {
+          console.error('Error fetching renewals', err);
         } finally {
           setIsFetchingRenewals(false);
         }
@@ -184,7 +183,7 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
       const fetchCancellations = async () => {
         setIsFetchingCancel(true);
         try {
-          const res: any = await apiClient.get(`/cancel-forms?licenseId=${license.id}`);
+          const res: any = await apiClient.get(`/cancel-forms?licenseId=${getLicensePk(license)}&limit=100`);
           // cancel-forms API returns: { success, message, data: [...], pagination: {...} }
           const list = res.data?.data ?? res.data ?? [];
           setCancellations(Array.isArray(list) ? list : []);
@@ -223,7 +222,6 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
         freshApp={freshApp}
         activeTab={activeTab}
         isZS={isZS}
-        isAdmin={isAdmin}
         router={router}
         handleTabChange={handleTabChange}
         isFetchingFresh={isFetchingFresh}
@@ -242,7 +240,6 @@ function LicenseDetailContent({
   freshApp,
   activeTab,
   isZS,
-  isAdmin,
   router,
   handleTabChange,
   isFetchingFresh,
@@ -300,7 +297,7 @@ function LicenseDetailContent({
           <div className='mb-6'>
             <LicenseDetailsHeader
               licenseNumber={license.licenseNumber}
-              tabs={isAdmin ? ['License Details', 'Fresh Application'] : ['License Details', 'Fresh Application', 'Renewals', 'Cancellations']}
+              tabs={['License Details', 'Fresh Application', 'Renewals', 'Cancellations']}
               activeTab={
                 activeTab === 'details' ? 'License Details' :
                 activeTab === 'fresh' ? 'Fresh Application' :
@@ -333,7 +330,7 @@ function LicenseDetailContent({
                     {/* Left 2 columns: Applicant Details */}
                     <div className='lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4'>
                       {[
-                        ['License ID', license.id],
+                        ['License ID', getLicensePk(license)],
                         ['Name', getFullName(license)],
                         ['Father/Guardian', license.parentOrSpouseName],
                         ['Gender', license.sex],
@@ -499,7 +496,7 @@ function LicenseDetailContent({
                       const renewalLicenseNumber = renewal.licenseNumber ?? renewal.license?.licenseNumber ?? null;
                       const isMatched =
                         renewalLicenseId != null
-                          ? renewalLicenseId === license.id
+                          ? renewalLicenseId === getLicensePk(license)
                           : renewalLicenseNumber != null
                           ? renewalLicenseNumber === license.licenseNumber
                           : true; // can't determine, assume OK
@@ -552,7 +549,7 @@ function LicenseDetailContent({
                 ) : cancellations.length > 0 ? (
                   <div className="space-y-6">
                     {cancellations.map((cancel: any) => {
-                      const isMatched = cancel.licenseId === license.id;
+                      const isMatched = cancel.licenseId === getLicensePk(license);
                       return (
                         <div key={cancel.id} className={`rounded-xl border ${isMatched ? 'border-gray-200' : 'border-amber-300 bg-amber-50/40'}`}>
                           {/* Header */}

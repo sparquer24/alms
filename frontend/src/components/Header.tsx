@@ -97,6 +97,8 @@ const Header = (props: HeaderProps) => {
       '/admin/roleMapping': { roleTitle: 'Admin', pageTitle: 'Role Management', roleHref: '/admin/roleMapping' },
       '/superAdmin/flowMapping': { roleTitle: 'Super Admin', pageTitle: 'Flow Mapping', roleHref: '/superAdmin/flowMapping' },
       '/admin/flowMapping': { roleTitle: 'Admin', pageTitle: 'Flow Mapping', roleHref: '/admin/flowMapping' },
+      '/superAdmin/approvalRules': { roleTitle: 'Super Admin', pageTitle: 'Approval Rules', roleHref: '/superAdmin/approvalRules' },
+      '/admin/approvalRules': { roleTitle: 'Admin', pageTitle: 'Approval Rules', roleHref: '/admin/approvalRules' },
       '/superAdmin/locationsManagement': { roleTitle: 'Super Admin', pageTitle: 'Locations Management', roleHref: '/superAdmin/locationsManagement' },
       '/admin/locationsManagement': { roleTitle: 'Admin', pageTitle: 'Locations Management', roleHref: '/admin/locationsManagement' },
       '/superAdmin/actionMapping': { roleTitle: 'Super Admin', pageTitle: 'Action Mapping', roleHref: '/superAdmin/actionMapping' },

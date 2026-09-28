@@ -886,12 +886,12 @@ function LicenseManagementContent() {
                 </div>
               )}
 
-              <div className='flex-1 min-h-0 overflow-auto isolate'>
+              <div className='flex-initial min-h-0 overflow-auto isolate'>
                 <table className='min-w-[1200px] w-full border-separate border-spacing-0 text-sm'>
                   <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                     <tr>
                       {auditColumns.map(col => (
-                        <th key={col} className='border-b border-[#001F54] px-3 py-3 font-semibold whitespace-nowrap'>
+                        <th key={col} className='border-b border-[#001F54] px-3 py-1.5 font-semibold whitespace-nowrap'>
                           {col}
                         </th>
                       ))}
@@ -902,7 +902,7 @@ function LicenseManagementContent() {
                       Array.from({ length: 6 }).map((_, idx) => (
                         <tr key={idx} className='animate-pulse'>
                           {auditColumns.map(col => (
-                            <td key={col} className='border-b px-3 py-3'>
+                            <td key={col} className='border-b px-3 py-0.5'>
                               <div className='h-4 rounded bg-gray-200' />
                             </td>
                           ))}
@@ -922,7 +922,7 @@ function LicenseManagementContent() {
                             {auditColumns.map(col => (
                               <td
                                 key={col}
-                                className='border-b border-gray-100 px-3 py-3 align-top text-gray-700 whitespace-nowrap'
+                                className='border-b border-gray-100 px-3 py-0.5 align-top text-gray-700 whitespace-nowrap'
                               >
                                 {col === 'Action' ? (
                                   <span className='inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700'>
@@ -941,7 +941,7 @@ function LicenseManagementContent() {
                 </table>
               </div>
 
-              <div className='flex-none flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-600 print:hidden'>
+              <div className='flex-none flex items-center justify-between border-t border-gray-200 px-4 py-1 text-xs text-gray-600 print:hidden'>
                 <span>
                   Showing page {auditPage} of {Math.max(Math.ceil(auditLogTotal / auditLimit), 1)} ({auditLogTotal} records)
                 </span>
@@ -950,7 +950,7 @@ function LicenseManagementContent() {
                     type='button'
                     disabled={auditPage <= 1}
                     onClick={() => setAuditPage(prev => Math.max(prev - 1, 1))}
-                    className='rounded-md border px-3 py-2 disabled:opacity-50'
+                    className='rounded border px-2 py-0.5 disabled:opacity-50'
                   >
                     <ChevronLeft className='h-4 w-4' />
                   </button>
@@ -958,7 +958,7 @@ function LicenseManagementContent() {
                     type='button'
                     disabled={auditPage >= Math.ceil(auditLogTotal / auditLimit)}
                     onClick={() => setAuditPage(prev => prev + 1)}
-                    className='rounded-md border px-3 py-2 disabled:opacity-50'
+                    className='rounded border px-2 py-0.5 disabled:opacity-50'
                   >
                     <ChevronRight className='h-4 w-4' />
                   </button>
@@ -973,7 +973,7 @@ function LicenseManagementContent() {
                 </div>
               )}
 
-              <div className='flex-1 min-h-0 overflow-auto isolate'>
+              <div className='flex-initial min-h-0 overflow-auto isolate'>
                 <table className='min-w-[1900px] w-full border-separate border-spacing-0 text-sm'>
                   <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                     <tr>
@@ -1021,7 +1021,7 @@ function LicenseManagementContent() {
                         );
                         })}
                       {isZS && (
-                        <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-2 font-semibold print:hidden'>
+                        <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-1.5 font-semibold print:hidden'>
                           Actions
                         </th>
                       )}
@@ -1031,19 +1031,19 @@ function LicenseManagementContent() {
                     {loading ? (
                       Array.from({ length: 10 }).map((_, idx) => (
                         <tr key={idx} className='animate-pulse'>
-                          <td className='sticky left-0 border-b bg-gray-100 px-3 py-1.5 w-[60px] min-w-[60px]'>
+                          <td className='sticky left-0 border-b bg-gray-100 px-3 py-0.5 w-[60px] min-w-[60px]'>
                             <div className='h-4 rounded bg-gray-200' />
                           </td>
                           {columns.slice(0, 8).map(col => (
                             <td
                               key={col}
-                              className={`border-b px-3 py-1.5 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                              className={`border-b px-3 py-0.5 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
                             >
                               <div className='h-4 rounded bg-gray-200' />
                             </td>
                           ))}
                           {isZS && (
-                            <td className='sticky right-0 border-b bg-white px-3 py-1.5 print:hidden'>
+                            <td className='sticky right-0 border-b bg-white px-3 py-0.5 print:hidden'>
                               <div className='h-4 rounded bg-gray-200' />
                             </td>
                           )}
@@ -1068,7 +1068,7 @@ function LicenseManagementContent() {
                             key={license.id}
                             className='odd:bg-white even:bg-gray-50 hover:bg-blue-50/70'
                           >
-                            <td className='sticky left-0 z-10 border-b border-gray-100 bg-inherit px-3 py-1.5 align-middle text-gray-700 font-semibold w-[60px] min-w-[60px]'>
+                            <td className='sticky left-0 z-10 border-b border-gray-100 bg-inherit px-3 py-0.5 align-middle text-gray-700 font-semibold w-[60px] min-w-[60px]'>
                               {(page - 1) * limit + licenses.indexOf(license) + 1}
                             </td>
                             {columns.map((col, idx) => {
@@ -1085,7 +1085,7 @@ function LicenseManagementContent() {
                               return (
                               <td
                                 key={col}
-                                className={`border-b border-gray-100 px-3 py-1.5 align-middle text-gray-700 ${stickyClass} ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                                className={`border-b border-gray-100 px-3 py-0.5 align-middle text-gray-700 ${stickyClass} ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
                               >
                                 {col === 'License Status' ? (
                                   <span
@@ -1121,12 +1121,12 @@ function LicenseManagementContent() {
                             );
                             })}
                             {isZS && (
-                              <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-1.5 print:hidden'>
+                              <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-0.5 print:hidden'>
                                 <div className='flex items-center gap-2'>
                                   <button
                                     type='button'
                                     onClick={() => openDetails(license)}
-                                    className='rounded-md border p-1.5 text-gray-700 hover:bg-white'
+                                    className='rounded border p-0.5 text-gray-700 hover:bg-white'
                                     title='View details'
                                   >
                                     <Eye className='h-4 w-4' />
@@ -1140,7 +1140,7 @@ function LicenseManagementContent() {
                                           ? router.push(`/renewalApplication/${license.renewalApplicationId}`)
                                           : router.push(`/forms/renewal?licenseId=${license.id}`)
                                       }
-                                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                                      className={`rounded px-2.5 py-0.5 text-xs leading-4 font-medium transition-colors ${
                                         license.status === 'CANCELLED'
                                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                           : license.renewalApplicationId
@@ -1170,7 +1170,7 @@ function LicenseManagementContent() {
                                           ? router.push(`/cancelForm/${license.cancelApplicationId}`)
                                           : router.push(`/cancelForm/new?licenseId=${license.id}`)
                                       }
-                                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                                      className={`rounded px-2.5 py-0.5 text-xs leading-4 font-medium transition-colors ${
                                         license.status === 'CANCELLED'
                                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                           : license.cancelApplicationId
@@ -1202,7 +1202,7 @@ function LicenseManagementContent() {
                 </table>
               </div>
 
-              <div className='flex-none flex items-center justify-between border-t border-gray-200 px-4 py-1 text-sm text-gray-600 print:hidden'>
+              <div className='flex-none flex items-center justify-between border-t border-gray-200 px-4 py-1 text-xs text-gray-600 print:hidden'>
                 <span>
                   Showing page {page} of {Math.max(Math.ceil(total / limit), 1)} ({total} records)
                 </span>
@@ -1211,7 +1211,7 @@ function LicenseManagementContent() {
                     type='button'
                     disabled={page <= 1}
                     onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                    className='rounded-md border px-3 py-1.5 disabled:opacity-50'
+                    className='rounded border px-2 py-0.5 disabled:opacity-50'
                   >
                     <ChevronLeft className='h-4 w-4' />
                   </button>
@@ -1219,7 +1219,7 @@ function LicenseManagementContent() {
                     type='button'
                     disabled={page >= Math.ceil(total / limit)}
                     onClick={() => setPage(prev => prev + 1)}
-                    className='rounded-md border px-3 py-1.5 disabled:opacity-50'
+                    className='rounded border px-2 py-0.5 disabled:opacity-50'
                   >
                     <ChevronRight className='h-4 w-4' />
                   </button>

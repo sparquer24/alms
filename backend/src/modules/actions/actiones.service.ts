@@ -3,6 +3,11 @@ import prisma from '../../db/prismaClient';
 import { Actiones, RolesActionsMapping, RoleFlowApplicationType } from '@prisma/client';
 import { ACTION_CODES } from '../../constants/workflow-actions';
 import { normalizeApplicationType } from '../../constants/flow-mapping';
+import {
+  decisionCodesForRole,
+  isDecisionAction,
+  resolveApprovalRuleForApplication,
+} from '../approvalRules/approval-rules.resolver';
 
 @Injectable()
 export class ActionesService {
@@ -54,32 +59,32 @@ export class ActionesService {
         },
       });
 
-          // If applicationId is provided, filter based on application status
-      if (applicationId) {
-
-        let application;
-        if (applicationType?.toLocaleLowerCase() === 'fresh license' || applicationType?.toLocaleLowerCase() === 'freshlicenseapplicationform' || applicationType?.toLocaleLowerCase() === 'flawupdate') {
-          application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-            where: { id: applicationId },
-            select: { isApproved: true, isRejected: true }
-          });
+      // If applicationId is provided, filter based on the application's state
+      if (applicationId && (appType === 'FRESH' || appType === 'RENEWAL')) {
+        // Approve / Reject / Recommend / Not Recommend come from the approval
+        // rule for this application's district, purpose and area — not from
+        // role-action mapping. Null (legacy data without an area) keeps the
+        // role-mapped actions unchanged.
+        const resolved = await resolveApprovalRuleForApplication(appType, applicationId);
+        if (resolved) {
+          const allowedDecisionCodes = decisionCodesForRole(resolved, user.roleId);
+          const decisionActions = allowedDecisionCodes.length
+            ? (await prisma.actiones.findMany({ where: { isActive: true } })).filter((action: Actiones) =>
+                allowedDecisionCodes.includes(action.code.toUpperCase()),
+              )
+            : [];
+          actions = [
+            ...actions.filter((action: Actiones) => !isDecisionAction(action.code)),
+            ...decisionActions,
+          ];
         }
-        else if (!application && applicationType?.toLocaleLowerCase() && ['renewal application', 'renewalapplicationform', 'renewalupdate', 'renewalform', 'renewalapplicationform'].includes(applicationType)) {
-          application = await prisma.renewalFormPersonalDetails.findUnique({
-            where: { id: applicationId },
-            select: { isApproved: true, isRejected: true }
-          });
-        }
-        if (application) {
-          // If application is approved, filter out APPROVED action
-          if (application.isApproved) {
-            actions = actions.filter((action: Actiones) => action.code.toUpperCase() !== ACTION_CODES.APPROVED);
-          }
 
-          // If application is rejected, filter out REJECT action
-          if (application.isRejected) {
-            actions = actions.filter((action: Actiones) => action.code.toUpperCase() !== ACTION_CODES.REJECT);
-          }
+        const application = await this.loadApplicationStatus(appType, applicationId);
+        if (application?.isApproved) {
+          actions = actions.filter((action: Actiones) => action.code.toUpperCase() !== ACTION_CODES.APPROVED);
+        }
+        if (application?.isRejected) {
+          actions = actions.filter((action: Actiones) => action.code.toUpperCase() !== ACTION_CODES.REJECT);
         }
       }
 
@@ -88,6 +93,18 @@ export class ActionesService {
       console.error('Error fetching actions:', error);
       throw error;
     }
+  }
+
+  /** Approval state of a fresh or renewal application. */
+  private async loadApplicationStatus(appType: RoleFlowApplicationType, applicationId: number) {
+    const select = { isApproved: true, isRejected: true } as const;
+    if (appType === 'FRESH') {
+      return prisma.freshLicenseApplicationPersonalDetails.findUnique({ where: { id: applicationId }, select });
+    }
+    if (appType === 'RENEWAL') {
+      return prisma.renewalFormPersonalDetails.findUnique({ where: { id: applicationId }, select });
+    }
+    return null;
   }
 
   /**
