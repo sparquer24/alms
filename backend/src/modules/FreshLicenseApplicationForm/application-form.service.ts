@@ -1,8 +1,9 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { Sex, FileType, LicensePurpose, Prisma } from '@prisma/client';
+import { Sex, FileType, LicensePurpose, Prisma, RoleFlowApplicationType } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
+import { normalizeHierarchyApplicationType } from '../../constants/flow-mapping';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -1376,16 +1377,13 @@ export class ApplicationFormService {
             include: { role: true }
           });
           userRole = user?.role?.code;
-
-          // For non-ZS users, filter by currentUserId
-          // ZS users can see all applications
-          // if (userRole && userRole !== ROLE_CODES.ZS) {
-          where.currentUserId = parsedUserId;
-          // }
         }
       }
 
       // Workflow status filter: accept numeric IDs or textual identifiers (codes/names)
+      // Resolved BEFORE the ownership filter below so we know whether this is a
+      // terminal-status ("history") query, e.g. Closed/Applications tabs.
+      let resolvedStatusCodes: string[] = [];
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
         // Split numeric-like entries and non-numeric entries
         const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
@@ -1407,13 +1405,45 @@ export class ApplicationFormService {
         }
 
         where.workflowStatusId = { in: resolvedIds };
+
+        const statusRows = await prisma.statuses.findMany({
+          where: { id: { in: resolvedIds } },
+          select: { code: true },
+        });
+        resolvedStatusCodes = statusRows.map((s) => s.code);
       }
 
-      // Specific application ID filter (ownership) - for explicit isOwned flag
-      if (filter.isOwned == true && filter.currentUserId) {
-        // currentUserId might be string; convert if numeric
-        const parsed = Number(filter.currentUserId);
-        where.currentUserId = !isNaN(parsed) ? parsed : filter.currentUserId;
+      // Ownership filter. A plain "my queue" query (e.g. the live Inbox) is
+      // scoped to applications currently assigned to this user. But a query
+      // for terminal statuses only (Closed/Applications tabs: CLOSE, APPROVED,
+      // REJECT, DISPOSE, CANCEL) is a *history* view — by the time an
+      // application reaches one of those statuses, currentUserId has usually
+      // moved on to whoever actioned it last, so a strict currentUserId match
+      // would almost always come back empty for the user who originated it.
+      // In that case, also match applications this user was ever involved
+      // with via the workflow history trail.
+      const TERMINAL_STATUS_CODES = new Set([
+        STATUS_CODES.CLOSE,
+        STATUS_CODES.APPROVED,
+        STATUS_CODES.REJECT,
+        STATUS_CODES.DISPOSE,
+        STATUS_CODES.CANCEL,
+      ]);
+      const isTerminalHistoryQuery =
+        resolvedStatusCodes.length > 0 && resolvedStatusCodes.every((c) => TERMINAL_STATUS_CODES.has(c as any));
+
+      if (filter.currentUserId) {
+        const parsedUserId = Number(filter.currentUserId);
+        if (!isNaN(parsedUserId)) {
+          if (isTerminalHistoryQuery) {
+            where.OR = [
+              { currentUserId: parsedUserId },
+              { workflowHistories: { some: { previousUserId: parsedUserId } } },
+            ];
+          } else {
+            where.currentUserId = parsedUserId;
+          }
+        }
       }
 
       // Search filter (supports id exact match or text contains on allowed fields)
@@ -1685,34 +1715,6 @@ export class ApplicationFormService {
   }
 
 
-  /*
-    * Get users in the hierarchy based on application present address and current user's role
-  */
-  private normalizeApplicationType(applicationType?: string): 'fresh' | 'renewal' | 'cancel' {
-    const normalized = String(applicationType || '').trim().toLowerCase();
-
-    if (!normalized) return 'fresh';
-
-    if (
-      normalized.includes('renew') ||
-      normalized.includes('renewalapplicationform') ||
-      normalized.includes('renewal')
-    ) {
-      return 'renewal';
-    }
-
-    if (
-      normalized.includes('cancel') ||
-      normalized.includes('cancelform') ||
-      normalized.includes('cancelapplication') ||
-      normalized.includes('cancelrequest')
-    ) {
-      return 'cancel';
-    }
-
-    return 'fresh';
-  }
-
   /**
    * Resolve a CancelForm request to its original application's address and current user role.
    * Returns { originalAppId, currentUserId, roleId, presentAddress } or null if not found.
@@ -1932,9 +1934,45 @@ export class ApplicationFormService {
     return [null, transformedUsers];
   }
 
+  /**
+   * Resolve the next role IDs for a role within an application-type + location context.
+   * Resolution is ordered by specificity:
+   *   1. Exact mapping for (stateId, districtId)
+   *   2. State-level mapping (stateId set, districtId null)
+   *   3. Global mapping (stateId null, districtId null)
+   * This mirrors how flow mappings are configured (scoped to state/district or global),
+   * so an application in an unmapped state/district still falls back to the global workflow.
+   */
+  private async resolveRoleFlowMapping(
+    currentRoleId: number,
+    applicationType: RoleFlowApplicationType,
+    stateId: number | null,
+    districtId: number | null,
+  ): Promise<number[]> {
+    const roleMapping = await prisma.roleFlowMapping.findFirst({
+      where: {
+        currentRoleId,
+        applicationType,
+        purpose: 'ALL',
+        OR: [
+          { stateId, districtId },
+          { stateId, districtId: null },
+          { stateId: null, districtId: null },
+        ],
+      },
+      orderBy: [
+        { stateId: { sort: 'desc', nulls: 'last' } },
+        { districtId: { sort: 'desc', nulls: 'last' } },
+      ],
+      select: { nextRoleIds: true },
+    });
+
+    return roleMapping?.nextRoleIds ?? [];
+  }
+
   async getUsersInHierarchy(applicationId: number, applicationType?: string): Promise<[any, any]> {
     try {
-      const resolvedType = this.normalizeApplicationType(applicationType);
+      const resolvedType = normalizeHierarchyApplicationType(applicationType);
 
       // Handle CancelForm: resolve through the cancel request to the original application
       if (resolvedType === 'cancel') {
@@ -1947,19 +1985,26 @@ export class ApplicationFormService {
           return [new BadRequestException('Original application does not have a present address defined'), null];
         }
 
-        // Fetch role flow mapping using the current assignee's role
-        const roleMapping = await prisma.roleFlowMapping.findUnique({
-          where: { currentRoleId: cancelHierarchy.roleId },
-          select: { nextRoleIds: true }
-        });
+        // Map applicationType to flow mapping enum value
+        const flowAppType = 'CANCEL';
+        const cancelStateId = cancelHierarchy.presentAddress.stateId ?? null;
+        const cancelDistrictId = cancelHierarchy.presentAddress.districtId ?? null;
 
-        if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
+        // Resolve next roles from role flow mapping (exact → state-level → global)
+        const nextRoleIds = await this.resolveRoleFlowMapping(
+          cancelHierarchy.roleId,
+          flowAppType,
+          cancelStateId,
+          cancelDistrictId,
+        );
+
+        if (nextRoleIds.length === 0) {
           return [null, []];
         }
 
         // Build location hierarchy conditions
         const { policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId } = cancelHierarchy.presentAddress;
-        return this.findUsersByLocationAndRoles(roleMapping.nextRoleIds, {
+        return this.findUsersByLocationAndRoles(nextRoleIds, {
           policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId
         });
       }
@@ -2021,7 +2066,6 @@ export class ApplicationFormService {
       if (!application.presentAddress) {
         return [new BadRequestException('Application does not have a present address defined'), null];
       }
-      console.log(application.presentAddress)
       if (!application.currentUserId || !application.currentUser) {
         return [new BadRequestException('Application does not have a current user assigned'), null];
       }
@@ -2030,15 +2074,21 @@ export class ApplicationFormService {
         return [new BadRequestException('Current user does not have a role assigned'), null];
       }
 
-      // Fetch role flow mapping
-      const roleMapping = await prisma.roleFlowMapping.findUnique({
-        where: { currentRoleId: application.currentUser.roleId },
-        select: {
-          nextRoleIds: true
-        }
-      });
+      // Map normalised type to flow mapping enum
+      const flowAppType = resolvedType === 'renewal' ? 'RENEWAL' : 'FRESH';
 
-      if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
+      // Resolve next roles from role flow mapping (exact → state-level → global)
+      // using the application's present address as the location context.
+      const { stateId: appStateId, districtId: appDistrictId } = application.presentAddress;
+
+      const nextRoleIds = await this.resolveRoleFlowMapping(
+        application.currentUser.roleId,
+        flowAppType,
+        appStateId,
+        appDistrictId,
+      );
+
+      if (nextRoleIds.length === 0) {
         return [null, []];
       }
 
@@ -2085,7 +2135,7 @@ export class ApplicationFormService {
       // Single optimized query with role filtering at database level
       const users = await prisma.users.findMany({
         where: {
-          roleId: { in: roleMapping.nextRoleIds },
+          roleId: { in: nextRoleIds },
           OR: locationConditions
         },
         select: userSelect,
@@ -2310,16 +2360,8 @@ export class ApplicationFormService {
     // --- Fetch from CancelFormRequests (pending/active requests) ---
     const cancelFormWhere: any = {};
 
-    // User/citizen filter: map currentUserId to the cancel request's currentUserId (who it's assigned to)
-    // matching the exact logic used in getFilteredApplications
-    if (filter.currentUserId) {
-      const parsedUserId = Number(filter.currentUserId);
-      if (!isNaN(parsedUserId)) {
-        cancelFormWhere.currentUserId = parsedUserId;
-      }
-    }
-
     // Status filter - map workflowStatusId filter matching resolved IDs in getFilteredApplications
+    let resolvedCancelStatusCodes: string[] = [];
     if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
       const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
       const nonNumeric = filter.statusIds.filter((s: any) => isNaN(Number(s))).map(String);
@@ -2334,6 +2376,40 @@ export class ApplicationFormService {
 
       if (resolvedIds.length > 0) {
         cancelFormWhere.workFlowStatusId = { in: resolvedIds };
+        const statusRows = await prisma.statuses.findMany({
+          where: { id: { in: resolvedIds } },
+          select: { code: true },
+        });
+        resolvedCancelStatusCodes = statusRows.map((s) => s.code);
+      }
+    }
+
+    // User/citizen filter: map currentUserId to the cancel request's currentUserId (who it's
+    // assigned to), matching the exact logic used in getFilteredApplications — including the
+    // terminal-status ("history") broadening so Closed/Applications tabs also match requests
+    // this user was ever involved with, not just the ones still currently assigned to them.
+    const CANCEL_TERMINAL_STATUS_CODES = new Set([
+      STATUS_CODES.CLOSE,
+      STATUS_CODES.APPROVED,
+      STATUS_CODES.REJECT,
+      STATUS_CODES.DISPOSE,
+      STATUS_CODES.CANCEL,
+    ]);
+    const isCancelTerminalHistoryQuery =
+      resolvedCancelStatusCodes.length > 0 &&
+      resolvedCancelStatusCodes.every((c) => CANCEL_TERMINAL_STATUS_CODES.has(c as any));
+
+    if (filter.currentUserId) {
+      const parsedUserId = Number(filter.currentUserId);
+      if (!isNaN(parsedUserId)) {
+        if (isCancelTerminalHistoryQuery) {
+          cancelFormWhere.OR = [
+            { currentUserId: parsedUserId },
+            { cancelWorkflowHistories: { some: { previousUserId: parsedUserId } } },
+          ];
+        } else {
+          cancelFormWhere.currentUserId = parsedUserId;
+        }
       }
     }
 

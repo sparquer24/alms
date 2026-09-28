@@ -7,11 +7,8 @@
   margin-right: auto;
   padding-left: 1rem;
   padding-right: 1rem;
-  /* give slightly more vertical space to reduce internal scrolling */
-  max-height: calc(100vh - 170px);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .formHeader {
@@ -35,7 +32,7 @@
 }
 
 .formLabel {
-  @apply block text-sm font-semibold text-gray-700 mb-2;
+  @apply block text-sm font-semibold text-gray-700 mb-1;
 }
 
 .required {
@@ -213,7 +210,7 @@
 }
 
 .selectContainer :global(.select__value-container) {
-  padding: 0.5rem 0.75rem;
+  padding: 0.25rem 0.75rem;
 }
 
 .selectContainer :global(.select__input-container) {
@@ -246,14 +243,10 @@
   color: #374151;
 } 
 
-/* Scroll panel to contain form content and keep scrollbar inside the panel */
+/* Content flows naturally; the sticky panel in ApplicationDetailClient owns scrolling */
 .scrollPanel {
-  /* fill available vertical space inside .formContainer and scroll internally */
-  height: 100%;
-  overflow: auto;
   padding-top: 0;
   padding-bottom: 0;
-  
 }
 
 /* New background variants for visual separation */

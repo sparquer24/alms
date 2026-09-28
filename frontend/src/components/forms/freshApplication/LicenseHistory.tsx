@@ -67,20 +67,20 @@ const validateLicenseHistory = (formData: any) => {
 };
 
 const LicenseHistory = () => {
-	const [appliedBefore, setAppliedBefore] = useState('no');
+	const [appliedBefore, setAppliedBefore] = useState('yes');
 	const [appliedDetails, setAppliedDetails] = useState({ date: '', authority: '', result: '' });
 	const [rejectedFiles, setRejectedFiles] = useState<File[]>([]);
 	const [fileError, setFileError] = useState<string>('');
 	const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
 	const [uploading, setUploading] = useState<boolean>(false);
 	const [uploadProgress, setUploadProgress] = useState<Record<string, boolean>>({});
-	const [suspended, setSuspended] = useState('no');
+	const [suspended, setSuspended] = useState('yes');
 	const [suspendedDetails, setSuspendedDetails] = useState({ authority: '', reason: '' });
-	const [family, setFamily] = useState('no');
+	const [family, setFamily] = useState('yes');
 	const [familyDetails, setFamilyDetails] = useState([{ ...initialFamily }]);
-	const [safePlace, setSafePlace] = useState('no');
+	const [safePlace, setSafePlace] = useState('yes');
 	const [safePlaceDetails, setSafePlaceDetails] = useState('');
-	const [training, setTraining] = useState('no');
+	const [training, setTraining] = useState('yes');
 	const [trainingDetails, setTrainingDetails] = useState('');
 	const [weapons, setWeapons] = useState<Weapon[]>([]);
 	const [loadingWeapons, setLoadingWeapons] = useState(false);

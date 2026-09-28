@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { NotificationApi } from './APIClient';
 
@@ -80,42 +81,47 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
         setUnreadCount(unread);
       }
     } catch (error) {
+      // Passive background load — log for diagnostics but don't interrupt
+      // the user with a toast every time this runs (mount / auth change).
+      console.error('[NotificationProvider] Failed to fetch notifications:', error);
     }
   };
-  
+
   // Mark notification as read
   const markAsRead = async (id: string) => {
     try {
       const response = await NotificationApi.markAsRead(id);
-      
+
       if (response.success) {
         setNotifications(prev =>
           prev.map(notification =>
             notification.id === id ? { ...notification, isRead: true } : notification
           )
         );
-        
+
         // Update unread count
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
+      toast.error('Failed to mark notification as read. Please try again.');
     }
   };
-  
+
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
       const response = await NotificationApi.markAllAsRead();
-      
+
       if (response.success) {
         setNotifications(prev =>
           prev.map(notification => ({ ...notification, isRead: true }))
         );
-        
+
         // Reset unread count
         setUnreadCount(0);
       }
     } catch (error) {
+      toast.error('Failed to mark all notifications as read. Please try again.');
     }
   };
   

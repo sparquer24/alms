@@ -37,7 +37,7 @@ export class SchedulerService {
         to: 'Applicant-Phone', // In real scenario, join with user/application contact info
         type: 'SMS',
         subject: 'License Expiry Warning',
-        message: `Your Arms License ${license.licenseNumber} will expire on ${license.validTill.toDateString()}. Please submit a renewal application.`
+        message: `Your Arms License ${license.licenseNumber} will expire on ${license.validTill?.toDateString() || 'N/A'}. Please submit a renewal application.`
       });
     }
 

@@ -14,62 +14,67 @@ interface WorkflowGraphProps {
   currentRole: WorkflowNode | null;
   nextRoles: WorkflowNode[];
   allRoles?: WorkflowNode[];
+  allContextMappings?: any[];
 }
 
 export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
   currentRole,
   nextRoles,
-  allRoles = [],
 }) => {
   const { colors } = useAdminTheme();
-
-  // 1. Sanitize Data: Filter out currentRole from nextRoles to prevent duplicates/coordinates overwriting
-  const filteredNextRoles = useMemo(() => {
-    if (!currentRole) return [];
-    return nextRoles.filter(role => role.id !== currentRole.id);
-  }, [currentRole, nextRoles]);
 
   // Dimension Constants
   const cardWidth = 220;
   const cardHeight = 110;
   const nodesPerRow = 3;
 
-  // Calculate layout dimensions dynamically
+  // Calculate layout dimensions and node positions dynamically
   const containerWidth = 900;
-  const numRows = Math.ceil(filteredNextRoles.length / nodesPerRow);
-  const containerHeight = Math.max(480, 220 + numRows * 180 + 40);
 
-  // Position nodes
-  const nodePositions = useMemo(() => {
-    if (!currentRole) return {};
-
-    const positions: Record<number, { x: number; y: number }> = {};
-
-    // Current role at top center
-    positions[currentRole.id] = { x: containerWidth / 2, y: 75 };
-
-    // Group next roles into rows for grid layout
-    const rows: WorkflowNode[][] = [];
-    for (let i = 0; i < filteredNextRoles.length; i += nodesPerRow) {
-      rows.push(filteredNextRoles.slice(i, i + nodesPerRow));
+  const layout = useMemo(() => {
+    if (!currentRole) {
+      return { positions: {}, containerHeight: 480, nextConnectors: [], nextLayer: [] };
     }
 
-    rows.forEach((rowNodes, rowIndex) => {
-      const totalNodesInRow = rowNodes.length;
-      const horizontalGap = 240; // Center-to-center distance
-      const rowWidth = (totalNodesInRow - 1) * horizontalGap;
-      const startX = (containerWidth - rowWidth) / 2;
+    const positions: Record<number, { x: number; y: number }> = {};
+    const nextConnectors: { from: number; to: number }[] = [];
 
-      rowNodes.forEach((role, colIndex) => {
-        positions[role.id] = {
-          x: startX + colIndex * horizontalGap,
-          y: 260 + rowIndex * 180,
-        };
+    // Next layer
+    const nextLayer = nextRoles.filter(role => role.id !== currentRole.id);
+
+    // 3. Compute Y positions
+    const startY = 75; // Top layer Y (current role)
+    const verticalGap = 180;
+
+    // Place current role at the top
+    positions[currentRole.id] = { x: containerWidth / 2, y: startY };
+
+    // Place next roles (group into rows)
+    const nextRows: WorkflowNode[][] = [];
+    for (let i = 0; i < nextLayer.length; i += nodesPerRow) {
+      nextRows.push(nextLayer.slice(i, i + nodesPerRow));
+    }
+
+    nextRows.forEach((layer, rowIdx) => {
+      const y = startY + (rowIdx + 1) * verticalGap;
+      const rowWidth = (layer.length - 1) * 240;
+      const startX = (containerWidth - rowWidth) / 2;
+      layer.forEach((node, colIdx) => {
+        positions[node.id] = { x: startX + colIdx * 240, y };
       });
     });
 
-    return positions;
-  }, [currentRole, filteredNextRoles, containerWidth, nodesPerRow]);
+    // 4. Build Connectors
+    // Next connectors (from current state in UI)
+    nextLayer.forEach(nextRole => {
+      nextConnectors.push({ from: currentRole.id, to: nextRole.id });
+    });
+
+    const totalRows = 1 + nextRows.length;
+    const containerHeight = Math.max(480, 220 + (totalRows - 1) * verticalGap);
+
+    return { positions, containerHeight, nextConnectors, nextLayer };
+  }, [currentRole, nextRoles]);
 
   if (!currentRole) {
     return (
@@ -103,12 +108,12 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
     >
       <svg
         width={containerWidth}
-        height={containerHeight}
+        height={layout.containerHeight}
         style={{
           minWidth: containerWidth,
           backgroundColor: colors.background,
         }}
-        viewBox={`0 0 ${containerWidth} ${containerHeight}`}
+        viewBox={`0 0 ${containerWidth} ${layout.containerHeight}`}
       >
         {/* SVG Defs for markers and filters */}
         <defs>
@@ -124,7 +129,7 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
           >
             <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill={colors.status.info} />
           </marker>
-          
+
           {/* Drop shadow filter for cards */}
           <filter id="card-shadow" x="-10%" y="-10%" width="120%" height="120%">
             <feDropShadow
@@ -138,28 +143,23 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
         </defs>
 
         {/* Draw connecting lines from current role to each next role */}
-        {filteredNextRoles.map(nextRole => {
-          const from = nodePositions[currentRole.id];
-          const to = nodePositions[nextRole.id];
+        {layout.nextConnectors.map(connector => {
+          const from = layout.positions[connector.from];
+          const to = layout.positions[connector.to];
 
           if (!from || !to) return null;
 
-          // Start from bottom center of current card
           const fromX = from.x;
           const fromY = from.y + cardHeight / 2;
-
-          // End at top center of target card (offset by arrowhead height)
           const toX = to.x;
           const toY = to.y - cardHeight / 2 - 6;
 
-          // Vertical cubic Bezier S-curve
           const dy = toY - fromY;
           const controlY1 = fromY + dy * 0.45;
           const controlY2 = toY - dy * 0.45;
 
           return (
-            <g key={`connector-${currentRole.id}-${nextRole.id}`}>
-              {/* Elegant curved connector line */}
+            <g key={`connector-next-${connector.from}-${connector.to}`}>
               <path
                 d={`M ${fromX} ${fromY} C ${fromX} ${controlY1}, ${toX} ${controlY2}, ${toX} ${toY}`}
                 stroke={colors.status.info}
@@ -174,11 +174,11 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
         })}
 
         {/* Render Current Role Node */}
-        {currentRole && nodePositions[currentRole.id] && (
+        {currentRole && layout.positions[currentRole.id] && (
           <g key={`node-current-${currentRole.id}`}>
             <foreignObject
-              x={nodePositions[currentRole.id].x - cardWidth / 2}
-              y={nodePositions[currentRole.id].y - cardHeight / 2}
+              x={layout.positions[currentRole.id].x - cardWidth / 2}
+              y={layout.positions[currentRole.id].y - cardHeight / 2}
               width={cardWidth}
               height={cardHeight}
               style={{ overflow: 'visible' }}
@@ -255,12 +255,12 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
         )}
 
         {/* Render Next Role Nodes */}
-        {filteredNextRoles.map(role => {
-          const pos = nodePositions[role.id];
+        {layout.nextLayer.map(nextRole => {
+          const pos = layout.positions[nextRole.id];
           if (!pos) return null;
 
           return (
-            <g key={`node-next-${role.id}`}>
+            <g key={`node-next-${nextRole.id}`}>
               <foreignObject
                 x={pos.x - cardWidth / 2}
                 y={pos.y - cardHeight / 2}
@@ -325,7 +325,7 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
                       letterSpacing: '0.5px',
                     }}
                   >
-                    {role.code}
+                    {nextRole.code}
                   </div>
 
                   {/* Role Name */}
@@ -341,9 +341,9 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical',
                     }}
-                    title={role.name}
+                    title={nextRole.name}
                   >
-                    {role.name}
+                    {nextRole.name}
                   </div>
                 </div>
               </foreignObject>
@@ -379,7 +379,7 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
             Current Role
           </span>
           <span style={{ fontSize: '12px', color: colors.text.secondary }}>
-            (Role that forwards the application)
+            (Selected role)
           </span>
         </div>
 
@@ -415,7 +415,7 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
           lineHeight: '1.5',
         }}
       >
-        💡 <strong>Workflow Hierarchy:</strong> Applications flow from the current role to selected
+        💡 <strong>Workflow:</strong> Applications flow from the current role to selected
         next roles. You can select multiple roles to allow applications to be forwarded to different
         departments or locations.
       </div>

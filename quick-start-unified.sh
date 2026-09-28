@@ -73,8 +73,6 @@ fi
 # Stop any existing containers that might conflict
 echo ""
 echo "🧹 Cleaning up existing containers..."
-docker-compose -f docker-compose.yml down 2>/dev/null || true
-docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
 docker-compose -f docker-compose.unified.yml down 2>/dev/null || true
 
 # Check for port conflicts

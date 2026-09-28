@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Sidebar } from "../../components/Sidebar";
 import Header from "../../components/Header";
+import Footer from "../../components/Footer";
+import { PageSubHeader, SubHeaderPills, SubHeaderButton } from "@/components/common/PageSubHeader";
 import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from "../../config/layoutContext";
 import { useNotifications } from "../../config/notificationContext";
@@ -22,7 +25,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   
   const { isAuthenticated, token, isLoading: authLoading } = useAuth();
-  const { setShowHeader, setShowSidebar } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
   const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications } = useNotifications();
 
   // Example notification to show as a sample response when there are no real notifications.
@@ -82,6 +85,7 @@ export default function NotificationsPage() {
         }
       }
     } catch (error) {
+      toast.error('Failed to load more notifications. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -169,50 +173,45 @@ export default function NotificationsPage() {
   }
   
   return (
-    <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+    <div className="flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white">
       <Sidebar />
       <Header />
-      
-  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-            
-            <div className="flex space-x-2">
-              <div className="relative inline-block bg-gray-100 p-1 rounded-lg">
-                <button 
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md ${filter === 'all' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                  onClick={() => setFilter('all')}
-                >
-                  All
-                </button>
-                <button 
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md ${filter === 'unread' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                  onClick={() => setFilter('unread')}
-                >
-                  Unread ({unreadCount})
-                </button>
-                <button 
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md ${filter === 'read' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                  onClick={() => setFilter('read')}
-                >
-                  Read
-                </button>
-              </div>
-              
+
+      <main
+        className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]"
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
+        <PageSubHeader
+          title="Notifications"
+          metaBadge={unreadCount > 0 ? `${unreadCount} Unread` : undefined}
+          actions={
+            <div className="flex items-center gap-2">
+              <SubHeaderPills<'all' | 'unread' | 'read'>
+                options={[
+                  { key: 'all', label: 'All' },
+                  { key: 'unread', label: 'Unread', count: unreadCount },
+                  { key: 'read', label: 'Read' },
+                ]}
+                value={filter}
+                onChange={setFilter}
+              />
               {unreadCount > 0 && (
-                <button
+                <SubHeaderButton
+                  variant="primary"
                   onClick={markAllAsRead}
-                  className="text-sm text-indigo-600 hover:text-indigo-800 border border-indigo-200 px-3 py-1.5 rounded-md hover:bg-indigo-50"
+                  title="Mark all as read"
                 >
-                  Mark all as read
-                </button>
+                  Mark All Read
+                </SubHeaderButton>
               )}
             </div>
-          </div>
-          
-          {/* Notifications List */}
-          <div className="space-y-4">
+          }
+        />
+
+        <div className="flex-grow p-4 sm:p-6 max-w-5xl w-full mx-auto flex flex-col gap-4">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 p-5 sm:p-6">
+            {/* Notifications List */}
+            <div className="space-y-3">
             {filteredNotifications.length === 0 ? (
               // Show an example notification when there are no notifications to help with visual testing
               <div className="p-4 border rounded-lg flex items-start space-x-4 bg-indigo-50 border-indigo-100">
@@ -289,6 +288,8 @@ export default function NotificationsPage() {
             )}
           </div>
         </div>
+        </div>
+        <Footer />
       </main>
     </div>
   );

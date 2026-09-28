@@ -1,17 +1,22 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { FormSkeleton } from '../../../../components/forms/elements/FormSkeleton';
 
-// freshApplication step components
-import PersonalInformation from '../../../../components/forms/freshApplication/PersonalInformation'; // step1
-import AddressDetails from '../../../../components/forms/freshApplication/AddressDetails'; // step2
-import OccupationBussiness from '../../../../components/forms/freshApplication/OccupationBussiness'; // step3
-import LicenseDetails from '../../../../components/forms/freshApplication/LicenseDetails'; // step5
-import CriminalHistory from '../../../../components/forms/freshApplication/CriminalHistory'; // step6
-import LicenseHistory from '../../../../components/forms/freshApplication/LicenseHistory'; // step7
-import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8
-import DocumentsUpload from '../../../../components/forms/freshApplication/DocumentsUpload'; // step9
-import Preview from '../../../../components/forms/freshApplication/Preview'; // preview
-import Declaration from '../../../../components/forms/freshApplication/Declaration'; // declaration
+// freshApplication step components — loaded on demand so navigating to one
+// step doesn't force-download the code for every other step (Biometric and
+// Preview alone are 1,600-2,900 lines each).
+const stepLoading = () => <FormSkeleton rows={5} />;
+const PersonalInformation = dynamic(() => import('../../../../components/forms/freshApplication/PersonalInformation'), { loading: stepLoading }); // step1
+const AddressDetails = dynamic(() => import('../../../../components/forms/freshApplication/AddressDetails'), { loading: stepLoading }); // step2
+const OccupationBussiness = dynamic(() => import('../../../../components/forms/freshApplication/OccupationBussiness'), { loading: stepLoading }); // step3
+const LicenseDetails = dynamic(() => import('../../../../components/forms/freshApplication/LicenseDetails'), { loading: stepLoading }); // step5
+const CriminalHistory = dynamic(() => import('../../../../components/forms/freshApplication/CriminalHistory'), { loading: stepLoading }); // step6
+const LicenseHistory = dynamic(() => import('../../../../components/forms/freshApplication/LicenseHistory'), { loading: stepLoading }); // step7
+const BiometricInformation = dynamic(() => import('../../../../components/forms/freshApplication/BiometricInformation'), { loading: stepLoading, ssr: false }); // step8
+const DocumentsUpload = dynamic(() => import('../../../../components/forms/freshApplication/DocumentsUpload'), { loading: stepLoading }); // step9
+const Preview = dynamic(() => import('../../../../components/forms/freshApplication/Preview'), { loading: stepLoading }); // preview
+const Declaration = dynamic(() => import('../../../../components/forms/freshApplication/Declaration'), { loading: stepLoading }); // declaration
 
 interface StepPageProps {
   params: Promise<{ step: string }>;
@@ -36,7 +41,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
   }, [params]);
 
   if (!step) {
-    return null;
+    return <FormSkeleton rows={5} />;
   }
 
   switch (step) {

@@ -16,8 +16,8 @@ export default function Home() {
     // If authenticated, redirect based on role
     if (isAuthenticated && userRole) {
       const redirectMap: Record<string, string> = {
-        ADMIN: '/admin/userManagement',
-        SUPER_ADMIN: '/superAdmin/userManagement',
+        ADMIN: '/dashboard',
+        SUPER_ADMIN: '/dashboard',
         ARMS_SUPDT: '/inbox',
         SHO: '/inbox',
         ZS: '/inbox',

@@ -5,7 +5,7 @@ The Locations API provides endpoints to fetch geographical and administrative lo
 
 ## Base URL
 ```
-http://localhost:3000/api/locations
+http://localhost:3001/api/locations
 ```
 
 ## Authentication

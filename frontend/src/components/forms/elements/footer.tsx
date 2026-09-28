@@ -76,7 +76,7 @@ const FormFooter = ({
           </span>
         </div>
       {isDeclarationStep ? (
-        <div className='flex w-full justify-between mt-4'>
+        <div className='flex w-full flex-wrap justify-between mt-4 gap-2'>
           {!hidePrevious && (
             <button
               type='button'
@@ -106,7 +106,7 @@ const FormFooter = ({
           </button>
         </div>
       ) : (
-        <div className='flex gap-3 justify-end mt-4'>
+        <div className='flex flex-wrap gap-3 justify-end mt-4'>
           <button
             type='button'
             onClick={onSaveToDraft}

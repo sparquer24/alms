@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useCallback, useImperativeHandle } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ApplicationData } from '../types';
 import styles from './ApplicationTable.module.css';
 import { useApplications } from '../context/ApplicationContext';
@@ -61,7 +61,12 @@ function getIsViewed(app: ApplicationData): boolean {
   return Boolean((app as any).isViewed);
 }
 
-interface ApplicationTableProps {
+export interface ApplicationTableRef {
+  exportExcel: () => Promise<void>;
+  isExporting: boolean;
+}
+
+export interface ApplicationTableProps {
   users?: UserData[];
   isLoading?: boolean;
   statusIdFilter?: string;
@@ -71,20 +76,43 @@ interface ApplicationTableProps {
   showActionColumn?: boolean;
   selectedFormType?: 'fresh' | 'renewal';
   onSelectedFormTypeChange?: (value: 'fresh' | 'renewal') => void;
+  // External SubHeader integration props:
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+  applicationTypeFilter?: string;
+  onApplicationTypeFilterChange?: (filter: string) => void;
+  hideControls?: boolean;
+  // External pagination props (optional). If not provided, it handles pagination locally.
+  currentPage?: number;
+  totalPages?: number;
+  totalItems?: number;
+  onPageChange?: (page: number) => void;
 }
 
-const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
-  ({
-    users: _users,
-    applications,
-    filteredApplications,
-    isLoading = false,
-    statusIdFilter: _statusIdFilter,
-    pageType,
-    showActionColumn = true,
-    selectedFormType,
-    onSelectedFormTypeChange,
-  }) => {
+const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableProps>(
+  (
+    {
+      users: _users,
+      applications,
+      filteredApplications,
+      isLoading = false,
+      statusIdFilter: _statusIdFilter,
+      pageType,
+      showActionColumn = true,
+      selectedFormType,
+      onSelectedFormTypeChange,
+      searchQuery: externalSearchQuery,
+      onSearchQueryChange,
+      applicationTypeFilter: externalApplicationTypeFilter,
+      onApplicationTypeFilterChange,
+      hideControls = false,
+      currentPage: externalCurrentPage,
+      totalPages: externalTotalPages,
+      totalItems: externalTotalItems,
+      onPageChange: externalOnPageChange,
+    },
+    ref
+  ) => {
     // Get applications from context
     const { applications: contextApplications } = useApplications();
 
@@ -93,10 +121,15 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     const isSentPage = pageType === 'sent';
     const isRenewalPage = pageType === 'renewal';
 
-    // Local search state
-    const [searchQuery, setSearchQuery] = useState<string>('');
-    // Application type filter state: 'All' | 'Fresh' | 'Renewal'
-    const [applicationTypeFilter, setApplicationTypeFilter] = React.useState<string>('All');
+    // Local search state fallback
+    const [localSearchQuery, setLocalSearchQuery] = useState<string>('');
+    const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : localSearchQuery;
+    const setSearchQuery = onSearchQueryChange || setLocalSearchQuery;
+
+    // Application type filter state fallback: 'All' | 'Fresh' | 'Renewal' | 'Cancel'
+    const [localApplicationTypeFilter, setLocalApplicationTypeFilter] = React.useState<string>('All');
+    const applicationTypeFilter = externalApplicationTypeFilter !== undefined ? externalApplicationTypeFilter : localApplicationTypeFilter;
+    const setApplicationTypeFilter = onApplicationTypeFilterChange || setLocalApplicationTypeFilter;
 
     // Determine base applications list in this order: filtered -> prop -> context -> empty array
     const baseApplications = React.useMemo(
@@ -112,7 +145,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       if (applicationTypeFilter !== 'All') {
         filtered = filtered.filter(app => {
           const appType = (app.applicationType || '').toLowerCase();
-          return appType === applicationTypeFilter.toLowerCase();
+          return appType.includes(applicationTypeFilter.toLowerCase());
         });
       }
 
@@ -147,7 +180,41 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       return filtered;
     }, [baseApplications, searchQuery, applicationTypeFilter]);
 
+    // --- Pagination Logic ---
+    const [localCurrentPage, setLocalCurrentPage] = useState(1);
+    const pageSize = 15;
+    
+    // If external pagination is provided, use it. Otherwise, use local.
+    const isExternalPagination = externalCurrentPage !== undefined;
+    const currentPage = isExternalPagination ? externalCurrentPage : localCurrentPage;
+    
+    const totalItems = isExternalPagination && externalTotalItems !== undefined 
+      ? externalTotalItems 
+      : effectiveApplications.length;
+      
+    const totalPages = isExternalPagination && externalTotalPages !== undefined
+      ? externalTotalPages
+      : Math.max(1, Math.ceil(totalItems / pageSize));
+      
+    const handlePageChange = (page: number) => {
+      if (externalOnPageChange) {
+        externalOnPageChange(page);
+      } else {
+        setLocalCurrentPage(page);
+      }
+    };
+    
+    // Slice data ONLY if we are using local pagination.
+    const paginatedApplications = React.useMemo(() => {
+      if (isExternalPagination) {
+        return effectiveApplications; // Parent already sliced it
+      }
+      const startIndex = (currentPage - 1) * pageSize;
+      return effectiveApplications.slice(startIndex, startIndex + pageSize);
+    }, [effectiveApplications, currentPage, pageSize, isExternalPagination]);
+
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { executeAction, setActiveNavigationPath } = useGlobalAction();
 
     // Compute visible table column names so header and export use same labels
@@ -173,16 +240,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       return base;
     }, [isSentPage, isRenewalPage, showActionColumn]);
 
-    // Prevent outer page scrollbar while this table is rendered so only the
-    // inner table wrapper scrolls. We restore the previous overflow value on unmount.
-    React.useEffect(() => {
-      if (typeof document === 'undefined') return;
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = prev || '';
-      };
-    }, []);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [exportingExcel, setExportingExcel] = useState<boolean>(false);
@@ -214,11 +271,15 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         // executeAction will prevent duplicate navigations for same actionId
         void executeAction(actionId, async () => {
           const app = (baseApplications || []).find(a => a.id === id);
-          const route = /cancel/i.test(String(app?.applicationType || ''))
+          const routeBase = /cancel/i.test(String(app?.applicationType || ''))
             ? `/cancelForm/${id}`
             : /renewal/i.test(String(app?.applicationType || ''))
               ? `/renewalApplication/${id}`
               : `/application/${id}`;
+          
+          const currentType = searchParams?.get('type');
+          const route = currentType ? `${routeBase}?returnType=${encodeURIComponent(currentType)}` : routeBase;
+          
           setActiveNavigationPath(route);
           await router.push(route);
           setLoadingRowId(null);
@@ -386,19 +447,30 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       }
     }, [effectiveApplications, exportingExcel, formatDateTime, tableColumns]);
 
+    // Expose exportExcel and isExporting via ref for PageSubHeader integration
+    useImperativeHandle(
+      ref,
+      () => ({
+        exportExcel: handleExportExcel,
+        isExporting: exportingExcel,
+      }),
+      [handleExportExcel, exportingExcel]
+    );
+
     if (isLoading) {
       return <TableSkeleton rows={8} columns={6} />;
     }
 
     return (
-      <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
+      <div className={`${styles.tableContainer} min-w-full flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg shadow`}>
         {/* Display messages */}
         {successMessage && <Message type='success' message={successMessage} />}
 
         {errorMessage && <Message type='error' message={errorMessage} />}
 
-        {/* Controls (search + export) stay above the scrollable table */}
-        <div className='px-4 pt-4 pb-2 bg-white'>
+        {/* Controls (search + export) stay above the scrollable table when hideControls is false */}
+        {!hideControls && (
+          <div className='flex-none px-4 pt-4 pb-2 bg-white'>
           <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
             <div className='relative w-full sm:w-72'>
               <input
@@ -436,6 +508,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 <option value='All'>All Types</option>
                 <option value='Fresh'>Fresh</option>
                 <option value='Renewal'>Renewal</option>
+                <option value='Cancel'>Cancel</option>
               </select>
 
               <button
@@ -498,9 +571,10 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             </div>
           </div>
         </div>
+        )}
 
-        <div className={`${styles.tableWrapper} w-full min-w-0`}>
-          <table className='w-full table-fixed border-collapse'>
+        <div className={`${styles.tableWrapper} w-full min-w-0 flex-1 min-h-0 overflow-y-auto`}>
+          <table className='w-full table-fixed border-separate border-spacing-0'>
             <colgroup>
               {(() => {
                 const cols = isSentPage
@@ -522,7 +596,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                       key={col}
                       scope='col'
                       style={{ textAlign: isAction ? 'center' : 'left' }}
-                      className={`${styles.tableHeaderCell} text-sm font-medium text-black`}
+                      className={`${styles.tableHeaderCell} text-sm font-medium text-black ${isAction ? 'print:hidden' : ''}`}
                     >
                       {col}
                     </th>
@@ -543,11 +617,11 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                   </td>
                 </tr>
               ) : (
-                effectiveApplications.map((app, index) => (
+                paginatedApplications.map((app, index) => (
                   <TableRow
                     key={`${app.id}-${index}`}
                     app={app}
-                    index={index}
+                    index={(currentPage - 1) * pageSize + index}
                     handleViewApplication={handleViewApplication}
                     handleEditDraft={handleEditDraft}
                     isDraftsPage={isDraftsPage}
@@ -564,10 +638,67 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Container */}
+        {totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-slate-200 bg-white flex-shrink-0 flex items-center justify-between">
+            <div className="text-sm text-slate-500 font-medium">
+              Showing <span className="text-slate-800 font-semibold">{Math.min((currentPage - 1) * pageSize + 1, totalItems)}</span> to <span className="text-slate-800 font-semibold">{Math.min(currentPage * pageSize, totalItems)}</span> of <span className="text-slate-800 font-semibold">{totalItems}</span> entries
+            </div>
+            <div className="flex space-x-1.5">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              
+              {(() => {
+                const pages = [];
+                const maxPages = 5;
+                let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
+                let endPage = startPage + maxPages - 1;
+                
+                if (endPage > totalPages) {
+                  endPage = totalPages;
+                  startPage = Math.max(1, endPage - maxPages + 1);
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(
+                    <button
+                      key={i}
+                      onClick={() => handlePageChange(i)}
+                      className={`min-w-[32px] px-2 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        i === currentPage
+                          ? 'bg-[#001F54] text-white border border-[#001F54]'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
+                    >
+                      {i}
+                    </button>
+                  );
+                }
+                return pages;
+              })()}
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 );
+
+ApplicationTable.displayName = 'ApplicationTable';
 
 const Message: React.FC<{ type: 'success' | 'error'; message: string }> = ({ type, message }) => {
   const typeClasses =
@@ -744,7 +875,7 @@ const TableRow: React.FC<{
           })()}
         </td>
         {showActionColumn && (
-          <td className={`${styles.tableCell} text-center text-sm text-gray-500`}>
+          <td className={`${styles.tableCell} text-center text-sm text-gray-500 print:hidden`}>
             <button
               onClick={e => {
                 e.stopPropagation();
@@ -875,7 +1006,7 @@ const TableRow: React.FC<{
         })()}
       </td>
       {showActionColumn && (
-        <td className={`${styles.tableCell} text-center text-sm text-gray-500`}>
+        <td className={`${styles.tableCell} text-center text-sm text-gray-500 print:hidden`}>
           {isDrafts ? (
             <div className='flex items-center gap-1 justify-center'>
               <button

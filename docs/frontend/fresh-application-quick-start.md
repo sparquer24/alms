@@ -218,17 +218,17 @@ class ApplicationServiceV2 {
 **Test with curl:**
 ```bash
 # Test POST
-curl -X POST http://localhost:3000/api/application-form/personal-details \
+curl -X POST http://localhost:3001/api/application-form/personal-details \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"firstName":"John","lastName":"Doe","sex":"MALE"}'
 
 # Test GET
-curl http://localhost:3000/api/application-form?applicationId=123 \
+curl http://localhost:3001/api/application-form?applicationId=123 \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # Test PATCH
-curl -X PATCH http://localhost:3000/api/application-form/123 \
+curl -X PATCH http://localhost:3001/api/application-form/123 \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"presentAddress":{"addressLine":"123 Main St"}}'

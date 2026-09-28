@@ -5,7 +5,7 @@ The Auth API provides endpoints for user authentication, profile retrieval, and 
 
 ## Base URL
 ```
-http://localhost:3000/api/auth
+http://localhost:3001/api/auth
 ```
 
 ## Endpoints

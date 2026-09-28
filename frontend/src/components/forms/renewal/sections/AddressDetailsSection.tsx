@@ -53,8 +53,8 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
     const isZS = userData?.role?.name === 'ZS' || userData?.role === 'ZS';
     setIsZSRole(isZS);
 
-    // Only pre-fill present address if all three fields are empty (no existing data) or if user is ZS role
-    if (isZS || (!formData.presentState && !formData.presentDistrict && !formData.presentRangeOffice)) {
+    // Only pre-fill present address if presentState, presentDistrict, and presentRangeOffice are empty (no prefilled data)
+    if (!formData.presentState && !formData.presentDistrict && !formData.presentRangeOffice) {
       const locationDefaults = getUserLocationDefaults();
       
       if (locationDefaults.presentState) {
@@ -88,8 +88,8 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
       }
     }
 
-    // Only pre-fill permanent address if all three fields are empty (no existing data) or if user is ZS role
-    if (isZS || (!formData.permanentState && !formData.permanentDistrict && !formData.permanentRangeOffice)) {
+    // Only pre-fill permanent address if permanentState, permanentDistrict, and permanentRangeOffice are empty (no prefilled data)
+    if (!formData.permanentState && !formData.permanentDistrict && !formData.permanentRangeOffice) {
       const locationDefaults = getUserLocationDefaults();
       
       if (locationDefaults.presentState) {

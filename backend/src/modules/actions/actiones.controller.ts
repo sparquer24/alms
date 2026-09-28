@@ -1,10 +1,8 @@
-import { Controller, Get, Post, Request, UseGuards, Body, Param, Patch, Put, Delete, Query } from "@nestjs/common";
+import { Controller, Get, Post, Request, UseGuards, Body, Param, Put, Delete, Query } from "@nestjs/common";
 import { ApiOperation, ApiTags, ApiQuery, ApiBody, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { ActionesService } from "./actiones.service";
-import { RolesActionsMapping } from "@prisma/client";
-import { Actiones } from "@prisma/client";
+import { RolesActionsMapping, Actiones } from "@prisma/client";
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
-import { create } from "domain";
 
 @ApiTags("Actiones")
 @ApiBearerAuth('JWT-auth')
@@ -32,7 +30,6 @@ export class ActionesController {
   })
   @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
   @ApiResponse({ status: 401, description: "Unauthorized" })
-  @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
   async getActiones(
     @Request() req: any,
     @Query('applicationId') applicationId?: string,
@@ -62,7 +59,7 @@ export class ActionesController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Get all action mappings",
-    description: "Retrieve all roles to actions mappings, optionally filtered by roleId",
+    description: "Retrieve all roles to actions mappings, optionally filtered by roleId and/or applicationType",
   })
   @ApiQuery({
     name: 'roleId',
@@ -70,9 +67,21 @@ export class ActionesController {
     type: Number,
     description: 'Filter mappings by role ID'
   })
+  @ApiQuery({
+    name: 'applicationType',
+    required: false,
+    type: String,
+    description: 'Filter mappings by application type (ALL, FRESH, RENEWAL, CANCEL)'
+  })
   @ApiResponse({ status: 200, description: "Action mappings retrieved successfully" })
-  async getAllActionMappings(@Query('roleId') roleId?: string) {
-    return this.actionesService.getAllActionMappings(roleId ? Number(roleId) : undefined);
+  async getAllActionMappings(
+    @Query('roleId') roleId?: string,
+    @Query('applicationType') applicationType?: string
+  ) {
+    return this.actionesService.getAllActionMappings(
+      roleId ? Number(roleId) : undefined,
+      applicationType ? String(applicationType) : undefined
+   );
   }
 
   @Post()
@@ -104,6 +113,7 @@ export class ActionesController {
   }
 
   @Post("RolesActionsMapping")
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Create action",
     description: "Create a new action entry",
@@ -126,9 +136,10 @@ export class ActionesController {
     status: 200,
     description: "Action created successfully",
   })
-  async createAction(@Body() mappingData: RolesActionsMapping) {
+  async createAction(@Body() mappingData: RolesActionsMapping, @Request() req: any) {
     try {
-      return this.actionesService.createAction(mappingData);
+      const userId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
+      return this.actionesService.createAction(mappingData, userId);
     }
     catch (error) {
       throw error;
@@ -136,6 +147,7 @@ export class ActionesController {
   }
 
   @Put("RolesActionsMapping/:id")
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Update action",
     description: "Update an existing action entry",
@@ -159,14 +171,16 @@ export class ActionesController {
     status: 200,
     description: "Action updated successfully",
   })
-  async updateAction(@Param('id') id: number, @Body() mappingData: RolesActionsMapping) {
+  async updateAction(@Param('id') id: number, @Body() mappingData: RolesActionsMapping, @Request() req: any) {
     try {
-      return this.actionesService.updateAction(Number(id), mappingData);
+      const userId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
+      return this.actionesService.updateAction(Number(id), mappingData, userId);
     } catch (error) {
       throw error;
     }
   }
   @Delete("RolesActionsMapping/:id")
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Delete action mapping",
     description: "Delete an existing action mapping entry",

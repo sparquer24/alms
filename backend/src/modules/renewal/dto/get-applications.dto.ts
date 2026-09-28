@@ -1,15 +1,18 @@
 import { IsOptional, IsString, IsNumber, IsIn } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class GetRenewalApplicationsDto {
   @ApiPropertyOptional({ example: 1, description: 'Page number' })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   page?: number = 1;
 
   @ApiPropertyOptional({ example: 10, description: 'Limit per page' })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   limit?: number = 10;
 
   @ApiPropertyOptional({ example: 'Sharma', description: 'Search by name, license number, or acknowledgement number' })
@@ -25,7 +28,14 @@ export class GetRenewalApplicationsDto {
   @ApiPropertyOptional({ example: 1, description: 'Filter by current user ID' })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   currentUserId?: number;
+
+  @ApiPropertyOptional({ example: 60, description: 'Filter by license ID' })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  licenseId?: number;
 
   @ApiPropertyOptional({ example: 'ASC', description: 'Sort order', enum: ['ASC', 'DESC'] })
   @IsOptional()

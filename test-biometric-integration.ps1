@@ -5,7 +5,7 @@
 #>
 
 param(
-    [string]$BackendUrl = "http://localhost:3000/api",
+    [string]$BackendUrl = "http://localhost:3001/api",
     [string]$ApplicationId = "1",
     [string]$JwtToken = ""
 )

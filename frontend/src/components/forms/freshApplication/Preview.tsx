@@ -1612,9 +1612,8 @@ const Preview = () => {
   }
 
   return (
-    <div className='p-4 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen'>
-      <div className='w-full h-full overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-100'>
-        <div className='max-w-6xl mx-auto'>
+    <div className='p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-gray-100'>
+      <div className='max-w-6xl mx-auto'>
           <div className='text-center mb-6'>
             <h2 className='text-3xl font-bold mb-2 text-gray-800'>Application Preview</h2>
             <div className='w-24 h-1 bg-blue-600 mx-auto rounded-full mb-4'></div>
@@ -1640,7 +1639,6 @@ const Preview = () => {
         </div>
 
         <FormFooter onNext={handleNext} onPrevious={handlePrevious} />
-      </div>
     </div>
   );
 };

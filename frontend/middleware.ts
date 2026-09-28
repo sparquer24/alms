@@ -9,8 +9,8 @@ import { jwtVerify } from 'jose';
  * ⚠️ Keep in sync with getRoleBasedRedirectPath in config/roleRedirections.ts
  */
 const ROLE_REDIRECT_MAP: Record<string, string> = {
-  'ADMIN': '/admin/userManagement',
-  'SUPER_ADMIN': '/superAdmin/userManagement',
+  'ADMIN': '/dashboard',
+  'SUPER_ADMIN': '/dashboard',
   'ARMS_SUPDT': '/inbox?type=forwarded',
   'SHO': '/inbox?type=forwarded',
   'ZS': '/inbox?type=forwarded',
@@ -179,10 +179,16 @@ async function isAuthenticated(request: NextRequest): Promise<string | null> {
 
   if (!token) return null;
 
+  const secretStr = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET;
+  if (!secretStr) {
+    // Fail closed: never fall back to a well-known/committed secret. If this
+    // fires in production it means JWT_SECRET isn't configured for this
+    // deployment — fix the environment, don't restore a hardcoded fallback.
+    console.error('[middleware] JWT_SECRET is not configured — rejecting all tokens.');
+    return null;
+  }
+
   try {
-    const secretStr = process.env.JWT_SECRET ||
-      process.env.NEXT_PUBLIC_JWT_SECRET ||
-      '3097adb9893605ecbca993d05142aef1d4a92cd44f6ece72f32750f6697b82555d2634fa846a2ae78c2465d637b04568244fefaaf5e5f3514b92f357e43111d7';
     const secret = new TextEncoder().encode(secretStr);
     await jwtVerify(token, secret);
     return token;
@@ -218,6 +224,7 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute =
     pathname === '/' ||
     pathname === '/login' ||
+    pathname.startsWith('/public') ||
     pathname.startsWith('/reset-password') ||
     pathname.match(/\.(png|jpe?g|svg|ico)$/i);
 
@@ -231,7 +238,18 @@ export async function middleware(request: NextRequest) {
     return redirectToLogin(request, pathname);
   }
 
-  // Token is valid — proceed
+  // ── Rule 3: Role-based protection for /dashboard (ADMIN & SUPER_ADMIN only) ──
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard')) {
+    const role = extractRoleFromCookies(request);
+    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+      if (role && ROLE_REDIRECT_MAP[role]) {
+        return NextResponse.redirect(new URL(ROLE_REDIRECT_MAP[role], request.url));
+      }
+      return NextResponse.redirect(new URL('/inbox?type=all', request.url));
+    }
+  }
+
+  // Token is valid and authorized — proceed
   return NextResponse.next();
 }
 

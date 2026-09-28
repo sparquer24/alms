@@ -36,6 +36,75 @@ const unwrapEntityResponse = <T>(response: any): T | null => {
   return (response?.body ?? response) as T;
 };
 
+/** A single row from a parsed import file, keyed by spreadsheet header. */
+export type LicenseImportRow = Record<string, unknown>;
+
+export type LicenseImportRowStatus = 'valid' | 'warning' | 'error' | 'skipped';
+
+export interface LicenseImportPreviewRow {
+  rowNumber: number;
+  status: LicenseImportRowStatus;
+  errors: string[];
+  warnings: string[];
+  display: {
+    licenseNumber: string | null;
+    holderName: string | null;
+    district: string | null;
+    state: string | null;
+  };
+}
+
+export interface LicenseImportPreview {
+  success: boolean;
+  message?: string;
+  summary: {
+    total: number;
+    valid: number;
+    warnings: number;
+    errors: number;
+    skipped: number;
+    importable: number;
+  };
+  strict: boolean;
+  onDuplicate: 'fail' | 'skip';
+  scope: { stateId: number | null; stateName: string | null; roleCode: string | null };
+  rows: LicenseImportPreviewRow[];
+}
+
+export interface LicenseImportRowResult {
+  rowNumber: number;
+  status: 'imported' | 'failed' | 'skipped' | 'rejected';
+  licenseId?: number;
+  licenseNumber?: string;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface LicenseImportResult {
+  success: boolean;
+  batchId: string;
+  fileName: string | null;
+  importedAt: string;
+  scope: { stateId: number | null; stateName: string | null; roleCode: string | null };
+  summary: { total: number; imported: number; failed: number; skipped: number; rejectedByStrictMode: number };
+  results: LicenseImportRowResult[];
+}
+
+export interface LicenseImportRollbackResult {
+  success: boolean;
+  batchId: string;
+  removedCount: number;
+  removed: Array<{ id: number; licenseNumber: string }>;
+  skipped: Array<{ id: number; licenseNumber: string; reason: string }>;
+  message?: string;
+}
+
+export interface LicenseImportOptions {
+  strict?: boolean;
+  onDuplicate?: 'fail' | 'skip';
+  fileName?: string;
+}
+
 export class LicenseService {
   /**
    * Get a license by its ID with full details (source app, weapons, history)
@@ -63,6 +132,8 @@ export class LicenseService {
     freshApplicationId?: number;
     expiringWithinDays?: number;
     createdFrom?: string;
+    purpose?: string;
+    renewedOnly?: boolean;
     orderBy?: string;
     order?: 'asc' | 'desc';
     sortBy?: string;
@@ -79,6 +150,8 @@ export class LicenseService {
       if (filters?.freshApplicationId) params.freshApplicationId = filters.freshApplicationId;
       if (filters?.expiringWithinDays) params.expiringWithinDays = filters.expiringWithinDays;
       if (filters?.createdFrom) params.createdFrom = filters.createdFrom;
+      if (filters?.purpose) params.purpose = filters.purpose;
+      if (filters?.renewedOnly) params.renewedOnly = true;
       const orderBy = filters?.orderBy ?? filters?.sortBy;
       const order = filters?.order ?? filters?.sortOrder;
       if (orderBy) params.orderBy = orderBy;
@@ -169,13 +242,15 @@ export class LicenseService {
     }
   }
 
-  static async getExpiringLicenses(days = 90, filters?: { page?: number; limit?: number; search?: string }): Promise<LicenseListResponse | null> {
+  static async getExpiringLicenses(days = 90, filters?: { page?: number; limit?: number; search?: string; purpose?: string; renewedOnly?: boolean }): Promise<LicenseListResponse | null> {
     try {
       const response = await apiClient.get<LicenseListResponse>('/licenses/expiring', {
         days,
         page: filters?.page ?? 1,
         limit: filters?.limit ?? 10,
         ...(filters?.search ? { search: filters.search } : {}),
+        ...(filters?.purpose ? { purpose: filters.purpose } : {}),
+        ...(filters?.renewedOnly ? { renewedOnly: true } : {}),
       });
       return normalizeLicenseListResponse(response);
     } catch (error) {
@@ -184,12 +259,14 @@ export class LicenseService {
     }
   }
 
-  static async getExpiredLicenses(filters?: { page?: number; limit?: number; search?: string }): Promise<LicenseListResponse | null> {
+  static async getExpiredLicenses(filters?: { page?: number; limit?: number; search?: string; purpose?: string; renewedOnly?: boolean }): Promise<LicenseListResponse | null> {
     try {
       const response = await apiClient.get<LicenseListResponse>('/licenses/expired', {
         page: filters?.page ?? 1,
         limit: filters?.limit ?? 10,
         ...(filters?.search ? { search: filters.search } : {}),
+        ...(filters?.purpose ? { purpose: filters.purpose } : {}),
+        ...(filters?.renewedOnly ? { renewedOnly: true } : {}),
       });
       return normalizeLicenseListResponse(response);
     } catch (error) {
@@ -207,6 +284,83 @@ export class LicenseService {
       console.error('[LicenseService] getLicenseAudit error:', error);
       return [];
     }
+  }
+
+  /**
+   * List/search workflow audit logs across all licenses (dashboard Audit & Activity Logs tab).
+   */
+  static async getLicenseAuditLogs(filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    action?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<LicenseListResponse | null> {
+    try {
+      const params: Record<string, any> = {};
+      if (filters?.page) params.page = filters.page;
+      if (filters?.limit) params.limit = filters.limit;
+      if (filters?.search) params.search = filters.search;
+      if (filters?.action) params.action = filters.action;
+      if (filters?.dateFrom) params.dateFrom = filters.dateFrom;
+      if (filters?.dateTo) params.dateTo = filters.dateTo;
+
+      const response = await apiClient.get<any>('/licenses/audit/logs', params);
+      return normalizeLicenseListResponse(response);
+    } catch (error) {
+      console.error('[LicenseService] getLicenseAuditLogs error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Validate a bulk import without saving anything.
+   * POST /licenses/import/preview with { rows, strict }
+   */
+  static async previewLicenseImport(
+    rows: LicenseImportRow[],
+    options?: { strict?: boolean },
+  ): Promise<LicenseImportPreview> {
+    const response = await apiClient.post<any>('/licenses/import/preview', {
+      rows,
+      strict: !!options?.strict,
+    });
+    const payload = unwrapEntityResponse<LicenseImportPreview>(response);
+    if (!payload) throw new Error('The import preview could not be generated.');
+    return payload;
+  }
+
+  /**
+   * Commit a bulk import. Partial success is expected — inspect result.summary.
+   * POST /licenses/import with { rows, strict, onDuplicate, fileName }
+   */
+  static async importLicenses(
+    rows: LicenseImportRow[],
+    options?: LicenseImportOptions,
+  ): Promise<LicenseImportResult> {
+    const response = await apiClient.post<any>('/licenses/import', {
+      rows,
+      strict: !!options?.strict,
+      onDuplicate: options?.onDuplicate ?? 'fail',
+      ...(options?.fileName ? { fileName: options.fileName } : {}),
+    });
+    const payload = unwrapEntityResponse<LicenseImportResult>(response);
+    if (!payload) throw new Error('The import did not return a result.');
+    return payload;
+  }
+
+  /**
+   * Undo a previous import batch.
+   * POST /licenses/import/rollback/:batchId
+   */
+  static async rollbackLicenseImportBatch(batchId: string): Promise<LicenseImportRollbackResult> {
+    const response = await apiClient.post<any>(
+      `/licenses/import/rollback/${encodeURIComponent(batchId)}`,
+    );
+    const payload = unwrapEntityResponse<LicenseImportRollbackResult>(response);
+    if (!payload) throw new Error('The rollback did not return a result.');
+    return payload;
   }
 
   /**

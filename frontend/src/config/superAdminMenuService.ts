@@ -9,9 +9,9 @@
 import { MenuItem } from './roles';
 
 export type SuperAdminMenuItemKey =
+    | 'dashboard'
     | 'userManagement'
     | 'roleMapping'
-    | 'analytics'
     | 'flowMapping'
     | 'locationsManagement'
     | 'actionMapping';
@@ -28,25 +28,25 @@ export interface SuperAdminMenuItem extends MenuItem {
  * Ordered for consistent display in sidebar
  */
 export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMenuItem> = {
+    dashboard: {
+        name: 'dashboard',
+        key: 'dashboard',
+        label: 'Dashboard',
+        path: '/dashboard',
+        order: 1,
+    },
     userManagement: {
         name: 'userManagement',
         key: 'userManagement',
         label: 'User Management',
         path: '/superAdmin/userManagement',
-        order: 1,
+        order: 2,
     },
     roleMapping: {
         name: 'roleMapping',
         key: 'roleMapping',
         label: 'Role Management',
         path: '/superAdmin/roleMapping',
-        order: 2,
-    },
-    analytics: {
-        name: 'analytics',
-        key: 'analytics',
-        label: 'Global Analytics',
-        path: '/superAdmin/analytics',
         order: 3,
     },
     flowMapping: {
@@ -67,7 +67,7 @@ export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMen
         name: 'actionMapping',
         key: 'actionMapping',
         label: 'Action Mapping',
-        path: '/admin/actionMapping', // Uses the same UI under admin
+        path: '/superAdmin/actionMapping',
         order: 6,
     }
 };
@@ -117,6 +117,9 @@ export function getSuperAdminMenuKeyFromPath(pathname: string): SuperAdminMenuIt
 export function normalizeSuperAdminMenuItem(name: string): SuperAdminMenuItemKey | null {
     const normalized = name.toLowerCase().replace(/\s+/g, '');
     const candidates: Record<string, SuperAdminMenuItemKey> = {
+        'dashboard': 'dashboard',
+        'admindashboard': 'dashboard',
+        'superadmindashboard': 'dashboard',
         'usermanagement': 'userManagement',
         'user_management': 'userManagement',
         'user-management': 'userManagement',
@@ -129,7 +132,6 @@ export function normalizeSuperAdminMenuItem(name: string): SuperAdminMenuItemKey
         'rolesmanagement': 'roleMapping',
         'roles_management': 'roleMapping',
         'roles-management': 'roleMapping',
-        'analytics': 'analytics',
         'flowmapping': 'flowMapping',
         'flow_mapping': 'flowMapping',
         'flow-mapping': 'flowMapping',

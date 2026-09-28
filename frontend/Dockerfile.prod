@@ -5,11 +5,21 @@ WORKDIR /app
 COPY package*.json ./
 RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux-headers git \
     && npm install \
-    && apk del .build-deps || true
+    && (apk del .build-deps || true)
 
 # Copy source and build
 COPY . .
-RUN NODE_OPTIONS=--max-old-space-size=8192 npx next build
+
+# Next.js bakes these in at build time:
+#  - BACKEND_URL         -> backend ORIGIN only (no /api). The Next.js rewrite appends /api/:path* itself,
+#                           so it must be the bare origin to avoid a double /api (e.g. .../api/api/health).
+#  - NEXT_PUBLIC_API_URL -> client-side API base (default: same-origin /api, proxied by Next rewrites)
+ARG BACKEND_URL=http://backend-prod:3001
+ARG NEXT_PUBLIC_API_URL=/api
+ENV BACKEND_URL=$BACKEND_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+RUN NODE_OPTIONS=--max-old-space-size=3072 npx next build
 
 # ─── Runner stage ─────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -25,5 +35,7 @@ COPY --from=builder /app/public ./public
 
 EXPOSE 5001
 
-# Run the Next.js standalone server (handles all routes including dynamic ones)
-CMD ["sh", "-c", "PORT=5001 node server.js"]
+# Run the Next.js standalone server (handles all routes including dynamic ones).
+# PORT is honored from the runtime environment (falls back to the ENV default above)
+# so docker-compose's `PORT: 5055` actually takes effect instead of being overridden.
+CMD ["sh", "-c", "node server.js"]

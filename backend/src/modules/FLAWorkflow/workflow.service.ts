@@ -1,11 +1,16 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException, Inject, forwardRef } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { LicenseStatus } from '@prisma/client';
+import { LicenseStatus, RoleFlowApplicationType } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
+import { normalizeApplicationType } from '../../constants/flow-mapping';
+import { CancelWorkflowHandler } from './handlers/cancel-workflow.handler';
 
 @Injectable()
 export class WorkflowService {
+  constructor(
+    private readonly cancelWorkflowHandler: CancelWorkflowHandler,
+  ) {}
 
   async getStatusesAndActions(id?: number) {
     if (id) {
@@ -203,20 +208,191 @@ export class WorkflowService {
     }
   }
 
+  private async resolveApplicationTypeFromId(applicationId: number, clientApplicationType?: string): Promise<RoleFlowApplicationType> {
+    const checks: Array<{ type: RoleFlowApplicationType; exists: () => Promise<boolean> }> = [
+      {
+        type: 'CANCEL',
+        exists: async () => !!(await prisma.cancelFormRequests.findUnique({ where: { id: applicationId }, select: { id: true } })),
+      },
+      {
+        type: 'RENEWAL',
+        exists: async () => !!(await prisma.renewalFormPersonalDetails.findUnique({ where: { id: applicationId }, select: { id: true } })),
+      },
+      {
+        type: 'FRESH',
+        exists: async () => !!(await prisma.freshLicenseApplicationPersonalDetails.findUnique({ where: { id: applicationId }, select: { id: true } })),
+      },
+    ];
+
+    // IMPORTANT: applicationId is NOT globally unique — each application table
+    // (Fresh/Renewal/Cancel) has its own independent autoincrement id, so the
+    // same numeric id can legitimately exist in more than one table at once.
+    // We still don't blindly trust the client's applicationType (a caller could
+    // lie to hit a different table), but we DO use it as a hint and verify it
+    // against the DB first. This avoids the fixed CANCEL -> RENEWAL -> FRESH
+    // probing order silently picking the wrong table (and wrong record!) when
+    // ids collide, which previously surfaced as a confusing 400 from deep
+    // inside the cancel-request handler for what was actually a fresh/renewal
+    // application action.
+    let hint: RoleFlowApplicationType | null = null;
+    try {
+      const normalized = normalizeApplicationType(clientApplicationType);
+      if (normalized !== 'ALL') hint = normalized;
+    } catch {
+      // Unrecognized/absent client applicationType — fall back to probing below.
+    }
+
+    if (hint) {
+      const hinted = checks.find((c) => c.type === hint);
+      if (hinted && (await hinted.exists())) return hinted.type;
+    }
+
+    for (const check of checks) {
+      if (await check.exists()) return check.type;
+    }
+
+    throw new BadRequestException(
+      `Application with ID ${applicationId} not found in any application table.`,
+    );
+  }
+
   /**
-   * Check if a role is allowed to perform a specific action
+   * Fetch the userId the given application/cancel-request is currently
+   * assigned to, per its resolved type. Returns null if the record or its
+   * currentUserId is unset (e.g. a freshly-initiated application with no
+   * assignment yet) so callers can skip the ownership check in that case.
    */
-  async checkRoleActionPermission(roleId: number, actionId: number): Promise<boolean> {
-    const mapping = await prisma.rolesActionsMapping.findUnique({
+  private async getCurrentHolderUserId(applicationType: RoleFlowApplicationType, applicationId: number): Promise<number | null> {
+    if (applicationType === 'RENEWAL') {
+      const app = await prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: { currentUserId: true },
+      });
+      return app?.currentUserId ?? null;
+    }
+    if (applicationType === 'CANCEL') {
+      const cancelRequest = await prisma.cancelFormRequests.findUnique({
+        where: { id: applicationId },
+        select: { currentUserId: true },
+      });
+      return cancelRequest?.currentUserId ?? null;
+    }
+    const app = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      where: { id: applicationId },
+      select: { currentUserId: true },
+    });
+    return app?.currentUserId ?? null;
+  }
+
+  async checkRoleActionPermission(roleId: number, actionId: number, applicationType?: string): Promise<boolean> {
+    const appType = normalizeApplicationType(applicationType ?? 'ALL');
+    const mapping = await prisma.rolesActionsMapping.findFirst({
       where: {
-        roleId_actionId: {
-          roleId: roleId,
-          actionId: actionId,
-        },
+        roleId,
+        actionId,
+        applicationType: appType,
       },
     });
     return mapping !== null && mapping.isActive === true;
   }
+
+  /**
+   * Resolve the location (stateId, districtId) used to scope the role-mapping
+   * lookup for an application. Mirrors getUsersInHierarchy(): FRESH/RENEWAL use
+   * the application's present address; CANCEL resolves through the cancel
+   * request → license → source application, with the license's flattened
+   * address as a fallback.
+   */
+  private async resolveApplicationLocation(applicationType: string, applicationId: number): Promise<{ stateId: number | null; districtId: number | null }> {
+    const t = applicationType.toLowerCase();
+
+    if (t.includes('renew')) {
+      const app = await prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: { presentAddress: { select: { stateId: true, districtId: true } } },
+      });
+      return { stateId: app?.presentAddress?.stateId ?? null, districtId: app?.presentAddress?.districtId ?? null };
+    }
+
+    if (t.includes('cancel')) {
+      const cancelRequest = await prisma.cancelFormRequests.findUnique({
+        where: { id: applicationId },
+        select: { licenseId: true },
+      });
+      if (!cancelRequest?.licenseId) return { stateId: null, districtId: null };
+
+      const license = await prisma.licenses.findUnique({
+        where: { id: cancelRequest.licenseId },
+        select: { freshApplicationId: true, renewalApplicationId: true, presentStateId: true, presentDistrictId: true },
+      });
+      if (!license) return { stateId: null, districtId: null };
+
+      if (license.freshApplicationId) {
+        const app = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: license.freshApplicationId },
+          select: { presentAddress: { select: { stateId: true, districtId: true } } },
+        });
+        if (app?.presentAddress) return { stateId: app.presentAddress.stateId, districtId: app.presentAddress.districtId };
+      }
+      if (license.renewalApplicationId) {
+        const app = await prisma.renewalFormPersonalDetails.findUnique({
+          where: { id: license.renewalApplicationId },
+          select: { presentAddress: { select: { stateId: true, districtId: true } } },
+        });
+        if (app?.presentAddress) return { stateId: app.presentAddress.stateId, districtId: app.presentAddress.districtId };
+      }
+      if (license.presentStateId) return { stateId: license.presentStateId, districtId: license.presentDistrictId ?? null };
+      return { stateId: null, districtId: null };
+    }
+
+    // FRESH
+    const app = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      where: { id: applicationId },
+      select: { presentAddress: { select: { stateId: true, districtId: true } } },
+    });
+    return { stateId: app?.presentAddress?.stateId ?? null, districtId: app?.presentAddress?.districtId ?? null };
+  }
+
+  /**
+   * Resolve the role IDs the current role is allowed to forward to, scoped by
+   * application type + location. Resolution order mirrors the forward-list
+   * endpoint: exact (stateId, districtId) → state-level → global mapping.
+   */
+  private async resolveAllowedNextRoleIds(
+    currentRoleId: number,
+    applicationType: string,
+    stateId: number | null,
+    districtId: number | null,
+  ): Promise<number[]> {
+    let appType: any = 'FRESH';
+    try {
+      appType = normalizeApplicationType(applicationType);
+    } catch {
+      // Unrecognized application type — fall back to fresh, matching the
+      // dispatch default in handleUserAction().
+    }
+
+    const mapping = await prisma.roleFlowMapping.findFirst({
+      where: {
+        currentRoleId,
+        applicationType: appType,
+        purpose: 'ALL',
+        OR: [
+          { stateId, districtId },
+          { stateId, districtId: null },
+          { stateId: null, districtId: null },
+        ],
+      },
+      orderBy: [
+        { stateId: { sort: 'desc', nulls: 'last' } },
+        { districtId: { sort: 'desc', nulls: 'last' } },
+      ],
+      select: { nextRoleIds: true },
+    });
+
+    return mapping?.nextRoleIds ?? [];
+  }
+
  async freshapplication(payload: {
     isApproved?: boolean;
     isFLAFGenerated?: boolean;
@@ -435,6 +611,7 @@ export class WorkflowService {
           renewalCount: 0,
           issuedBy,
           lastModifiedAppType: 'FRESH',
+          lastModifiedAppId: appData.id,
           endorsedWeapons: licDetail?.requestedWeapons?.length
             ? { connect: licDetail.requestedWeapons.map((w: any) => ({ id: w.id })) }
             : undefined,
@@ -693,7 +870,15 @@ export class WorkflowService {
         renewalIds: {
           push: renewalApplicationId,
         },
+        // Shift current → previous tracking before updating
+        previousModifiedAppType: existingLicense.lastModifiedAppType,
+        previousModifiedAppId: existingLicense.lastModifiedAppId ?? (
+          (existingLicense.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+            ? existingLicense.freshApplicationId
+            : existingLicense.lastModifiedRenewalId ?? existingLicense.renewalApplicationId
+        ),
         lastModifiedAppType: 'RENEWAL',
+        lastModifiedAppId: renewalApplicationId,
         status: LicenseStatus.ACTIVE,
 
         // Update endorsed weapons
@@ -747,9 +932,29 @@ export class WorkflowService {
     isRejected?: boolean;
     isRecommended?: boolean;
     isNotRecommended?: boolean;
-  }, applicationType : string,)
+  }, clientApplicationType : string,)
 
    {
+     // 1. Resolve the true application type from the database.
+     // SECURITY: Never trust the client-supplied applicationType. The backend
+     // determines the actual type by probing which table holds the applicationId.
+     const applicationType = await this.resolveApplicationTypeFromId(payload.applicationId, clientApplicationType);
+
+     // 1a. Ownership check: only the user the application is currently assigned
+     // to may act on it. Without this, the /users-in-hierarchy dropdown (built
+     // from the ASSIGNED holder's role) and this endpoint's role-mapping check
+     // (built from the ACTUAL caller's role) can silently disagree whenever the
+     // caller isn't the current holder — e.g. the application was forwarded to
+     // someone else after the page loaded — producing a confusing 403 about the
+     // target user's role instead of the real problem (stale assignment).
+     const currentHolderId = await this.getCurrentHolderUserId(applicationType, payload.applicationId);
+     if (currentHolderId !== null && currentHolderId !== payload.currentUserId) {
+       throw new ForbiddenException(
+         `This application is no longer assigned to you (it is currently with user id ${currentHolderId}). ` +
+         `It may have already been actioned by someone else — please refresh and try again.`,
+       );
+     }
+
      // 1b. Fetch current user's roleId
     const currentUser = await prisma.users.findUnique({
       where: { id: payload.currentUserId },
@@ -761,10 +966,16 @@ export class WorkflowService {
     const currentRoleId = currentUser.roleId;
 
     // 2. Validate User Permission using RolesActionsMapping
-    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId);
+    // Uses the server-resolved applicationType — a FRESH-only mapping will NOT
+    // grant access when the application is actually a RENEWAL.
+    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId, applicationType);
     if (!hasPermission) {
-      throw new ForbiddenException(`You are not authorized to perform this action. Your role does not have permission for action ID: ${payload.actionId}`);
+      throw new ForbiddenException(
+        `You are not authorized to perform this action for ${applicationType} applications. ` +
+        `Your role does not have permission for action ID: ${payload.actionId}`,
+      );
     }
+
      // 3. Determine next user and validate based on action type
     let nextUserId: number | null 
      const nextUserRoleId = await prisma.users.findUnique({
@@ -773,6 +984,23 @@ export class WorkflowService {
     });
 
     const actionCode = payload.action.code.toUpperCase();
+
+    // ---- Role-mapping enforcement (FORWARD actions only) ----
+    // The target role must be permitted by the configured role mapping (scoped
+    // by application type + state/district) — a client cannot bypass Role
+    // Mapping by sending an arbitrary nextUserId. Re-visiting a role that
+    // already processed the application is intentionally ALLOWED, matching the
+    // admin-configured flow; workflow history still records the full trail.
+    if (isForwardAction(actionCode) && nextUserRoleId?.roleId) {
+      const { stateId, districtId } = await this.resolveApplicationLocation(applicationType, payload.applicationId);
+      const allowedRoleIds = await this.resolveAllowedNextRoleIds(currentRoleId, applicationType, stateId, districtId);
+
+      if (!allowedRoleIds.includes(nextUserRoleId.roleId)) {
+        throw new ForbiddenException(
+          `Target user (id ${payload.nextUserId}) has role ${nextUserRoleId.roleId}, which is not permitted by the configured role mapping for this application.`,
+        );
+      }
+    }
 
     if(payload.nextUserId !== undefined && payload.nextUserId !== null) {
       nextUserId = payload.nextUserId;
@@ -789,19 +1017,15 @@ export class WorkflowService {
       }
     });
 
-      if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
-        await this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
-      } else if (
-        applicationType.toLowerCase() == 'cancelform' ||
-        applicationType.toLowerCase() == 'cancelapplicationform' ||
-        applicationType.toLowerCase() == 'cancelformrequest' ||
-        applicationType.toLowerCase() == 'cancelapplication' ||
-        applicationType.toLowerCase() == 'cancelrequest'
-      ) {
-        await this.cancelFormApplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
-      } else{
-        await this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
-      }
+    // 5. Dispatch to the correct application handler based on server-resolved type
+    if (applicationType === 'RENEWAL') {
+      await this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+    } else if (applicationType === 'CANCEL') {
+      await this.cancelFormApplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+    } else {
+      // applicationType === 'FRESH' (or 'ALL' which shouldn't reach here after resolution)
+      await this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+    }
    
     return {
       success: true,
@@ -938,33 +1162,12 @@ export class WorkflowService {
           }
         }
 
-        // === LICENSE HOOK: Cancel the license record itself ===
+        // === LICENSE HOOK: Delegate to handler ===
         try {
-          await tx.licenses.update({
-            where: { id: cancelRequest.licenseId },
-            data: {
-              status: LicenseStatus.CANCELLED,
-              cancellationReason: cancelRequest.cancellationReason,
-              cancellationDate: new Date(),
-              cancelApplicationId: payload.applicationId,
-              lastModifiedAppType: 'CANCELLATION',
-            },
-          });
-
-          await tx.licenseWorkflowHistory.create({
-            data: {
-              licenseId: cancelRequest.licenseId,
-              action: 'CANCELLED',
-              applicationId: payload.applicationId,
-              applicationType: 'CANCELLATION',
-              previousStatus: LicenseStatus.ACTIVE,
-              newStatus: LicenseStatus.CANCELLED,
-              changedBy: payload.currentUserId,
-              remarks: `License cancelled. Reason: ${cancelRequest.cancellationReason}`,
-            },
-          });
+          await this.cancelWorkflowHandler.onFinalApproval(payload.applicationId, payload.currentUserId, tx);
         } catch (err) {
           console.error('[LicenseHook] Failed to cancel license:', err);
+          throw new InternalServerErrorException('Failed to update license record');
         }
       } else if (isRejectedAction) {
         actionTaken = ACTION_CODES.REJECT;

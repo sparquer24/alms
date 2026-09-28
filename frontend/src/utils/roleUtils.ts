@@ -75,6 +75,8 @@ export const LICENSE_MANAGEMENT_ROLES = [
   'ARMS_SUPDT',
   'ARMS_SEAT',
   'ACO',
+  'ADMIN',
+  'SUPER_ADMIN',
 ];
 
 /**
@@ -82,6 +84,20 @@ export const LICENSE_MANAGEMENT_ROLES = [
  */
 export const isLicenseManagementRole = (role: RoleValue): boolean =>
   isRoleIn(role, LICENSE_MANAGEMENT_ROLES);
+
+/**
+ * Roles that can create new applications (Fresh / Renewal / Cancel) from the
+ * header "Create Form" dropdown and the New Forms page.
+ */
+export const CREATE_APPLICATION_ROLES = [
+  'ZS',
+];
+
+/**
+ * Check if a role can create new applications.
+ */
+export const canCreateApplications = (role: RoleValue): boolean =>
+  isRoleIn(role, CREATE_APPLICATION_ROLES);
 
 /**
  * Check if a role matches any of the provided roles

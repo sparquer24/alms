@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import prisma from '../../db/prismaClient';
 import { ROLE_CODES } from '../../constants/auth';
+import { LocationsService } from '../locations/locations.service';
 
 export interface CreateUserInput {
   username?: string;
@@ -34,6 +35,8 @@ function validateCreateUserInput(data: any): asserts data is Required<CreateUser
 @Injectable()
 export class UserService {
   private readonly saltRounds = 12;
+
+  constructor(private readonly locationsService: LocationsService) {}
 
   /**
    * Hash a password using bcrypt
@@ -194,10 +197,16 @@ export class UserService {
 
   async createUser(data: CreateUserInput) {
     validateCreateUserInput(data);
-    
+
+    // Validate State → District hierarchy if any location is provided
+    const validated = await this.locationsService.validateStateDistrictHierarchy(
+      data.stateId ?? null,
+      data.districtId ?? null,
+    );
+
     // Hash the password before storing
     const hashedPassword = await this.hashPassword(data.password);
-    
+
     const user = await prisma.users.create({
       data: {
         username: data.username,
@@ -206,8 +215,8 @@ export class UserService {
         phoneNo: data.phoneNo,
         roleId: Number(data.roleId),
         policeStationId: data.policeStationId,
-        stateId: data.stateId,
-        districtId: data.districtId,
+        stateId: validated.stateId,
+        districtId: validated.districtId,
         rangeOfficeId: data.rangeOfficeId,
         zoneId: data.zoneId,
         divisionId: data.divisionId,
@@ -267,20 +276,45 @@ export class UserService {
     if (data.email !== undefined) updateData.email = data.email;
     if (data.phoneNo !== undefined) updateData.phoneNo = data.phoneNo;
     if (data.roleId !== undefined) updateData.roleId = Number(data.roleId);
-    
+
     // Update password only if provided
     if (data.password && data.password.trim() !== '') {
       updateData.password = await this.hashPassword(data.password);
     }
-    
-    // Update location fields
-    if (data.stateId !== undefined) updateData.stateId = data.stateId ? Number(data.stateId) : null;
-    if (data.districtId !== undefined) updateData.districtId = data.districtId ? Number(data.districtId) : null;
+
+    // Validate State → District hierarchy for location fields
+    const stateIdProvided = data.stateId !== undefined;
+    const districtIdProvided = data.districtId !== undefined;
+
+    if (stateIdProvided || districtIdProvided) {
+      let stateToValidate = stateIdProvided ? (data.stateId ? Number(data.stateId) : null) : undefined;
+      let districtToValidate = districtIdProvided ? (data.districtId ? Number(data.districtId) : null) : undefined;
+
+      // If only one location field is provided, fetch the current value for the other
+      if (stateIdProvided !== districtIdProvided) {
+        const currentUser = await prisma.users.findUnique({
+          where: { id: Number(userId) },
+          select: { stateId: true, districtId: true },
+        });
+        if (stateToValidate === undefined && currentUser) stateToValidate = currentUser.stateId;
+        if (districtToValidate === undefined && currentUser) districtToValidate = currentUser.districtId;
+      }
+
+      const validated = await this.locationsService.validateStateDistrictHierarchy(
+        stateToValidate ?? null,
+        districtToValidate ?? null,
+      );
+
+      // Use validated values for the fields being updated
+      if (stateIdProvided) updateData.stateId = validated.stateId;
+      if (districtIdProvided) updateData.districtId = validated.districtId;
+    }
+
     if (data.rangeOfficeId !== undefined) updateData.rangeOfficeId = data.rangeOfficeId ? Number(data.rangeOfficeId) : null;
     if (data.zoneId !== undefined) updateData.zoneId = data.zoneId ? Number(data.zoneId) : null;
     if (data.divisionId !== undefined) updateData.divisionId = data.divisionId ? Number(data.divisionId) : null;
     if (data.policeStationId !== undefined) updateData.policeStationId = data.policeStationId ? Number(data.policeStationId) : null;
-    
+
     if (Object.keys(updateData).length === 0) {
       throw new Error('No valid fields provided for update');
     }

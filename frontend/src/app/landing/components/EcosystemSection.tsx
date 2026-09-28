@@ -32,7 +32,7 @@ const roleIcons: Record<string, React.ReactNode> = {
 
 export default function EcosystemSection({ groups }: EcosystemSectionProps) {
   return (
-    <section id="ecosystem" className="py-20 bg-[#F8F9FA]">
+    <section id="ecosystem" className="py-20 bg-gradient-to-br from-[#0F2D52]/5 via-[#F8F9FA] to-[#B8860B]/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="inline-block px-3 py-1 text-xs font-semibold text-[#B8860B] bg-[#B8860B]/10 rounded-full uppercase tracking-wider mb-4">
@@ -58,7 +58,7 @@ export default function EcosystemSection({ groups }: EcosystemSectionProps) {
                 </div>
               )}
 
-              <div className="bg-white rounded-xl border border-gray-200 p-6 h-full hover:shadow-lg hover:border-[#B8860B]/20 transition-all duration-300">
+              <div className="bg-white/50 backdrop-blur-sm rounded-xl border border-white/60 p-6 h-full shadow-sm hover:shadow-lg hover:bg-white/70 hover:border-[#B8860B]/20 transition-all duration-300">
                 <div className={`w-16 h-16 rounded-xl flex items-center justify-center mb-5 ${
                   idx === 0 ? "bg-blue-50 text-blue-600" :
                   idx === 1 ? "bg-amber-50 text-amber-600" :

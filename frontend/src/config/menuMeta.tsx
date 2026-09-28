@@ -15,6 +15,8 @@ import {
   FileText,
   List,
   XCircle,
+  LayoutDashboard,
+  Lock,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -34,9 +36,12 @@ const MapPinFixed = MapPin as any;
 const FileTextFixed = FileText as any;
 const ListFixed = List as any;
 const XCircleFixed = XCircle as any;
+const LayoutDashboardFixed = LayoutDashboard as any;
+const LockFixed = Lock as any;
 
 // Fix: Add a type-safe mapping for menuMeta keys
 export type MenuMetaKey =
+  | 'dashboard'
   | 'freshform'
   | 'inbox'
   | 'sent'
@@ -45,12 +50,12 @@ export type MenuMetaKey =
   | 'applications'
   | 'drafts'
   | 'reports'
-  | 'analytics' // New analytics tab
   | 'cancelform' // Cancel Form workflow
   | 'logout'
   | 'userManagement'
   | 'roleManagement'
   | 'roleMapping'
+  | 'permissions'
   | 'flowMapping'
   | 'locationsManagement'
   | 'actionMapping'
@@ -58,6 +63,10 @@ export type MenuMetaKey =
 
 export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.ReactNode }> = {
   // use the `*Fixed` any-casted aliases above to avoid React type mismatch errors
+  dashboard: {
+    label: 'Dashboard',
+    icon: () => <LayoutDashboardFixed className='w-5 h-5' aria-label='Dashboard' />,
+  },
   freshform: {
     label: 'New Forms',
     icon: () => <FilePlusFixed className='w-5 h-5' aria-label='New Forms' />,
@@ -88,10 +97,6 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
     label: 'My Reports',
     icon: () => <BarChart2Fixed className='w-5 h-5' aria-label='My Reports' />,
   },
-  analytics: {
-    label: 'Analytics',
-    icon: () => <BarChart2Fixed className='w-5 h-5' aria-label='Analytics' />,
-  },
   cancelform: {
     label: 'Cancel Form',
     icon: () => <XCircleFixed className='w-5 h-5' aria-label='Cancel Form' />,
@@ -111,6 +116,10 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   roleMapping: {
     label: 'Role Management',
     icon: () => <ShieldFixed className='w-5 h-5' aria-label='Role Management' />,
+  },
+  permissions: {
+    label: 'Permissions',
+    icon: () => <LockFixed className='w-5 h-5' aria-label='Permissions' />,
   },
   flowMapping: {
     label: 'Flow Mapping',

@@ -77,8 +77,8 @@ export const useApplicationForm = ({
     const sectionData = ApplicationService.extractSectionData(data, formSection);
     if (sectionData && Object.keys(sectionData).length > 0) {
       setForm((prev: any) => ({ ...prev, ...sectionData }));
-      setSubmitSuccess('Existing data loaded successfully');
-      setTimeout(() => setSubmitSuccess(null), 3000);
+      // setSubmitSuccess('Existing data loaded successfully');
+      // setTimeout(() => setSubmitSuccess(null), 3000);
     }
     
     setIsLoading(false);

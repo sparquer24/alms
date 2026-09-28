@@ -67,9 +67,10 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate, stateId, roleCode, zoneId);
+            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate, stateId, roleCode, zoneId, districtId);
 
             return {
                 success: true,
@@ -133,9 +134,10 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getRoleLoad(fromDate, toDate, stateId, roleCode, zoneId);
+            const data = await this.analyticsService.getRoleLoad(fromDate, toDate, stateId, roleCode, zoneId, districtId);
 
             return {
                 success: true,
@@ -199,9 +201,10 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getApplicationStates(fromDate, toDate, stateId, roleCode, zoneId);
+            const data = await this.analyticsService.getApplicationStates(fromDate, toDate, stateId, roleCode, zoneId, districtId);
 
             return {
                 success: true,
@@ -267,9 +270,10 @@ export class AnalyticsController {
             const roleId = user?.roleId;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode, zoneId);
+            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode, zoneId, districtId);
 
             return {
                 success: true,
@@ -320,6 +324,18 @@ export class AnalyticsController {
         type: String,
         description: "Optional sort field, prefix with '-' for desc (e.g. '-updatedAt')",
     })
+    @ApiQuery({
+        name: 'type',
+        required: false,
+        type: String,
+        description: 'Optional application family filter: fresh | renewal | cancel. Omit for all.',
+    })
+    @ApiQuery({
+        name: 'filter',
+        required: false,
+        type: String,
+        description: 'Optional Action Required card filter: under_verification | pending_over_15 | awaiting_action | biometric_pending. Applies the same criteria used to compute that card\'s count.',
+    })
     @ApiResponse({
         status: 200,
         description: 'Successfully retrieved applications details',
@@ -333,6 +349,8 @@ export class AnalyticsController {
         @Query('sort') sort?: string,
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Query('type') type?: string,
+        @Query('filter') filter?: string,
         @Req() req?: any,
     ): Promise<AnalyticsResponseDto<ApplicationRecordDto[]>> {
         try {
@@ -343,9 +361,10 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
             const zoneId = user?.zoneId;
+            const districtId = user?.districtId;
             const roleCode = user?.roleCode;
 
-            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId);
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId, type, districtId, filter);
 
             const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
 
@@ -367,4 +386,65 @@ export class AnalyticsController {
             );
         }
     }
+
+    @Get('funnel')
+    @ApiOperation({ summary: 'Application Funnel — counts per lifecycle stage' })
+    async getApplicationFunnel(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getApplicationFunnel(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('aging')
+    @ApiOperation({ summary: 'Application Aging — pending apps grouped by age buckets' })
+    async getAgingBuckets(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getAgingBuckets(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('action-required')
+    @ApiOperation({ summary: 'Action Required — 5 key counts needing admin attention' })
+    async getActionRequired(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getActionRequired(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('license-expiry')
+    @ApiOperation({ summary: 'License Expiry Buckets — 30/60/90 days + expired' })
+    async getLicenseExpiryBuckets(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getLicenseExpiryBuckets(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('monthly-comparison')
+    @ApiOperation({ summary: 'Monthly Comparison — this month vs last month' })
+    async getMonthlyComparison(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getMonthlyComparison(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
+
+    @Get('processing-performance')
+    @ApiOperation({ summary: 'Processing Performance — avg days, median, SLA %, delayed' })
+    async getProcessingPerformance(@Req() req?: any) {
+        const user = req ? (req as any).user : null;
+        const data = await this.analyticsService.getProcessingPerformance(
+            user?.stateId, user?.roleCode, user?.zoneId, user?.districtId,
+        );
+        return { success: true, data };
+    }
 }
+

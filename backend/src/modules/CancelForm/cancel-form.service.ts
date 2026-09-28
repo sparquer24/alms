@@ -32,34 +32,63 @@ export class CancelFormService {
       });
       
       console.log('currentUserId:', currentUserId);
+
       // Wrap creation and workflow history in a transaction for atomicity.
-      // The duplicate check runs INSIDE the transaction so it is atomic with the INSERT.
+      // The CANCELLED status check runs INSIDE the transaction so it is atomic with the INSERT.
       const cancelRequest = await prisma.$transaction(async (tx: any) => {
+        // Look up the target license
+        const targetLicense = dto.licenseId
+          ? await tx.licenses.findUnique({
+              where: { id: dto.licenseId },
+              select: { id: true, status: true, presentStateId: true, permanentStateId: true },
+            })
+          : dto.licenseNumber
+            ? await tx.licenses.findUnique({
+                where: { licenseNumber: dto.licenseNumber },
+                select: { id: true, status: true, presentStateId: true, permanentStateId: true },
+              })
+            : null;
+
+        if (!targetLicense) {
+          throw new NotFoundException('Target license not found. Cannot create cancellation request.');
+        }
+
+        if (targetLicense && targetLicense.status === 'CANCELLED') {
+          throw new BadRequestException(
+            'Cannot create a cancellation request for a cancelled license. This license has been permanently cancelled and no further actions are allowed.',
+          );
+        }
+
+        // Check if a PENDING cancellation request already exists for this license
+        const existingPending = await tx.cancelFormRequests.findFirst({
+          where: {
+            licenseId: targetLicense.id,
+            actionedDate: null,
+          },
+          select: { id: true },
+        });
+
+        if (existingPending) {
+          throw new BadRequestException(
+            'A cancellation request for this license already exists and is pending approval.',
+          );
+        }
+
+        const resolvedStateId = targetLicense?.presentStateId || targetLicense?.permanentStateId || null;
 
         // generate a unique acknowledgement number for the cancel request
         const acknowledgementNo = `CAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
         console.log('Generated acknowledgementNo:', acknowledgementNo);
-        console.log("create data:", {
-          licenseId: dto.licenseId,
-          applicationType: dto.applicationType,
-          cancellationReason: dto.cancellationReason,
-          remarks: dto.remarks || null,
-          requestedBy: currentUserId,
-          currentUserId: currentUserId,
-          requestedDate: new Date(),
-          workFlowStatusId: initiateStatus?.id || null,
-          acknowledgementNo,
-          applicantName: dto.applicantName,
-
-        });
+        
         const created = await tx.cancelFormRequests.create({
           data: {
-            licenseId: dto.licenseId,
+            licenseId: targetLicense.id,
             applicationType: dto.applicationType,
             cancellationReason: dto.cancellationReason,
             remarks: dto.remarks || null,
             requestedBy: currentUserId,
             currentUserId: currentUserId,
+            stateId: resolvedStateId,
             requestedDate: new Date(),
             workFlowStatusId: initiateStatus?.id || null,
             acknowledgementNo,
@@ -278,6 +307,9 @@ export class CancelFormService {
     limit?: number;
     requestedBy?: number;
     licenseId?: number;
+    status?: string;
+    stateId?: number;
+    roleCode?: string;
   }): Promise<{ data: any[]; total: number; page: number; limit: number }> {
     try {
       const page = Math.max(Number(filters.page ?? 1), 1);
@@ -286,11 +318,26 @@ export class CancelFormService {
 
       const where: any = {};
 
+      if (filters.roleCode !== 'SUPER_ADMIN' && filters.stateId) {
+        where.OR = [
+          { stateId: filters.stateId },
+          { Licenses: { presentStateId: filters.stateId } },
+          { requester: { stateId: filters.stateId } },
+        ];
+      }
+
       if (filters.requestedBy) {
         where.requestedBy = filters.requestedBy;
       }
       if (filters.licenseId) {
         where.licenseId = filters.licenseId;
+      }
+      if (filters.status) {
+        if (filters.status === 'PENDING') {
+          where.actionedDate = null;
+        } else if (filters.status === 'APPROVED') {
+          where.actionedDate = { not: null };
+        }
       }
 
       const [cancelRequests, total] = await Promise.all([
@@ -584,11 +631,41 @@ export class CancelFormService {
             data: cancelUpdateData,
           });
 
-          // 2. Update the original license to CANCELLED status
+          // Capture the license's current status and tracking fields BEFORE the update
+          // so the workflow history and previous-modified tracking are accurate.
+          const licenseBeforeCancel = await tx.licenses.findUnique({
+            where: { id: cancelRequest.licenseId },
+            select: {
+              status: true,
+              lastModifiedAppType: true,
+              lastModifiedAppId: true,
+              lastModifiedRenewalId: true,
+              renewalApplicationId: true,
+              freshApplicationId: true,
+            },
+          });
+
+          // 2. Update the license with cancellation metadata
+          // Only cancellation-relevant fields are updated — personal details,
+          // addresses, occupation, criminal history, documents, weapons,
+          // and other applicant data are preserved intact for audit/historical purposes.
           await tx.licenses.update({
             where: { id: cancelRequest.licenseId },
             data: {
               status: LicenseStatus.CANCELLED,
+              validTill: null,
+              cancellationReason: cancelRequest.cancellationReason,
+              cancellationDate: new Date(),
+              cancelApplicationId: cancelRequest.id,
+              // Shift current → previous tracking
+              previousModifiedAppType: licenseBeforeCancel?.lastModifiedAppType,
+              previousModifiedAppId: licenseBeforeCancel?.lastModifiedAppId ?? (
+                (licenseBeforeCancel?.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+                  ? licenseBeforeCancel?.freshApplicationId
+                  : licenseBeforeCancel?.lastModifiedRenewalId ?? licenseBeforeCancel?.renewalApplicationId
+              ),
+              lastModifiedAppType: 'CANCELLATION',
+              lastModifiedAppId: cancelRequest.id,
             },
           });
 
@@ -600,7 +677,7 @@ export class CancelFormService {
                 action: ACTION_CODES.CANCEL,
                 applicationId: cancelRequest.id,
                 applicationType: cancelRequest.applicationType,
-                previousStatus: application.status as any,
+                previousStatus: licenseBeforeCancel?.status ?? application.status,
                 newStatus: LicenseStatus.CANCELLED,
                 changedBy: currentUserId,
                 remarks: `Application cancelled. Reason: ${cancelRequest.cancellationReason}`,

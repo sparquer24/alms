@@ -4,7 +4,7 @@
 # =========================================================================================
 
 # ─── CONFIGURATION ───────────────────────────────────────────────────────────────────────
-$S3BucketName             = "alms-frontend-prod-bucket"  # Replace with your S3 Bucket Name
+$S3BucketName             = "alms-frontend-static-651200558244"  # Replace with your S3 Bucket Name
 $CloudFrontDistributionId = ""                            # Replace with your CloudFront Distribution ID (Leave empty if creating new)
 $AWSRegion                = "ap-south-1"                  # Target AWS Region
 $AWSProfile               = "default"                     # AWS CLI Named Profile
@@ -101,7 +101,7 @@ try {
     npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw "npm run build failed with exit code $LASTEXITCODE" }
 
-    Pop-Locationx
+    Pop-Location
     Write-Log "Production application target built successfully." -Type "Success"
     
     if (Test-Path $BackupPath) {
@@ -190,7 +190,7 @@ if (-not [string]::IsNullOrWhiteSpace($CloudFrontDistributionId)) {
 "@
 
     $TempPolicyFile = [System.IO.Path]::GetTempFileName()
-    Set-Content -Path $TempPolicyFile -Value $OacPolicyJson -Encoding UTF8
+    [System.IO.File]::WriteAllText($TempPolicyFile, $OacPolicyJson, (New-Object System.Text.UTF8Encoding($false)))
     
     Write-Log "Applying IAM Policy updates to target bucket..." -Type "Debug"
     $PolicyArgs = @("s3api", "put-bucket-policy", "--bucket", $S3BucketName, "--policy", "file://$TempPolicyFile", "--region", $AWSRegion) + $AwsArgs

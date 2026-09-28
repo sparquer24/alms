@@ -85,7 +85,7 @@ export default function ComplianceSection({ title, description, items }: Complia
   }, {});
 
   return (
-    <section className="py-20 bg-[#F8F9FA]">
+    <section className="py-20 bg-gradient-to-br from-[#0F2D52]/5 via-[#F8F9FA] to-[#B8860B]/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="inline-block px-3 py-1 text-xs font-semibold text-[#B8860B] bg-[#B8860B]/10 rounded-full uppercase tracking-wider mb-4">
@@ -111,7 +111,7 @@ export default function ComplianceSection({ title, description, items }: Complia
                   {categoryItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-[#B8860B]/20 transition-all duration-200"
+                      className="flex items-center gap-4 bg-white/50 backdrop-blur-sm rounded-lg border border-white/60 p-4 shadow-sm hover:shadow-md hover:bg-white/70 hover:border-[#B8860B]/20 transition-all duration-200"
                     >
                       <div className="w-10 h-10 rounded-lg bg-[#0F2D52]/5 text-[#0F2D52] flex items-center justify-center shrink-0">
                         {complianceIcons[item.title] || (

@@ -13,18 +13,20 @@ export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'SUPER_ADMIN' |
  * Maps each role to its default landing page path
  */
 const ROLE_REDIRECT_CONFIG: Record<string, string> = {
-  [RoleTypes.ADMIN]: '/admin/userManagement',
-  [RoleTypes.SUPER_ADMIN]: '/superAdmin/userManagement',  // Super Admin has separate global routes
-  [RoleTypes.ARMS_SUPDT]: '/inbox?type=all',
+  [RoleTypes.ADMIN]: '/dashboard',
+  [RoleTypes.SUPER_ADMIN]: '/dashboard',
+  // ZS/DCP see zone-scoped dashboard data; JTCP/CP see district-scoped data;
+  // AS/ARMS_SUPDT (Arms section) see state-scoped dashboard data.
+  [RoleTypes.ARMS_SUPDT]: '/dashboard',
   [RoleTypes.SHO]: '/inbox?type=all',
-  [RoleTypes.ZS]: '/inbox?type=all',
-  [RoleTypes.DCP]: '/inbox?type=all',
+  [RoleTypes.ZS]: '/dashboard',
+  [RoleTypes.DCP]: '/dashboard',
   [RoleTypes.ACP]: '/inbox?type=all',
-  [RoleTypes.CP]: '/inbox?type=all',
-  [RoleTypes.JTCP]: '/inbox?type=all',
+  [RoleTypes.CP]: '/dashboard',
+  [RoleTypes.JTCP]: '/dashboard',
   [RoleTypes.ADO]: '/inbox?type=all',
   [RoleTypes.CADO]: '/inbox?type=all',
-  [RoleTypes.AS]: '/inbox?type=all',
+  [RoleTypes.AS]: '/dashboard',
   [RoleTypes.APPLICANT]: '/inbox?type=sent',
 };
 

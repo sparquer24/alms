@@ -68,18 +68,18 @@ async function main() {
   const roles = [
     { code: 'SUPER_ADMIN', name: 'Super Administrator', dashboardTitle: 'Super Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping', 'locationsManagement'], permissions: ['read', 'write', 'admin', 'super_admin'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
     { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
-    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['dashboard', 'inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
     { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox', 'sent', 'logout'], permissions: ['read'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
     { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox', 'sent', 'logout'], permissions: ['read', 'write'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
-    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['dashboard', 'inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
     { code: 'RANGE', name: 'Range Officer', dashboardTitle: 'Range Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
-    { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: ['inbox', 'sent', 'closed', 'finaldisposal', 'reports'], permissions: ['read', 'write', 'canViewReports'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
-    { code: 'ARMS_SUPDT', name: 'Arms Superintendent', dashboardTitle: 'ARMS_SUPDT Dashboard', menuItems: ['inbox', 'sent', 'closed', 'finaldisposal'], permissions: ['read', 'write'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: ['dashboard', 'inbox', 'sent', 'closed', 'finaldisposal', 'reports'], permissions: ['read', 'write', 'canViewReports'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'ARMS_SUPDT', name: 'Arms Superintendent', dashboardTitle: 'ARMS_SUPDT Dashboard', menuItems: ['dashboard', 'inbox', 'sent', 'closed', 'finaldisposal'], permissions: ['read', 'write'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
     { code: 'ARMS_SEAT', name: 'Arms Seat', dashboardTitle: 'ARMS_SEAT Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
     { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
     { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent', 'logout'], permissions: ['read', 'write'], canAccessSettings: true, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
-    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: ['inbox', 'sent', 'closed'], permissions: ['read', 'write', 'approve'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
-    { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: ['inbox', 'sent', 'closed', 'finaldisposal'], permissions: ['read', 'write', 'approve', 'finalize'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: ['dashboard', 'inbox', 'sent', 'closed'], permissions: ['read', 'write', 'approve'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: ['dashboard', 'inbox', 'sent', 'closed', 'finaldisposal'], permissions: ['read', 'write', 'approve', 'finalize'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
   ];
   for (const role of roles) {
     // Check if role already exists
@@ -1260,13 +1260,12 @@ async function main() {
         continue;
       }
 
-      // Check if mapping already exists
-      const existingMapping = await prisma.rolesActionsMapping.findUnique({
+      // Check if mapping already exists (unique on roleId + actionId + applicationType)
+      const existingMapping = await prisma.rolesActionsMapping.findFirst({
         where: {
-          roleId_actionId: {
-            roleId: roleId,
-            actionId: actionId
-          }
+          roleId: roleId,
+          actionId: actionId,
+          applicationType: 'ALL',
         }
       });
 
@@ -1326,15 +1325,28 @@ async function main() {
       continue;
     }
 
-    // Check if mapping already exists
+    // Check if mapping already exists. Since the unique key is now the compound
+    // (currentRoleId, applicationType, purpose), look up the default ALL/ALL flow.
     const existingMapping = await prisma.roleFlowMapping.findUnique({
-      where: { currentRoleId },
+      where: {
+        currentRoleId_applicationType_purpose: {
+          currentRoleId,
+          applicationType: 'ALL',
+          purpose: 'ALL',
+        },
+      },
     });
 
     if (existingMapping) {
       // Update nextRoleIds if existing
       await prisma.roleFlowMapping.update({
-        where: { currentRoleId },
+        where: {
+          currentRoleId_applicationType_purpose: {
+            currentRoleId,
+            applicationType: 'ALL',
+            purpose: 'ALL',
+          },
+        },
         data: { nextRoleIds },
       });
       console.log(`Updated role flow mapping for ${flow.currentRole} -> [${flow.nextRoles.join(', ')}]`);

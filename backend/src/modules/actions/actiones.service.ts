@@ -1,15 +1,17 @@
 import { Injectable, NotFoundException} from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { Actiones, RolesActionsMapping } from '@prisma/client';
+import { Actiones, RolesActionsMapping, RoleFlowApplicationType } from '@prisma/client';
 import { ACTION_CODES } from '../../constants/workflow-actions';
+import { normalizeApplicationType } from '../../constants/flow-mapping';
 
 @Injectable()
 export class ActionesService {
   /**
    * Get actions.
-   * - If userId is provided: fetch the user's roleId and return only actions allowed for that role.
+   * - If userId is provided: fetch the user's roleId and return only actions allowed for that role,
+   *   scoped by applicationType when provided.
    * - If no userId: return all active actions.
-   *    * - If applicationId is provided: filter out APPROVED action if already approved, REJECT action if already rejected.
+   * - If applicationId is provided: filter out APPROVED action if already approved, REJECT action if already rejected.
    */
   async getActiones(userId?: number, applicationId?: number, applicationType?: string): Promise<Actiones[]> {
     try {
@@ -32,14 +34,20 @@ export class ActionesService {
         return [];
       }
 
+      // Normalize applicationType for role-action mapping lookup.
+      // Defaults to 'ALL' when absent, matching the default column value.
+      const appType: RoleFlowApplicationType = normalizeApplicationType(applicationType ?? 'ALL');
+
       // Fetch actions directly via the relation to RolesActionsMapping.
-      // This performs the join in the database and avoids a client-side loop/dedup.
+      // Filter by roleId + applicationType so only actions permitted for the
+      // given application type are returned.
       let actions = await prisma.actiones.findMany({
         where: {
           isActive: true,
           rolesActionsMapping: {
             some: {
               roleId: user.roleId,
+              applicationType: appType,
               isActive: true,
             },
           },
@@ -98,14 +106,22 @@ export class ActionesService {
 
   /**
    * Get all Roles to Actions mappings.
+   * Optionally filtered by roleId and/or applicationType.
    */
-  async getAllActionMappings(roleId?: number): Promise<RolesActionsMapping[]> {
+  async getAllActionMappings(roleId?: number, applicationType?: string): Promise<RolesActionsMapping[]> {
     try {
+      const where: any = {};
+      if (roleId) where.roleId = roleId;
+      if (applicationType) {
+        where.applicationType = normalizeApplicationType(applicationType);
+      }
+
       return await prisma.rolesActionsMapping.findMany({
-        where: roleId ? { roleId } : undefined,
+        where,
         include: {
           action: true,
-          role: true
+          role: true,
+          allowedBy: { select: { id: true, username: true } },
         }
       });
     } catch (error) {
@@ -113,32 +129,43 @@ export class ActionesService {
       throw error;
     }
   }
-   async createAction(data: RolesActionsMapping): Promise<RolesActionsMapping | { error: boolean; message: string }> {  
-    try{
-    const mappingData = await prisma.rolesActionsMapping.findMany({
-      where: {
-        roleId: data.roleId,
-        actionId: data.actionId 
+  /**
+   * Create a new role-action mapping.
+   * Uniqueness is enforced on (roleId, actionId, applicationType).
+   */
+  async createAction(data: RolesActionsMapping, allowedById?: number): Promise<RolesActionsMapping | { error: boolean; message: string }> {
+    try {
+      const appType: RoleFlowApplicationType = normalizeApplicationType(data.applicationType ?? 'ALL');
+
+      // Check for existing mapping with the same (roleId, actionId, applicationType)
+      const existing = await prisma.rolesActionsMapping.findFirst({
+        where: {
+          roleId: data.roleId,
+          actionId: data.actionId,
+          applicationType: appType,
+        }
+      });
+
+      if (existing) {
+        return {
+          error: true,
+          message: `Mapping with this roleId, actionId, and applicationType (${appType}) already exists`
+        };
       }
-    });
-  if(mappingData.length > 0){
-      return {
-       error: true,
-       message: 'Mapping  with this roleId and actionId already exists' };
 
-
-  }
-    return await prisma.rolesActionsMapping.create({
-      data: {
-        roleId: data.roleId,
-        actionId: data.actionId,
-        isActive: data.isActive,
+      return await prisma.rolesActionsMapping.create({
+        data: {
+          roleId: data.roleId,
+          actionId: data.actionId,
+          applicationType: appType,
+          isActive: data.isActive,
+          allowedById: allowedById ?? null,
           createdAt: data.createdAt,
-   }
-  });
-   } catch(error){
-    throw error;
-   }
+        }
+      });
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
@@ -159,30 +186,45 @@ export class ActionesService {
       throw error;
     }
   }
-    async updateAction(id: number, data:  Partial<RolesActionsMapping>): Promise<RolesActionsMapping | { error: boolean; message: string }> {
+  /**
+   * Update an existing role-action mapping.
+   * Duplicate check includes applicationType.
+   */
+  async updateAction(id: number, data: Partial<RolesActionsMapping>, allowedById?: number): Promise<RolesActionsMapping | { error: boolean; message: string }> {
+    // Resolve applicationType: use the incoming value or fetch the existing record's value
+    let appType: RoleFlowApplicationType;
+    if (data.applicationType) {
+      appType = normalizeApplicationType(data.applicationType);
+    } else {
+      const existing = await prisma.rolesActionsMapping.findUnique({ where: { id } });
+      appType = existing?.applicationType ?? 'ALL';
+    }
 
-       if(data.roleId && data.actionId){
-        const duplicate = await prisma.rolesActionsMapping.findFirst({
-          where: {
-            roleId: data.roleId,
-            actionId: data.actionId,
-            NOT: { id: id}, // Exclude current record
-          }
-        });
-             if (duplicate) {
-          return {
-            error: true,
-            message: 'Mapping with this roleId and actionId already exists'
-          };
+    if (data.roleId && data.actionId) {
+      const duplicate = await prisma.rolesActionsMapping.findFirst({
+        where: {
+          roleId: data.roleId,
+          actionId: data.actionId,
+          applicationType: appType,
+          NOT: { id: id }, // Exclude current record
         }
-        }
+      });
+      if (duplicate) {
+        return {
+          error: true,
+          message: `Mapping with this roleId, actionId, and applicationType (${appType}) already exists`
+        };
+      }
+    }
 
-     return await prisma.rolesActionsMapping.update({
-      where: {id},
+    return await prisma.rolesActionsMapping.update({
+      where: { id },
       data: {
         roleId: data.roleId,
         actionId: data.actionId,
+        applicationType: appType,
         isActive: data.isActive,
+        allowedById: allowedById ?? null,
         updatedAt: new Date(),
       }
     });
@@ -193,12 +235,11 @@ export class ActionesService {
     });
 
     if (!mapping) {
-      throw new NotFoundException('Mapping with ID${id} not found');
+      throw new NotFoundException(`Mapping with ID ${id} not found`);
     }
-   return await prisma.rolesActionsMapping.update({
+    return await prisma.rolesActionsMapping.update({
       where: { id },
       data: { isActive: false, updatedAt: new Date() },
     });
   }
 }
-       

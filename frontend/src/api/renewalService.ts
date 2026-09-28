@@ -69,27 +69,44 @@ export class RenewalService {
 
   static async findRenewalByLicenseNumber(
     licenseNumber: string,
-  ): Promise<{ licenseNumber?: string;[key: string]: unknown } | null> {
+  ): Promise<{ licenseNumber?: string; [key: string]: unknown } | null> {
     if (!licenseNumber?.trim()) return null;
 
-    const response = await apiClient.get<{ data?: Array<{ licenseNumber?: string;[key: string]: unknown }> }>(
-      '/renewal-forms',
-      {
-        search: licenseNumber.trim(),
-        limit: 25,
-        page: 1,
-      },
-    );
+    try {
+      const response = await apiClient.get<any>(
+        '/renewal-forms',
+        {
+          search: licenseNumber.trim(),
+          limit: 25,
+          page: 1,
+        },
+      );
 
-    const items = response?.data ?? response ?? [];
-    const list = Array.isArray(items) ? items : [];
+      const raw = response?.data ?? response;
+      const list: any[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)
+        ? raw.data
+        : Array.isArray(raw?.items)
+        ? raw.items
+        : [];
 
-    const normalizedLicense = licenseNumber.trim().toLowerCase();
-    return (
-      list.find((item) => String(item?.licenseNumber || '').toLowerCase() === normalizedLicense) ||
-      list.find((item) => String(item?.licenseNumber || '').toLowerCase().includes(normalizedLicense)) ||
-      null
-    );
+      const normalizedLicense = licenseNumber.trim().toLowerCase();
+      const getLicNo = (item: any) =>
+        String(item?.licenseNumber || item?.licenseNo || item?.license?.licenseNumber || item?.license?.licenseNo || '').toLowerCase();
+
+      const exactMatch = list.find((item) => getLicNo(item) === normalizedLicense);
+      if (exactMatch) return exactMatch;
+
+      const partialMatch = list.find((item) => getLicNo(item).includes(normalizedLicense));
+      if (partialMatch) return partialMatch;
+
+      if (list.length > 0) return list[0];
+      return null;
+    } catch (err) {
+      console.warn('findRenewalByLicenseNumber query error:', err);
+      return null;
+    }
   }
 
   static async createRenewalForm(payload: Record<string, any>): Promise<any> {

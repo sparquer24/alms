@@ -1,16 +1,3 @@
-/**
- * Comprehensive Form Data Loader Utility
- * 
- * This utility provides centralized functions to load existing application data
- * and populate forms across all sections of the Fresh Application Form.
- * 
- * Features:
- * - Loads data for all form sections
- * - Handles data transformation from backend to frontend format
- * - Provides error handling and graceful fallbacks
- * - Supports both individual section loading and complete data loading
- */
-
 import React from 'react';
 import { ApplicationService } from '../api/applicationService';
 
