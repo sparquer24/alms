@@ -8,6 +8,7 @@ import Header from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import Footer from '@/components/Footer';
 import LicenseDetailsHeader from '@/components/licenses/LicenseDetailsHeader';
+import { getLicensesListUrl } from '@/components/licenses/licensesListUrl';
 import { PageLayoutSkeleton, ApplicationDetailSkeleton } from '@/components/Skeleton';
 import { normalizeRole } from '@/utils/roleUtils';
 import LicenseService from '@/services/licenseService';
@@ -247,7 +248,14 @@ function LicenseDetailContent({
   isFetchingCancel
 }: any) {
   const { setShowSidebar, headerHeight } = useLayout();
-  
+
+  // Return to the list view the user came from (same tab/filters/page), not the
+  // unfiltered list. Read after mount — sessionStorage isn't available on the server.
+  const [listHref, setListHref] = useState('/licenses?tab=all');
+  useEffect(() => {
+    setListHref(getLicensesListUrl());
+  }, []);
+
   useEffect(() => {
     // This page renders its own <Sidebar /> and <Header /> inline,
     // so we only need to suppress the global sidebar — not the global header.
@@ -263,9 +271,9 @@ function LicenseDetailContent({
       
       <Header
         showBackButton
-        backHref="/licenses?tab=all"
+        backHref={listHref}
         breadcrumbs={[
-          { label: 'License Management', href: '/licenses?tab=all' },
+          { label: 'License Management', href: listHref },
           { label: `License Number: ${license.licenseNumber}` },
         ]}
         applicationTypeLabel='License Details'

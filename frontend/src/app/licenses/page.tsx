@@ -31,6 +31,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { PageSubHeader, SubHeaderButton, SubHeaderSearch, SubHeaderPills, SubHeaderSelect } from '@/components/common/PageSubHeader';
 import BulkLicenseImport, { downloadLicenseImportTemplate } from '@/components/licenses/BulkLicenseImport';
+import { saveLicensesListUrl } from '@/components/licenses/licensesListUrl';
 import { PageLayoutSkeleton } from '@/components/Skeleton';
 
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
@@ -226,6 +227,35 @@ const coerceLicenseList = (value: any): { data: LicenseData[]; total: number } =
   return { data: [], total: 0 };
 };
 
+/**
+ * Local draft for a text filter that lives in the URL. Edits are committed after
+ * `delay` ms; URL changes coming from elsewhere (Back/Forward, card clicks) are
+ * pulled back into the draft, but our own commits landing late are ignored so
+ * characters typed in the meantime aren't overwritten.
+ */
+function useDebouncedUrlValue(urlValue: string, commit: (value: string) => void, delay = 350) {
+  const [draft, setDraft] = useState(urlValue);
+  const lastCommitted = useRef(urlValue);
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+
+  useEffect(() => {
+    if (urlValue !== lastCommitted.current) setDraft(urlValue);
+    lastCommitted.current = urlValue;
+  }, [urlValue]);
+
+  useEffect(() => {
+    if (draft === lastCommitted.current) return;
+    const timer = setTimeout(() => {
+      lastCommitted.current = draft;
+      commitRef.current(draft);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [draft, delay]);
+
+  return [draft, setDraft] as const;
+}
+
 function LicenseManagementContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -233,28 +263,28 @@ function LicenseManagementContent() {
   const { setShowSidebar, headerHeight } = useLayout();
   const [checked, setChecked] = useState(false);
 
-  const initialTab = (() => {
-    const value = searchParams?.get('tab') as LicenseTab | null;
-    return value && VALID_TABS.includes(value) ? value : 'all';
-  })();
-
-  const [tab, setTab] = useState<LicenseTab>(initialTab);
-  const [search, setSearch] = useState(searchParams?.get('search') || '');
-  const [statusFilter, setStatusFilter] = useState(searchParams?.get('status') || '');
-  const [purposeFilter, setPurposeFilter] = useState(searchParams?.get('purpose') || '');
-  const [sourceFilter, setSourceFilter] = useState(searchParams?.get('source') || '');
-  const [expiringDays, setExpiringDays] = useState(Number(searchParams?.get('days')) || 90);
-  const [renewedOnly, setRenewedOnly] = useState(searchParams?.get('renewed') === 'true');
-  const [page, setPage] = useState(Number(searchParams?.get('page')) || 1);
+  // The URL is the single source of truth for tab/filters/pagination, so a page
+  // refresh or browser Back/Forward always lands on exactly what the URL says.
+  // Every change goes through exactly one router.push/replace — dispatching two
+  // navigations back to back makes Next discard the first (losing history entries).
+  const tabParam = searchParams?.get('tab') as LicenseTab | null;
+  const tab: LicenseTab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'all';
+  const search = searchParams?.get('search') || '';
+  const statusFilter = searchParams?.get('status') || '';
+  const purposeFilter = searchParams?.get('purpose') || '';
+  const sourceFilter = searchParams?.get('source') || '';
+  const expiringDays = Number(searchParams?.get('days')) || 90;
+  const renewedOnly = searchParams?.get('renewed') === 'true';
+  const page = Number(searchParams?.get('page')) || 1;
   const [sortBy, setSortBy] = useState('validTill');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const limit = 10;
 
-  const [auditSearch, setAuditSearch] = useState(searchParams?.get('auditSearch') || '');
-  const [auditAction, setAuditAction] = useState(searchParams?.get('auditAction') || '');
-  const [auditDateFrom, setAuditDateFrom] = useState(searchParams?.get('dateFrom') || '');
-  const [auditDateTo, setAuditDateTo] = useState(searchParams?.get('dateTo') || '');
-  const [auditPage, setAuditPage] = useState(Number(searchParams?.get('auditPage')) || 1);
+  const auditSearch = searchParams?.get('auditSearch') || '';
+  const auditAction = searchParams?.get('auditAction') || '';
+  const auditDateFrom = searchParams?.get('dateFrom') || '';
+  const auditDateTo = searchParams?.get('dateTo') || '';
+  const auditPage = Number(searchParams?.get('auditPage')) || 1;
   const auditLimit = 10;
 
   const role = useMemo(() => normalizeRole(userRole), [userRole]);
@@ -426,35 +456,13 @@ function LicenseManagementContent() {
     return query ? `/licenses?${query}` : '/licenses';
   };
 
-  // Keep the URL mirroring in-tab filter tweaks (search keystrokes, pagination,
-  // status/purpose changes) without spamming browser history — tab/card clicks push
-  // their own history entry explicitly (see onClick handlers below) so Back/Forward
-  // can still step between tabs.
-  useEffect(() => {
-    const url = buildLicensesUrl({
-      tab,
-      status: statusFilter,
-      purpose: purposeFilter,
-      source: sourceFilter,
-      renewed: renewedOnly,
-      days: expiringDays,
-      search,
-      page,
-      auditSearch,
-      auditAction,
-      auditDateFrom,
-      auditDateTo,
-      auditPage,
-    });
-    router.replace(url, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  const currentUrlState = {
     tab,
-    statusFilter,
-    purposeFilter,
-    sourceFilter,
-    renewedOnly,
-    expiringDays,
+    status: statusFilter,
+    purpose: purposeFilter,
+    source: sourceFilter,
+    renewed: renewedOnly,
+    days: expiringDays,
     search,
     page,
     auditSearch,
@@ -462,26 +470,33 @@ function LicenseManagementContent() {
     auditDateFrom,
     auditDateTo,
     auditPage,
-  ]);
+  };
 
-  // Restore state when the user navigates via browser Back/Forward.
+  // In-tab tweaks (filters, pagination, search) replace the current history entry;
+  // tab/card switches push a new one so Back/Forward steps between them.
+  const updateUrl = (patch: Partial<typeof currentUrlState>, mode: 'push' | 'replace' = 'replace') => {
+    const url = buildLicensesUrl({ ...currentUrlState, ...patch });
+    if (mode === 'push') router.push(url, { scroll: false });
+    else router.replace(url, { scroll: false });
+  };
+  const updateUrlRef = useRef(updateUrl);
+  updateUrlRef.current = updateUrl;
+
+  // Remember the exact list URL so the detail page's Back button returns here
+  // with the same tab/filters/page instead of the unfiltered list.
   useEffect(() => {
-    const nextTab = (searchParams?.get('tab') as LicenseTab | null) || 'all';
-    if (VALID_TABS.includes(nextTab)) setTab(nextTab);
-    setStatusFilter(searchParams?.get('status') || '');
-    setPurposeFilter(searchParams?.get('purpose') || '');
-    setSourceFilter(searchParams?.get('source') || '');
-    setRenewedOnly(searchParams?.get('renewed') === 'true');
-    setExpiringDays(Number(searchParams?.get('days')) || 90);
-    setSearch(searchParams?.get('search') || '');
-    setPage(Number(searchParams?.get('page')) || 1);
-    setAuditSearch(searchParams?.get('auditSearch') || '');
-    setAuditAction(searchParams?.get('auditAction') || '');
-    setAuditDateFrom(searchParams?.get('dateFrom') || '');
-    setAuditDateTo(searchParams?.get('dateTo') || '');
-    setAuditPage(Number(searchParams?.get('auditPage')) || 1);
+    saveLicensesListUrl(buildLicensesUrl(currentUrlState));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Search boxes keep a local draft so typing stays responsive, and commit to
+  // the URL after a short pause.
+  const [searchInput, setSearchInput] = useDebouncedUrlValue(search, value =>
+    updateUrlRef.current({ search: value, page: 1 })
+  );
+  const [auditSearchInput, setAuditSearchInput] = useDebouncedUrlValue(auditSearch, value =>
+    updateUrlRef.current({ auditSearch: value, auditPage: 1 })
+  );
 
   const openDetails = (license: LicenseData) => {
     router.push(`/licenses/${license.id}`);
@@ -569,18 +584,8 @@ function LicenseManagementContent() {
                 ]}
                 value={tab}
                 onChange={nextTab => {
-                  setTab(nextTab);
-                  setStatusFilter('');
-                  setPurposeFilter('');
-                  setSourceFilter('');
-                  setExpiringDays(90);
-                  setRenewedOnly(false);
-                  setPage(1);
-                  setAuditSearch('');
-                  setAuditAction('');
-                  setAuditDateFrom('');
-                  setAuditDateTo('');
-                  setAuditPage(1);
+                  if (nextTab === tab) return;
+                  setAuditSearchInput('');
                   router.push(buildLicensesUrl({ tab: nextTab, search }), { scroll: false });
                 }}
               />
@@ -588,30 +593,21 @@ function LicenseManagementContent() {
               {tab === 'audit' ? (
                 <>
                   <SubHeaderSearch
-                    value={auditSearch}
-                    onChange={val => {
-                      setAuditSearch(val);
-                      setAuditPage(1);
-                    }}
+                    value={auditSearchInput}
+                    onChange={setAuditSearchInput}
                     placeholder="Search audit logs..."
                   />
 
                   <SubHeaderSelect
                     value={auditAction}
-                    onChange={val => {
-                      setAuditAction(val);
-                      setAuditPage(1);
-                    }}
+                    onChange={val => updateUrl({ auditAction: val, auditPage: 1 })}
                     options={AUDIT_ACTION_OPTIONS}
                   />
 
                   <input
                     type="date"
                     value={auditDateFrom}
-                    onChange={event => {
-                      setAuditDateFrom(event.target.value);
-                      setAuditPage(1);
-                    }}
+                    onChange={event => updateUrl({ auditDateFrom: event.target.value, auditPage: 1 })}
                     max={auditDateTo || undefined}
                     className="rounded-lg bg-[#1E3A8A]/40 border border-[#3B82F6]/30 px-2 py-1 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
                     aria-label="From date"
@@ -621,10 +617,7 @@ function LicenseManagementContent() {
                   <input
                     type="date"
                     value={auditDateTo}
-                    onChange={event => {
-                      setAuditDateTo(event.target.value);
-                      setAuditPage(1);
-                    }}
+                    onChange={event => updateUrl({ auditDateTo: event.target.value, auditPage: 1 })}
                     min={auditDateFrom || undefined}
                     className="rounded-lg bg-[#1E3A8A]/40 border border-[#3B82F6]/30 px-2 py-1 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
                     aria-label="To date"
@@ -660,21 +653,15 @@ function LicenseManagementContent() {
                 <>
                   {/* Search Bar in SubHeader */}
                   <SubHeaderSearch
-                    value={search}
-                    onChange={val => {
-                      setSearch(val);
-                      setPage(1);
-                    }}
+                    value={searchInput}
+                    onChange={setSearchInput}
                     placeholder="Search name, license no..."
                   />
 
                   {/* Status Dropdown in SubHeader */}
                   <SubHeaderSelect
                     value={statusFilter}
-                    onChange={val => {
-                      setStatusFilter(val);
-                      setPage(1);
-                    }}
+                    onChange={val => updateUrl({ status: val, page: 1 })}
                     options={[
                       { value: '', label: 'All Status' },
                       { value: 'ACTIVE', label: 'Active' },
@@ -687,20 +674,14 @@ function LicenseManagementContent() {
 
                   <SubHeaderSelect
                     value={purposeFilter}
-                    onChange={val => {
-                      setPurposeFilter(val);
-                      setPage(1);
-                    }}
+                    onChange={val => updateUrl({ purpose: val, page: 1 })}
                     options={PURPOSE_OPTIONS}
                   />
 
                   {tab === 'all' && (
                     <SubHeaderSelect
                       value={sourceFilter}
-                      onChange={val => {
-                        setSourceFilter(val);
-                        setPage(1);
-                      }}
+                      onChange={val => updateUrl({ source: val, page: 1 })}
                       options={SOURCE_OPTIONS}
                     />
                   )}
@@ -826,23 +807,15 @@ function LicenseManagementContent() {
                 key={card.label}
                 type='button'
                 onClick={() => {
-                  setTab(card.tab);
-                  setStatusFilter(card.status ?? '');
-                  setExpiringDays(card.days ?? 90);
-                  setRenewedOnly(!!card.renewedOnly);
-                  setPurposeFilter('');
-                  setSourceFilter('');
-                  setSearch('');
-                  setPage(1);
-                  router.push(
-                    buildLicensesUrl({
-                      tab: card.tab,
-                      status: card.status ?? '',
-                      days: card.days ?? 90,
-                      renewed: !!card.renewedOnly,
-                    }),
-                    { scroll: false }
-                  );
+                  const target = buildLicensesUrl({
+                    tab: card.tab,
+                    status: card.status ?? '',
+                    days: card.days ?? 90,
+                    renewed: !!card.renewedOnly,
+                  });
+                  setSearchInput('');
+                  if (target === buildLicensesUrl(currentUrlState)) return;
+                  router.push(target, { scroll: false });
                 }}
                 aria-pressed={isActiveCard}
                 className={`group rounded-lg border bg-white p-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
@@ -869,14 +842,7 @@ function LicenseManagementContent() {
           {tab === 'import' ? (
             <BulkLicenseImport
               onChanged={() => loadLicenses()}
-              onViewLicenses={() => {
-                setTab('all');
-                setStatusFilter('');
-                setPurposeFilter('');
-                setRenewedOnly(false);
-                setPage(1);
-                router.push(buildLicensesUrl({ tab: 'all' }), { scroll: false });
-              }}
+              onViewLicenses={() => router.push(buildLicensesUrl({ tab: 'all' }), { scroll: false })}
             />
           ) : tab === 'audit' ? (
             <>
@@ -949,7 +915,7 @@ function LicenseManagementContent() {
                   <button
                     type='button'
                     disabled={auditPage <= 1}
-                    onClick={() => setAuditPage(prev => Math.max(prev - 1, 1))}
+                    onClick={() => updateUrl({ auditPage: Math.max(auditPage - 1, 1) })}
                     className='rounded border px-2 py-0.5 disabled:opacity-50'
                   >
                     <ChevronLeft className='h-4 w-4' />
@@ -957,7 +923,7 @@ function LicenseManagementContent() {
                   <button
                     type='button'
                     disabled={auditPage >= Math.ceil(auditLogTotal / auditLimit)}
-                    onClick={() => setAuditPage(prev => prev + 1)}
+                    onClick={() => updateUrl({ auditPage: auditPage + 1 })}
                     className='rounded border px-2 py-0.5 disabled:opacity-50'
                   >
                     <ChevronRight className='h-4 w-4' />
@@ -1210,7 +1176,7 @@ function LicenseManagementContent() {
                   <button
                     type='button'
                     disabled={page <= 1}
-                    onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                    onClick={() => updateUrl({ page: Math.max(page - 1, 1) })}
                     className='rounded border px-2 py-0.5 disabled:opacity-50'
                   >
                     <ChevronLeft className='h-4 w-4' />
@@ -1218,7 +1184,7 @@ function LicenseManagementContent() {
                   <button
                     type='button'
                     disabled={page >= Math.ceil(total / limit)}
-                    onClick={() => setPage(prev => prev + 1)}
+                    onClick={() => updateUrl({ page: page + 1 })}
                     className='rounded border px-2 py-0.5 disabled:opacity-50'
                   >
                     <ChevronRight className='h-4 w-4' />
