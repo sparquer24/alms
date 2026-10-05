@@ -25,9 +25,11 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { AuditModule } from './audit/audit.module';
 import { DocumentsModule } from './documents/documents.module';
+import { PrismaModule } from '../services/prisma.module';
+import { CacheModule } from '../cache/cache.module';
 
 @Module({
-  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, PermissionsModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, ApprovalRulesModule, BiometricModule, PublicModule, RenewalFormModule, CancelFormModule, VerificationModule, LicensesModule, HearingsModule, NotificationsModule, SchedulerModule, AuditModule, DocumentsModule],
+  imports: [PrismaModule, CacheModule, HealthModule, UserModule, WeaponsModule, RolesModule, PermissionsModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, ApprovalRulesModule, BiometricModule, PublicModule, RenewalFormModule, CancelFormModule, VerificationModule, LicensesModule, HearingsModule, NotificationsModule, SchedulerModule, AuditModule, DocumentsModule],
 
 })
 export class AppModule { }

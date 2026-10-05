@@ -1780,6 +1780,8 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   if (formData.dobInWords) personalDetails.dobInWords = formData.dobInWords;
   if (formData.panNumber) personalDetails.panNumber = formData.panNumber;
   if (formData.aadharNumber) personalDetails.aadharNumber = formData.aadharNumber;
+  if (formData.placeOfBirth) personalDetails.placeOfBirth = formData.placeOfBirth;
+  if (formData.filledBy) personalDetails.filledBy = formData.filledBy;
 
   // Address Details (Present Address)
   if (formData.presentAddress) addressDetails.addressLine = formData.presentAddress;
@@ -1817,6 +1819,9 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
       const id = toNumber(value);
       if (id !== undefined) permanentAddressDetails[key] = id;
     }
+    // The form has a single "Residing Since"; the backend requires it on both
+    // address records (same as the Fresh Application payload).
+    if (addressDetails.sinceResiding) permanentAddressDetails.sinceResiding = addressDetails.sinceResiding;
   }
 
   // Occupation and Business
@@ -3280,13 +3285,22 @@ function RenewalFormPageContent() {
       const v = (data as any)[key];
       if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
     };
+    // Mirrors what the backend needs to store an address record, so an
+    // incomplete address is caught here instead of failing on save.
     requireField('presentAddress', 'Present address');
     requireField('presentState', 'Present state');
     requireField('presentDistrict', 'Present district');
+    requireField('presentZone', 'Present zone');
+    requireField('presentDivision', 'Present division');
+    requireField('presentPoliceStation', 'Present police station');
+    requireField('residingSince', 'Residing since');
     if (!data.sameAsPresent) {
       requireField('permanentAddress', 'Permanent address');
       requireField('permanentState', 'Permanent state');
       requireField('permanentDistrict', 'Permanent district');
+      requireField('permanentZone', 'Permanent zone');
+      requireField('permanentDivision', 'Permanent division');
+      requireField('permanentPoliceStation', 'Permanent police station');
     }
 
     if (!data.residencePhone) {
@@ -5094,7 +5108,8 @@ function RenewalFormPageContent() {
               onSubmit={handleRenewalSubmit}
               isLoading={isSaving}
               errors={STEP_ERRORS[currentStepIndex]}
-              disableActions={!(sectionValidity[STEP_KEYS[currentStepIndex]] ?? true)}
+              // Buttons stay enabled: clicking validates the section and highlights
+              // every missing field, instead of silently greying out the buttons.
               disableSaveDraft={
                 STEP_KEYS[currentStepIndex] === 'documents'
                   ? !hasStagedRenewalDocuments(formData, RENEWAL_DOCUMENT_FIELD_KEYS)

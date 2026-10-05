@@ -2,6 +2,8 @@ import { Controller, Get, Param, HttpException, HttpStatus, Query, Req } from '@
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import * as jwt from 'jsonwebtoken';
 import { PublicService } from './public.service';
+import { CacheResponse } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 /**
  * Public Controller - No authentication required
@@ -13,6 +15,7 @@ export class PublicController {
     constructor(private readonly publicService: PublicService) { }
 
     @Get('dashboard/overview')
+    @CacheResponse(CacheKeys.publicDashboard, CacheTtl.publicDashboard, 'jurisdiction')
     @ApiOperation({
         summary: 'Get Universal Public Dashboard Overview',
         description: 'Retrieve aggregated, anonymized statistics, volume trends, status distributions, weapon categories, zonal loads, and recent public activity for the universal dashboard. No authentication required.',

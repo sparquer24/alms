@@ -47,4 +47,14 @@ export class PatchRenewalPersonalDetailsDto {
   @IsOptional()
   @IsString()
   aadharNumber?: string;
+
+  @ApiPropertyOptional({ example: 'Hyderabad', description: 'Place of birth' })
+  @IsOptional()
+  @IsString()
+  placeOfBirth?: string;
+
+  @ApiPropertyOptional({ example: 'ZS Officer', description: 'Name of the ZS who filled the application' })
+  @IsOptional()
+  @IsString()
+  filledBy?: string;
 }

@@ -5,6 +5,7 @@ import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as QRCode from 'qrcode';
+import cache, { CacheKeys, CacheTtl } from '../../cache/cache';
 
 /** Caller context for bulk import: identity plus the jurisdiction to scope rows to. */
 export interface LicenseImportScope {
@@ -1492,67 +1493,46 @@ export class LicensesService {
    * Filters by state for ADMIN users, SUPER_ADMIN sees all states
    */
   async getLicenseStatistics(stateId?: number, roleCode?: string, districtId?: number, zoneId?: number) {
+    // Dashboard counters: cached briefly per jurisdiction. Licenses are written from several
+    // services (issue, renew, cancel, import), so a short TTL bounds staleness instead of
+    // invalidating at every write site.
+    const key = `${CacheKeys.licenseStats}${roleCode ?? ''}:${stateId ?? ''}:${districtId ?? ''}:${zoneId ?? ''}`;
+    return cache.wrap(key, CacheTtl.licenses, () =>
+      this.computeLicenseStatistics(stateId, roleCode, districtId, zoneId),
+    );
+  }
+
+  private async computeLicenseStatistics(stateId?: number, roleCode?: string, districtId?: number, zoneId?: number) {
     const now = new Date();
     const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
     const baseWhere: any = {
       ...this.buildLocationScopeWhere({ stateId, districtId, zoneId, roleCode }),
     };
+    const expiringWithin = (days: number) =>
+      this.prisma.licenses.count({
+        where: { ...baseWhere, status: LicenseStatus.ACTIVE, validTill: { lte: daysFromNow(days), gte: now } },
+      });
 
-    const [total, activeCount, expiredCount, cancelledCount, suspendedCount, revokedCount, expiringSoonCount, expiringWithin60Days, expiringWithin90Days, renewedCount] = await Promise.all([
-      this.prisma.licenses.count({ where: baseWhere }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'ACTIVE' as any } }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'EXPIRED' as any } }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'CANCELLED' as any } }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'SUSPENDED' as any } }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'REVOKED' as any } }),
-      this.prisma.licenses.count({
-        where: {
-          ...baseWhere,
-          status: 'ACTIVE' as any,
-          validTill: {
-            lte: daysFromNow(30),
-            gte: now
-          }
-        }
-      }),
-      this.prisma.licenses.count({
-        where: {
-          ...baseWhere,
-          status: 'ACTIVE' as any,
-          validTill: {
-            lte: daysFromNow(60),
-            gte: now
-          }
-        }
-      }),
-      this.prisma.licenses.count({
-        where: {
-          ...baseWhere,
-          status: 'ACTIVE' as any,
-          validTill: {
-            lte: daysFromNow(90),
-            gte: now
-          }
-        }
-      }),
-      this.prisma.licenses.count({
-        where: {
-          ...baseWhere,
-          renewalCount: {
-            gt: 0
-          }
-        }
-      }),
+    // One grouped query replaces a separate COUNT per status
+    const [byStatus, expiringSoonCount, expiringWithin60Days, expiringWithin90Days, renewedCount] = await Promise.all([
+      this.prisma.licenses.groupBy({ by: ['status'], where: baseWhere, _count: { _all: true } }),
+      expiringWithin(30),
+      expiringWithin(60),
+      expiringWithin(90),
+      this.prisma.licenses.count({ where: { ...baseWhere, renewalCount: { gt: 0 } } }),
     ]);
+
+    const countFor = (status: LicenseStatus) => byStatus.find((row) => row.status === status)?._count._all ?? 0;
+    const total = byStatus.reduce((sum, row) => sum + row._count._all, 0);
 
     return {
       total,
-      active: activeCount,
-      expired: expiredCount,
-      cancelled: cancelledCount,
-      suspended: suspendedCount,
-      revoked: revokedCount,
+      active: countFor(LicenseStatus.ACTIVE),
+      expired: countFor(LicenseStatus.EXPIRED),
+      cancelled: countFor(LicenseStatus.CANCELLED),
+      suspended: countFor(LicenseStatus.SUSPENDED),
+      revoked: countFor(LicenseStatus.REVOKED),
       expiringWithin30Days: expiringSoonCount,
       expiringWithin60Days,
       expiringWithin90Days,

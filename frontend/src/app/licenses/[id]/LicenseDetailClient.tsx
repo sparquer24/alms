@@ -9,10 +9,9 @@ import { Sidebar } from '@/components/Sidebar';
 import Footer from '@/components/Footer';
 import LicenseDetailsHeader from '@/components/licenses/LicenseDetailsHeader';
 import PrintLicense from '@/components/licenses/PrintLicense';
-import { getLicensesListUrl } from '@/components/licenses/licensesListUrl';
+import { consumeLicenseOpenedFromList, getLicensesListUrl } from '@/components/licenses/licensesListUrl';
 import { PageLayoutSkeleton, ApplicationDetailSkeleton } from '@/components/Skeleton';
 import { normalizeRole } from '@/utils/roleUtils';
-import LicenseService from '@/services/licenseService';
 import { LicenseData } from '@/types';
 import { ChevronLeft, ChevronDown, ExternalLink, Printer, FileText, History, Ban, ShieldCheck, UserRound, Calendar, MapPin, Search } from 'lucide-react';
 import { apiClient } from '@/config/authenticatedApiClient';
@@ -21,8 +20,6 @@ import { SectionCard, DetailItem, SummaryCard, DocumentTable, StatusBadge, Maske
 import { getDocuments } from '@/services/documentService';
 import { getStatusStyle } from '@/utils/statusColors';
 import { formatGender, formatStatusLabel, humanize } from '@/utils/formatters';
-import EnhancedApplicationTimeline from '@/components/EnhancedApplicationTimeline';
-import { LazySection } from '@/components/LazySection';
 
 type Tab = 'details' | 'fresh' | 'renewals' | 'cancellations';
 
@@ -121,7 +118,6 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
   const isZS = role === 'ZS';
   
   const [license, setLicense] = useState<LicenseData | null>(null);
-  const [auditRows, setAuditRows] = useState<any[]>([]);
   const [renewals, setRenewals] = useState<any[]>([]);
   const [cancellations, setCancellations] = useState<any[]>([]);
   const [freshApp, setFreshApp] = useState<any>(null);
@@ -143,7 +139,7 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
   const renewalsFetched = useRef(false);
   const cancelFetched = useRef(false);
 
-  // Initial load: fetch only this specific license + its audit log
+  // Initial load: fetch only this specific license
   useEffect(() => {
     const fetchLicenseDetails = async () => {
       try {
@@ -151,16 +147,6 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
         const res: any = await apiClient.get(`/licenses/${resolvedParams.id}`);
         const licenseData = res.data?.data || res.data;
         setLicense(licenseData);
-        const auditId = licenseData?.licenseId ?? licenseData?.id;
-        if (auditId) {
-          try {
-            const audit = await LicenseService.getLicenseAudit(auditId);
-            setAuditRows(audit);
-          } catch (auditErr) {
-            console.warn('Audit log not available for this license:', auditErr);
-            setAuditRows([]);
-          }
-        }
       } catch (error: any) {
         const msg = error?.message || '';
         if (msg.toLowerCase().includes('not found')) {
@@ -273,7 +259,6 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
     <LayoutProvider initialShowSidebar={false}>
       <LicenseDetailContent
         license={license}
-        auditRows={auditRows}
         renewals={renewals}
         cancellations={cancellations}
         freshApp={freshApp}
@@ -291,7 +276,6 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
 
 function LicenseDetailContent({ 
   license, 
-  auditRows, 
   renewals, 
   cancellations,
   freshApp,
@@ -314,6 +298,17 @@ function LicenseDetailContent({
     setListHref(getLicensesListUrl());
   }, []);
 
+  // Opened from the list: step back through history so the list's own Back
+  // then continues to wherever the user was before (Inbox/Home). Otherwise
+  // replace this entry with the list rather than pushing on top of it.
+  const goBackToList = () => {
+    if (consumeLicenseOpenedFromList(license.id) && window.history.length > 1) {
+      router.back();
+    } else {
+      router.replace(listHref);
+    }
+  };
+
   useEffect(() => {
     // This page renders its own <Sidebar /> and <Header /> inline,
     // so we only need to suppress the global sidebar — not the global header.
@@ -330,9 +325,9 @@ function LicenseDetailContent({
       
       <Header
         showBackButton
-        backHref={listHref}
+        onBack={goBackToList}
         breadcrumbs={[
-          { label: 'License Management', href: listHref },
+          { label: 'License Management', onClick: goBackToList },
           { label: `License Number: ${license.licenseNumber}` },
         ]}
         applicationTypeLabel='License Details'
@@ -490,31 +485,13 @@ function LicenseDetailContent({
                       ))}
                     </div>
 
-                    {/* Right column: Photo & Timeline */}
+                    {/* Right column: Photo */}
                     <div>
                       <SummaryCard
                         application={license}
                         applicationId={license.licenseNumber}
                         applicantName={getFullName(license)}
                       />
-                      {auditRows && auditRows.length > 0 && (
-                        <div className='bg-slate-50/50 rounded-2xl border border-slate-100 p-6 overflow-hidden mt-4'>
-                          <div>
-                            <LazySection minHeight='400px'>
-                              <EnhancedApplicationTimeline
-                                application={license}
-                                workflowHistory={auditRows.map((row: any) => ({
-                                  ...row,
-                                  actionTaken: row.action || row.event || row.newStatus || '',
-                                  previousUser: { username: row.performedBy || row.officer || row.changedByUser?.username || row.changedBy || 'System' },
-                                  remarks: row.remarks,
-                                  createdAt: row.createdAt
-                                }))}
-                              />
-                            </LazySection>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

@@ -168,6 +168,7 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
             }}
             onChange={(field, value) => onChange({ target: { name: field, value } })}
             required
+            errors={errors as Record<string, string>}
             disabledFields={{
               state: isZSRole,
               district: isZSRole,
@@ -184,6 +185,7 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
             name='residingSince' 
             value={formData.residingSince || ''} 
             onChange={onChange} 
+            required
             error={errors['residingSince']} 
             max={new Date().toISOString().split('T')[0]}
           />
@@ -219,6 +221,7 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
                 }}
                 onChange={(field, value) => onChange({ target: { name: field, value } })}
                 required
+                errors={errors as Record<string, string>}
               />
             </div>
 

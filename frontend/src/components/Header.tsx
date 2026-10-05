@@ -40,6 +40,8 @@ interface HeaderProps {
   showBackButton?: boolean;
   /** Optional URL to navigate to when back button is clicked. Defaults to router.back() */
   backHref?: string;
+  /** Optional custom back handler; takes precedence over backHref */
+  onBack?: () => void;
   /** Optional application type label to display in the header */
   applicationTypeLabel?: string;
 }
@@ -55,6 +57,7 @@ const Header = (props: HeaderProps) => {
     showCreateForm,
     showBackButton,
     backHref,
+    onBack,
     applicationTypeLabel,
   } = props;
   const { showHeader, showSidebar, setHeaderHeight } = useLayout();
@@ -200,7 +203,7 @@ const Header = (props: HeaderProps) => {
           {showBackButton && (
             <button
               type='button'
-              onClick={() => backHref ? router.push(backHref) : router.back()}
+              onClick={() => (onBack ? onBack() : backHref ? router.push(backHref) : router.back())}
               className='flex items-center gap-1 pl-2 pr-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md flex-shrink-0'
               aria-label='Go back'
               title='Go back'

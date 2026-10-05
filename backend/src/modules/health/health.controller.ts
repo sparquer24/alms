@@ -1,9 +1,10 @@
 import { Controller, Get, HttpStatus, HttpException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../db/prismaClient';
+import cache from '../../cache/cache';
 
 @Controller('health')
 export class HealthController {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
 
   @Get()
   async check() {
@@ -25,6 +26,8 @@ export class HealthController {
         uptime: Math.floor(uptime),
         uptimeFormatted: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
         database: 'connected',
+        // Informational only: the API keeps serving (from the DB) when the cache is down
+        cache: { backend: cache.backend, healthy: await cache.isHealthy() },
         memory: {
           heapUsed: `${Math.round(memory.heapUsed / 1024 / 1024)}MB`,
           heapTotal: `${Math.round(memory.heapTotal / 1024 / 1024)}MB`,

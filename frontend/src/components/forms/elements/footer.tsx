@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { FaRegSave } from 'react-icons/fa';
 import { FiArrowRight, FiArrowLeft } from 'react-icons/fi';
 
@@ -37,6 +38,14 @@ const FormFooter = ({
   errors,
 }: FormFooterProps) => {
   const errorEntries = errors ? Object.entries(errors).filter(([_, msg]) => msg && msg.trim()) : [];
+  // Which button started the current save, so only that one shows the spinner
+  // (both stay disabled). Null when loading was started from elsewhere.
+  const [pendingAction, setPendingAction] = useState<'draft' | 'next' | null>(null);
+  useEffect(() => {
+    if (!isLoading) setPendingAction(null);
+  }, [isLoading]);
+  const draftBusy = isLoading && pendingAction !== 'next';
+  const nextBusy = isLoading && pendingAction !== 'draft';
 
   return (
     <footer className='w-full mt-8 bg-white px-6 py-2 flex flex-col gap-2 z-50 shadow-[0_-2px_8px_0_rgba(0,0,0,0.04)]'>
@@ -112,12 +121,15 @@ const FormFooter = ({
         <div className='flex flex-wrap gap-3 justify-end mt-4'>
           <button
             type='button'
-            onClick={onSaveToDraft}
+            onClick={() => {
+              setPendingAction('draft');
+              onSaveToDraft?.();
+            }}
             disabled={isLoading || (disableSaveDraft ?? disableActions)}
             suppressHydrationWarning
             className='flex items-center justify-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]'
           >
-            {isLoading ? (
+            {draftBusy ? (
               <>
                 <Spinner size="sm" color="text-yellow-700" /> Saving...
               </>
@@ -143,12 +155,15 @@ const FormFooter = ({
           )}
           <button
             type='button'
-            onClick={onNext}
+            onClick={() => {
+              setPendingAction('next');
+              onNext?.();
+            }}
             disabled={isLoading || disableActions}
             suppressHydrationWarning
             className='flex items-center justify-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]'
           >
-            {isLoading ? (
+            {nextBusy ? (
               <>
                 <Spinner size="sm" color="text-white" /> Saving...
               </>

@@ -31,7 +31,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { PageSubHeader, SubHeaderButton, SubHeaderSearch, SubHeaderPills, SubHeaderSelect } from '@/components/common/PageSubHeader';
 import BulkLicenseImport, { downloadLicenseImportTemplate } from '@/components/licenses/BulkLicenseImport';
-import { saveLicensesListUrl } from '@/components/licenses/licensesListUrl';
+import { markLicenseOpenedFromList, saveLicensesListUrl } from '@/components/licenses/licensesListUrl';
 import { PageLayoutSkeleton } from '@/components/Skeleton';
 
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
@@ -502,6 +502,7 @@ function LicenseManagementContent() {
   );
 
   const openDetails = (license: LicenseData) => {
+    markLicenseOpenedFromList(license.id);
     router.push(`/licenses/${license.id}`);
   };
 

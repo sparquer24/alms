@@ -442,7 +442,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           const license = await LicenseService.getLicenseById(Number(applicationId!));
           if (license) {
             licenseAppFallback = license;
-            setApplication(license as unknown as ApplicationData);
+            // Licenses have no application type of their own; without this the
+            // screen falls back to labelling the license "Fresh".
+            setApplication({ ...license, applicationType: 'Issued License' } as unknown as ApplicationData);
           } else {
             setApplication(null);
           }
@@ -833,17 +835,23 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     setShowProceedingsForm(false);
     setSuccessMessage(message || 'Proceedings action completed successfully');
 
-    // Reload the application data to get the latest workflow history
+    // Reload the application data to get the latest workflow history. A renewal
+    // must be re-read from the renewal API: the fresh-application API would return
+    // a different record that happens to share this ID.
     if (applicationId) {
-      getApplicationByApplicationId(applicationId!)
-        .then(result => {
-          if (result) {
-            setApplication(result as ApplicationData);
-          }
-        })
-        .catch(error => {
-          // Error reloading application
-        });
+      const reload = isRenewalView
+        ? RenewalService.getRenewalForm(applicationId).then(response => {
+            const renewalData = (response as any)?.data ?? response;
+            if (!renewalData) return;
+            setRawRenewalData(renewalData);
+            setApplication(normalizeRenewalApplication(renewalData));
+          })
+        : getApplicationByApplicationId(applicationId).then(result => {
+            if (result) setApplication(result as ApplicationData);
+          });
+      reload.catch(() => {
+        // Error reloading application
+      });
     }
     // Refresh sidebar counts as proceedings may change bucket counts
     try {
@@ -885,7 +893,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 : '...',
           },
         ]}
-        applicationTypeLabel={isRenewalView ? 'Renewal' : 'Fresh Application'}
+        applicationTypeLabel={
+          isRenewalView ? 'Renewal' : isLicenseView ? 'Issued License' : 'Fresh Application'
+        }
         statusBadge={
           application
             ? {
