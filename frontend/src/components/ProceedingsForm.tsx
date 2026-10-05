@@ -8,6 +8,7 @@ const SelectFixed = Select as any;
 import styles from './ProceedingsForm.module.css';
 import { fetchData, postData, setAuthToken } from '../api/axiosConfig';
 import { TiptapRichTextEditor } from './TiptapRichTextEditor';
+import ConfirmationModal from './ConfirmationModal';
 import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
 
@@ -213,6 +214,7 @@ export default function ProceedingsForm({
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // DCP Hearing State
   const [hearingDate, setHearingDate] = useState('');
@@ -478,6 +480,11 @@ export default function ProceedingsForm({
       return;
     }
 
+    // Workflow actions cannot be undone, so the officer confirms what will happen first.
+    setShowConfirm(true);
+  };
+
+  const submitAction = async () => {
     // Build payload for /workflow/action
     const actionId = Number(selectedAction?.value);
 
@@ -1674,6 +1681,57 @@ ${content}
           )}
         </div>
       </div>
+
+      {/* Confirm before the action is sent — workflow actions cannot be undone */}
+      {(() => {
+        const code = String(selectedAction?.code || '').toUpperCase();
+        const isFinalDecision = ['APPROVE', 'REJECT', 'CLOSE', 'DISPOSE', 'CANCEL'].some(k =>
+          code.includes(k)
+        );
+        const recipient = isCloseAction ? currentZSUserOption?.label : nextUser?.label;
+        const attachmentCount = attachmentFiles.length + (roleFromCookie === 'SHO' && draftLetter.trim() ? 1 : 0);
+        return (
+          <ConfirmationModal
+            isOpen={showConfirm}
+            onClose={() => setShowConfirm(false)}
+            onConfirm={submitAction}
+            title={`Confirm: ${selectedAction?.label || 'Action'}`}
+            actionButtonText={selectedAction?.label ? `Yes, ${selectedAction.label}` : 'Confirm'}
+            actionButtonColor={
+              isFinalDecision ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+            }
+            message={
+              <div className='space-y-3 text-sm'>
+                <dl className='grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5'>
+                  <dt className='text-gray-500'>Action</dt>
+                  <dd className='font-semibold text-gray-900'>{selectedAction?.label}</dd>
+                  {recipient && (
+                    <>
+                      <dt className='text-gray-500'>Forward to</dt>
+                      <dd className='font-semibold text-gray-900'>{recipient}</dd>
+                    </>
+                  )}
+                  {selectedAction?.code === 'SCHEDULE_HEARING' && hearingDate && (
+                    <>
+                      <dt className='text-gray-500'>Hearing</dt>
+                      <dd className='font-semibold text-gray-900'>
+                        {new Date(hearingDate).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </dd>
+                    </>
+                  )}
+                  <dt className='text-gray-500'>Attachments</dt>
+                  <dd className='text-gray-900'>{attachmentCount || 'None'}</dd>
+                </dl>
+                <p className={isFinalDecision ? 'font-medium text-red-700' : 'text-gray-600'}>
+                  {isFinalDecision
+                    ? 'This is a final decision on the application and cannot be undone.'
+                    : 'Once submitted, this action cannot be undone.'}
+                </p>
+              </div>
+            }
+          />
+        );
+      })()}
 
       {/* Ground Report Editor */}
       {showGroundReportEditor && (

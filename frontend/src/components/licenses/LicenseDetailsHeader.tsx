@@ -4,102 +4,77 @@ import React from 'react';
 
 interface Props {
   licenseNumber?: string;
+  /** License holder's name, shown under the license number. */
+  holderName?: string;
+  /** Status and validity chips shown next to the title. */
+  badges?: React.ReactNode;
   tabs?: string[];
+  /** Optional count shown next to a tab label, keyed by the label. */
+  tabCounts?: Record<string, number | undefined>;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
-  currentSection?: string;
-  accentColorClass?: string;
-  imageSrc?: string;
+  /** Buttons for actions on this license (renew, cancel, ...). */
+  actions?: React.ReactNode;
 }
 
 export default function LicenseDetailsHeader({
   licenseNumber,
+  holderName,
+  badges,
   tabs = ['License Details', 'Fresh Application', 'Renewals', 'Cancellations'],
+  tabCounts,
   activeTab,
   onTabChange,
-  currentSection,
-  accentColorClass = 'bg-gradient-to-b from-indigo-500 to-indigo-400',
-  imageSrc,
+  actions,
 }: Props) {
   return (
-    <div className='relative'>
-      <div className='overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md'>
-        <div className='flex'>
-          {/* Left Accent */}
-          <div className={`w-1 ${accentColorClass}`} />
-
-          <div className='flex-1 px-6 py-4'>
-            <div className='grid grid-cols-[1fr_auto_240px] items-center gap-8'>
-              {/* ================= Left ================= */}
-              <div className='flex items-center gap-5 min-w-0'>
-                {/* Icon */}
-                <div className='flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 shadow-sm'>
-                  {imageSrc ? (
-                    <img src={imageSrc} alt='' className='h-6 w-6 object-contain' />
-                  ) : (
-                    <svg
-                      xmlns='http://www.w3.org/2000/svg'
-                      className='h-6 w-6 text-slate-500'
-                      fill='none'
-                      viewBox='0 0 24 24'
-                      stroke='currentColor'
-                    >
-                      <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth={1.7}
-                        d='M9 12h6M9 16h6M12 8h.01M4 6h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z'
-                      />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Title */}
-                <div className='min-w-0'>
-                  <h2 className='truncate text-[20px] font-bold text-slate-900'>
-                    {licenseNumber ? `License Number: ${licenseNumber}` : 'License Details'}
-                  </h2>
-                </div>
-              </div>
-
-              {/* ================= Center Tabs ================= */}
-              {tabs && tabs.length > 0 && (
-                <div className='flex items-center justify-center gap-4'>
-                  {tabs.map(t => {
-                    const active = t === activeTab;
-
-                    return (
-                      <button
-                        key={t}
-                        type='button'
-                        onClick={() => onTabChange?.(t)}
-                        className={`h-12 rounded-xl px-8 text-[15px] font-semibold transition-all duration-200 ${
-                          active
-                            ? 'bg-[#071933] text-white shadow-md'
-                            : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* ================= Right ================= */}
-              <div className='border-l border-slate-200 pl-8 text-right'>
-                <p className='text-[11px] font-bold uppercase tracking-widest text-blue-600'>
-                  Current Section
-                </p>
-
-                <h3 className='mt-2 text-[18px] font-semibold text-slate-900'>
-                  {currentSection || activeTab}
-                </h3>
-              </div>
-            </div>
+    <div className='rounded-2xl border border-slate-200 bg-white shadow-sm'>
+      <div className='flex flex-wrap items-start justify-between gap-4 px-6 pt-5'>
+        <div className='min-w-0'>
+          <p className='text-xs font-semibold uppercase tracking-wider text-slate-500'>Arms License</p>
+          <div className='mt-1 flex flex-wrap items-center gap-2'>
+            <h2 className='text-xl font-bold text-slate-900'>
+              {licenseNumber ? `No. ${licenseNumber}` : 'License Details'}
+            </h2>
+            {badges}
           </div>
+          {holderName && <p className='mt-1 text-sm text-slate-600'>{holderName}</p>}
         </div>
+        {actions && <div className='flex flex-wrap items-center gap-2'>{actions}</div>}
       </div>
+
+      {tabs.length > 0 && (
+        <nav className='mt-4 flex gap-1 overflow-x-auto border-t border-slate-100 px-4' aria-label='License sections'>
+          {tabs.map(t => {
+            const active = t === activeTab;
+            const count = tabCounts?.[t];
+            return (
+              <button
+                key={t}
+                type='button'
+                onClick={() => onTabChange?.(t)}
+                aria-current={active ? 'page' : undefined}
+                className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                  active
+                    ? 'border-[#071933] text-[#071933]'
+                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
+                }`}
+              >
+                {t}
+                {count != null && count > 0 && (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      active ? 'bg-[#071933] text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      )}
     </div>
   );
 }

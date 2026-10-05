@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useIsomorphicLayoutEffect } from '@/hooks/useIsomorphicLayoutEffect';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '../../../components/Sidebar';
@@ -8,6 +9,7 @@ import Header from '../../../components/Header';
 import Footer from '../../../components/Footer';
 import { PageSubHeader, SubHeaderButton } from '@/components/common/PageSubHeader';
 import { useAuth } from '@/hooks/useAuth';
+import toast from 'react-hot-toast';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
 import { apiClient } from '../../../config/authenticatedApiClient';
@@ -40,6 +42,7 @@ import {
   SectionCard,
   SummaryCard,
   DocumentTable,
+  MaskedAadhaar,
 } from '../components/RedesignedComponents';
 import PrintApplicationForm from '../components/PrintApplicationForm';
 import {
@@ -82,18 +85,13 @@ import {
   Printer,
 } from 'lucide-react';
 
-import {
-  humanize,
-  formatGender,
-  formatStatusLabel,
-  formatApplicationType,
-  formatPhone,
-} from '../../../utils/formatters';
+import { humanize, formatGender, formatStatusLabel, formatApplicationType, formatPhone, formatDisplayDate, formatDisplayDateTime } from '../../../utils/formatters';
 import { normalizeRenewalApplication } from '../../../utils/applicationFormatters';
 import { openAttachment } from '../../../utils/attachmentViewer';
 import { generateApplicationPrintHtml } from '../../../utils/printGenerators';
 import { getStatusStyle } from '../../../utils/statusColors';
 import RenewalApplicationDetailsHeader from '../../../components/renewal/renewalapplicationdetailsheader';
+import RenewalChangesCard from '../../../components/renewal/RenewalChangesCard';
 
 const hexToRgba = (hex: string, alpha: number): string => {
   const cleanHex = hex.replace('#', '');
@@ -108,6 +106,85 @@ interface ApplicationDetailPageProps {
     id: string;
   }>;
 }
+
+// Workflow states in which no officer can act on the application any more.
+const FINAL_STATUSES = ['REJECTED', 'CANCELLED', 'DISPOSED', 'EXPIRED', 'CLOSE'];
+
+const isFinalWorkflowStatus = (app: any): boolean => {
+  const code = String(app?.workflowStatus?.code || app?.status || '').toUpperCase();
+  const name = String(app?.workflowStatus?.name || code).toUpperCase();
+  return FINAL_STATUSES.some(s => code === s || name === s);
+};
+
+/** Signed-in user's id from the `user` cookie (callers fall back to the auth hook's user). */
+const readCookieUserId = (): number | null => {
+  try {
+    if (typeof document === 'undefined' || !document.cookie) return null;
+    const cookie = document.cookie
+      .split(';')
+      .map(c => c.trim())
+      .find(c => c.startsWith('user='));
+    if (!cookie) return null;
+    const decoded = decodeURIComponent(cookie.split('=')[1] || '');
+    const id = decoded ? Number(JSON.parse(decoded)?.id) : NaN;
+    return Number.isFinite(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+};
+
+// How long a file must sit with an officer before the status bar mentions it.
+const PENDING_SINCE_MIN_DAYS = 2;
+
+/** "for 3 days (since 2 Oct 2026)", or null while it has been pending only briefly. */
+const formatPendingSince = (date: Date): string | null => {
+  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+  if (days < PENDING_SINCE_MIN_DAYS) return null;
+  const when = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `for ${days} days (since ${when})`;
+};
+
+type OriginApp = { id: number; type: 'FRESH' | 'RENEWAL' | 'CANCELLATION' };
+
+const toOriginType = (value: unknown): OriginApp['type'] | null => {
+  const t = String(value || '').trim().toUpperCase();
+  return t === 'FRESH' || t === 'RENEWAL' || t === 'CANCELLATION' ? t : null;
+};
+
+/**
+ * The application the viewed renewal was raised against. The License API's source
+ * application is the license's *last* modifying application, which becomes this
+ * renewal once it is approved, so in that case step back to the previous one.
+ * Note: the License API's `id` is the license PK, not an application id.
+ */
+const resolveOriginApp = (license: any, renewalId: string | number | null): OriginApp | null => {
+  if (!license) return null;
+  const lastType = toOriginType(license.lastModifiedAppType);
+  const lastId =
+    license.lastModifiedAppId ??
+    (lastType === 'RENEWAL'
+      ? license.lastModifiedRenewalId ?? license.renewalApplicationId
+      : lastType === 'FRESH'
+        ? license.freshApplicationId
+        : null) ??
+    license.sourceApplicationId;
+
+  if (lastType === 'RENEWAL' && renewalId != null && String(lastId) === String(renewalId)) {
+    const prevType =
+      toOriginType(license.previousModifiedAppType) ?? (license.freshApplicationId ? 'FRESH' : null);
+    const prevId =
+      license.previousModifiedAppId ?? (prevType === 'FRESH' ? license.freshApplicationId : null);
+    return prevType && prevId ? { id: Number(prevId), type: prevType } : null;
+  }
+
+  if (lastType && lastId) return { id: Number(lastId), type: lastType };
+
+  // IMPORT / legacy licenses: fall back to the acknowledgement-number prefix.
+  const srcId = license.sourceApplicationId;
+  const ack = String(license.acknowledgementNo || '').charAt(0).toUpperCase();
+  if (!srcId || !ack) return null;
+  return { id: Number(srcId), type: ack === 'R' ? 'RENEWAL' : ack === 'C' ? 'CANCELLATION' : 'FRESH' };
+};
 
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
   const resolvedParams = React.use(params);
@@ -216,6 +293,73 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     return application;
   }, [isRenewalView, activeTab, originalLicenseData, application]);
 
+  // Who holds the file, since when, and whether the signed-in officer can act on it.
+  const assignment = useMemo(() => {
+    if (!application) return null;
+    const currentUserId = readCookieUserId() ?? (user?.id ? Number(user.id) : null);
+    const holder = application.currentUser ?? null;
+    const isFinal = isFinalWorkflowStatus(application);
+    const canAct = Boolean(
+      !isFinal && currentUserId && holder?.id && Number(holder.id) === currentUserId
+    );
+    const lastMovedAt = (workflowHistory || [])
+      .map((h: any) => new Date(h?.createdAt || h?.date || h?.timestamp || '').getTime())
+      .filter((t: number) => Number.isFinite(t))
+      .reduce((max: number, t: number) => Math.max(max, t), 0);
+    return {
+      holder,
+      isFinal,
+      canAct,
+      since: lastMovedAt ? new Date(lastMovedAt) : null,
+      statusLabel: formatStatusLabel(
+        application.workflowStatus || application.status || application.status_id
+      ),
+    };
+  }, [application, user, workflowHistory]);
+
+  // Current license, to show what a pending renewal will change on it.
+  const [licenseForComparison, setLicenseForComparison] = useState<any | null>(null);
+  const renewalLicenseId = isRenewalView ? rawRenewalData?.licenseId ?? null : null;
+  useEffect(() => {
+    if (!renewalLicenseId) return;
+    let active = true;
+    LicenseService.getLicenseById(Number(renewalLicenseId))
+      .then(license => active && setLicenseForComparison(license))
+      .catch(() => active && setLicenseForComparison(null));
+    return () => {
+      active = false;
+    };
+  }, [renewalLicenseId]);
+
+  // Only while undecided: once approved, the license already holds the renewal's values.
+  const showRenewalChanges = Boolean(
+    isRenewalView &&
+      activeTab === 'info' &&
+      rawRenewalData &&
+      licenseForComparison &&
+      !assignment?.isFinal &&
+      String(application?.workflowStatus?.code || '').toUpperCase() !== 'APPROVED' &&
+      String((licenseForComparison as any).lastModifiedAppId ?? '') !== String(rawRenewalData.id)
+  );
+
+  const goToActionPanel = () => {
+    const scroll = () => {
+      const panel = document.getElementById('application-processing');
+      if (!panel) return;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      (panel.querySelector('input, [contenteditable]') as HTMLElement | null)?.focus({
+        preventScroll: true,
+      });
+    };
+    // The action panel is hidden on the Original License tab.
+    if (isRenewalView && activeTab === 'original') {
+      handleTabChange('Renewal Info');
+      setTimeout(scroll, 150);
+    } else {
+      scroll();
+    }
+  };
+
   const licenseDetails = useMemo(() => {
     const rawDetails =
       (currentDisplayApp as any)?.licenseDetails || (currentDisplayApp as any)?.licenseDetail;
@@ -247,18 +391,24 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       : (currentDisplayApp as any)?.workflowHistories || [];
   }, [isRenewalView, activeTab, originalLicenseHistory, workflowHistory, currentDisplayApp]);
 
+  // On the Original License tab the photo and documents come only from the original
+  // application's documents — never the renewal's own photoUrl/uploads.
+  const originDisplayApp = useMemo(() => {
+    if (!isRenewalView || activeTab !== 'original' || !currentDisplayApp) return null;
+    return {
+      ...currentDisplayApp,
+      photoUrl: undefined,
+      fileUploads: undefined,
+      renewalFileUploads: undefined,
+      uploads: undefined,
+      documents: originDocuments || [],
+    } as any;
+  }, [currentDisplayApp, isRenewalView, activeTab, originDocuments]);
+
   const printApplication = useMemo(() => {
     if (!currentDisplayApp) return null;
-    if (
-      isRenewalView &&
-      activeTab === 'original' &&
-      originDocuments &&
-      originDocuments.length > 0
-    ) {
-      return { ...currentDisplayApp, documents: originDocuments };
-    }
-    return currentDisplayApp;
-  }, [currentDisplayApp, isRenewalView, activeTab, originDocuments]);
+    return originDisplayApp ?? currentDisplayApp;
+  }, [currentDisplayApp, originDisplayApp]);
 
   useEffect(() => {
     if (initialized && !isAuthenticated) {
@@ -266,7 +416,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   }, [isAuthenticated, initialized, router]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     setShowHeader(true);
     setShowSidebar(false);
     return () => {
@@ -403,21 +553,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           originalLicenseHistoryLoadedIdRef.current = licenseId;
           setOriginalLicenseHistory([]);
 
-          // Source application ID from the License API response
-          const srcAppId = (license as any).id;
-          const ackNo = (license as any).acknowledgementNo;
+          const origin = resolveOriginApp(license, rawRenewalData?.id ?? applicationId);
 
-          if (srcAppId && ackNo) {
-            // Derive the type from the first character of the acknowledgement number
-            const firstChar = String(ackNo).charAt(0).toUpperCase();
-            let derivedType: string;
-            if (firstChar === 'R') derivedType = 'RENEWAL';
-            else if (firstChar === 'C') derivedType = 'CANCELLATION';
-            else derivedType = 'FRESH';
-
+          if (origin) {
             try {
               const historyResponse = await apiClient.get<any>(
-                `/workflow/history/${srcAppId}?type=${derivedType}`
+                `/workflow/history/${origin.id}?type=${origin.type}`
               );
               if (historyResponse && historyResponse.success) {
                 setOriginalLicenseHistory(historyResponse.data);
@@ -452,27 +593,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     const fetchOriginDocuments = async () => {
       if (activeTab !== 'original' || !originalLicenseData) return;
 
-      // Source application ID: the License API response merges source application
-      // fields at the top level (via buildLicenseDetailResponse), so originalLicenseData.id
-      // is the source application's primary key, NOT the license PK.
-      const srcAppId = (originalLicenseData as any).id;
-      const ackNo = (originalLicenseData as any).acknowledgementNo;
-
-      if (!srcAppId || !ackNo) {
+      const origin = resolveOriginApp(originalLicenseData, rawRenewalData?.id ?? applicationId);
+      if (!origin) {
         setOriginDocuments([]);
         return;
       }
 
-      // Derive the type from the first character of the acknowledgement number.
-      const firstChar = String(ackNo).charAt(0).toUpperCase();
-      let derivedType: string;
-      if (firstChar === 'R') derivedType = 'Renewal';
-      else if (firstChar === 'C') derivedType = 'Cancellation';
-      else derivedType = 'Fresh';
-
       setOriginDocumentsLoading(true);
       try {
-        const docs = await getDocuments(Number(srcAppId), derivedType);
+        const docs = await getDocuments(origin.id, origin.type);
         setOriginDocuments(docs);
       } catch (err) {
         console.error('Failed to fetch origin documents:', err);
@@ -483,26 +612,19 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     };
 
     fetchOriginDocuments();
-  }, [activeTab, originalLicenseData]);
+  }, [activeTab, originalLicenseData, rawRenewalData, applicationId]);
 
-  // Clear success message after 5 seconds
+  // Outcome messages use the app-wide toasts.
   useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
+    if (!successMessage) return;
+    toast.success(successMessage);
+    setSuccessMessage(null);
   }, [successMessage]);
 
-  // Clear error message after 5 seconds
   useEffect(() => {
-    if (errorMessage) {
-      const timer = setTimeout(() => {
-        setErrorMessage(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
+    if (!errorMessage) return;
+    toast.error(errorMessage);
+    setErrorMessage(null);
   }, [errorMessage]);
 
   const handleSearch = (query: string) => {
@@ -755,7 +877,13 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         showBackButton
         breadcrumbs={[
           { label: isRenewalView ? 'Renewal' : 'Fresh Application' },
-          { label: applicationId ? `Application ID: ${applicationId}` : '...' },
+          {
+            label: application?.acknowledgementNo
+              ? `Ack No: ${application.acknowledgementNo}`
+              : applicationId
+                ? `Application ID: ${applicationId}`
+                : '...',
+          },
         ]}
         applicationTypeLabel={isRenewalView ? 'Renewal' : 'Fresh Application'}
         statusBadge={
@@ -788,80 +916,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         style={headerHeight != null ? { paddingTop: headerHeight + 20 } : undefined}
       >
         <div className='flex-grow w-full mx-auto '>
-          {/* Success Message - Fixed Position at Top */}
-          {successMessage && (
-            <div className='fixed top-4 right-4 z-50 max-w-md animate-slide-in'>
-              <div className='p-4 bg-emerald-50 border-2 border-emerald-500 rounded-xl shadow-lg'>
-                <div className='flex items-start'>
-                  <div className='flex-shrink-0'>
-                    <svg
-                      className='w-6 h-6 text-emerald-500'
-                      fill='currentColor'
-                      viewBox='0 0 20 20'
-                    >
-                      <path
-                        fillRule='evenodd'
-                        d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
-                        clipRule='evenodd'
-                      />
-                    </svg>
-                  </div>
-                  <div className='ml-3 flex-1'>
-                    <h3 className='text-sm font-bold text-emerald-900'>Success!</h3>
-                    <p className='text-sm font-medium text-emerald-800 mt-1'>{successMessage}</p>
-                  </div>
-                  <button
-                    onClick={() => setSuccessMessage(null)}
-                    className='ml-3 flex-shrink-0 text-emerald-500 hover:text-emerald-700'
-                  >
-                    <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                      <path
-                        fillRule='evenodd'
-                        d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
-                        clipRule='evenodd'
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Error Message - Fixed Position at Top */}
-          {errorMessage && (
-            <div className='fixed top-4 right-4 z-50 max-w-md animate-slide-in'>
-              <div className='p-4 bg-red-50 border-2 border-red-500 rounded-xl shadow-lg'>
-                <div className='flex items-start'>
-                  <div className='flex-shrink-0'>
-                    <svg className='w-6 h-6 text-red-500' fill='currentColor' viewBox='0 0 20 20'>
-                      <path
-                        fillRule='evenodd'
-                        d='M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z'
-                        clipRule='evenodd'
-                      />
-                    </svg>
-                  </div>
-                  <div className='ml-3 flex-1'>
-                    <h3 className='text-sm font-bold text-red-900'>Error!</h3>
-                    <p className='text-sm font-medium text-red-800 mt-1'>{errorMessage}</p>
-                  </div>
-                  <button
-                    onClick={() => setErrorMessage(null)}
-                    className='ml-3 flex-shrink-0 text-red-500 hover:text-red-700'
-                  >
-                    <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                      <path
-                        fillRule='evenodd'
-                        d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
-                        clipRule='evenodd'
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
         {isRenewalView && application && (
           <div className='mb-6'>
             <RenewalApplicationDetailsHeader
@@ -873,6 +927,67 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               activeTab={activeTab === 'original' ? 'Original License Details' : 'Renewal Info'}
               onTabChange={handleTabChange}
             />
+          </div>
+        )}
+
+        {/* Status bar: who has the file, since when, and a shortcut to the action panel */}
+        {application && assignment && (
+          <div
+            className={`mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-5 py-3 print:hidden ${
+              assignment.canAct
+                ? 'border-blue-200 bg-blue-50'
+                : assignment.isFinal
+                  ? 'border-slate-200 bg-slate-50'
+                  : 'border-slate-200 bg-white'
+            }`}
+            role='status'
+          >
+            <div className='flex min-w-0 items-center gap-3'>
+              <span
+                className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
+                  assignment.canAct
+                    ? 'bg-blue-600'
+                    : assignment.isFinal
+                      ? 'bg-slate-400'
+                      : 'bg-amber-500'
+                }`}
+                aria-hidden='true'
+              />
+              <div className='min-w-0'>
+                <p className='text-sm font-semibold text-slate-900'>
+                  {assignment.isFinal
+                    ? `${assignment.statusLabel} — no further action can be taken`
+                    : assignment.canAct
+                      ? 'Pending with you'
+                      : assignment.holder?.username
+                        ? `With ${assignment.holder.username}`
+                        : assignment.statusLabel}
+                  {!assignment.isFinal && assignment.since && formatPendingSince(assignment.since) && (
+                    <span className='font-normal text-slate-600'>
+                      {' '}
+                      {formatPendingSince(assignment.since)}
+                    </span>
+                  )}
+                </p>
+                <p className='truncate text-xs text-slate-500'>
+                  {[
+                    application.acknowledgementNo && `Ack No: ${application.acknowledgementNo}`,
+                    !assignment.isFinal && `Status: ${assignment.statusLabel}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              </div>
+            </div>
+            {assignment.canAct && (
+              <button
+                type='button'
+                onClick={goToActionPanel}
+                className='inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+              >
+                Take action
+              </button>
+            )}
           </div>
         )}
 
@@ -953,10 +1068,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   const application = displayApp;
                   return (
                     <div className='p-6 lg:p-8 space-y-8 bg-slate-50/30' ref={printRef}>
+                      {showRenewalChanges && (
+                        <RenewalChangesCard renewal={rawRenewalData} license={licenseForComparison} />
+                      )}
+
                       {showFullApplicationDetails && (
                         <>
                           {/* 1. Application Information Section */}
-                          <div className='bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6'>
+                          <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6'>
                             <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-6'>
                               <div className='flex items-center gap-3'>
                                 <div className='p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600'>
@@ -993,67 +1112,51 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   icon={UserRound}
                                   className='md:col-span-2'
                                 />
-                                {application?.parentOrSpouseName && (
-                                  <DetailItem
-                                    label='Parent / Spouse Name'
-                                    value={application.parentOrSpouseName}
-                                    icon={Users}
-                                  />
-                                )}
-                                {application?.sex && (
-                                  <DetailItem
-                                    label='Gender'
-                                    value={formatGender(application.sex)}
-                                    icon={UserCheck}
-                                  />
-                                )}
-                                {application?.placeOfBirth && (
-                                  <DetailItem
-                                    label='Place of Birth'
-                                    value={application.placeOfBirth}
-                                    icon={MapPin}
-                                  />
-                                )}
-                                {(application?.dateOfBirth || application?.dob) && (
-                                  <DetailItem
-                                    label='Date of Birth'
-                                    value={
-                                      application?.dateOfBirth
-                                        ? new Date(application.dateOfBirth).toLocaleDateString(
-                                            'en-IN',
-                                            {
-                                              year: 'numeric',
-                                              month: 'long',
-                                              day: 'numeric',
-                                            }
-                                          )
-                                        : application?.dob
-                                          ? new Date(application.dob).toLocaleDateString('en-IN', {
-                                              year: 'numeric',
-                                              month: 'long',
-                                              day: 'numeric',
-                                            })
-                                          : null
-                                    }
-                                    icon={CalendarDays}
-                                  />
-                                )}
-                                {application?.panNumber && (
-                                  <DetailItem
-                                    label='PAN Number'
-                                    value={application.panNumber}
-                                    icon={CreditCard}
-                                    mono
-                                  />
-                                )}
-                                {application?.aadharNumber && (
-                                  <DetailItem
-                                    label='Aadhar Number'
-                                    value={application.aadharNumber}
-                                    icon={Fingerprint}
-                                    mono
-                                  />
-                                )}
+                                <DetailItem
+                                  label='Parent / Spouse Name'
+                                  value={application?.parentOrSpouseName}
+                                  icon={Users}
+                                  emptyText='Not provided'
+                                />
+                                <DetailItem
+                                  label='Gender'
+                                  value={application?.sex ? formatGender(application.sex) : null}
+                                  icon={UserCheck}
+                                  emptyText='Not provided'
+                                />
+                                <DetailItem
+                                  label='Place of Birth'
+                                  value={application?.placeOfBirth}
+                                  icon={MapPin}
+                                  emptyText='Not provided'
+                                />
+                                <DetailItem
+                                  label='Date of Birth'
+                                  value={
+                                    application?.dateOfBirth || application?.dob
+                                      ? formatDisplayDate((application.dateOfBirth || application.dob) as string)
+                                      : null
+                                  }
+                                  icon={CalendarDays}
+                                  emptyText='Not provided'
+                                />
+                                <DetailItem
+                                  label='PAN Number'
+                                  value={application?.panNumber}
+                                  icon={CreditCard}
+                                  mono
+                                  emptyText='Not provided'
+                                />
+                                <DetailItem
+                                  label='Aadhaar Number'
+                                  value={
+                                    application?.aadharNumber ? (
+                                      <MaskedAadhaar value={application.aadharNumber} />
+                                    ) : null
+                                  }
+                                  icon={Fingerprint}
+                                  emptyText='Not provided'
+                                />
                                 {application?.acknowledgementNo && (
                                   <DetailItem
                                     label='Acknowledgement Number'
@@ -1089,16 +1192,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 {application?.applicationDate && (
                                   <DetailItem
                                     label='Date & Time of Submission'
-                                    value={new Date(application.applicationDate).toLocaleString(
-                                      'en-IN',
-                                      {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      }
-                                    )}
+                                    value={formatDisplayDateTime(application.applicationDate)}
                                     icon={CalendarDays}
                                     className='md:col-span-2'
                                   />
@@ -1108,13 +1202,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               {/* Right column: Photo & Quick Summary */}
                               <div>
                                 <SummaryCard
-                                  application={
-                                    isRenewalView &&
-                                    activeTab === 'original' &&
-                                    originDocuments?.length
-                                      ? { ...application, documents: originDocuments }
-                                      : application
-                                  }
+                                  application={originDisplayApp ?? application}
                                   applicationId={applicationId}
                                   applicantName={applicantName}
                                 />
@@ -1350,7 +1438,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                       label='Bond Date'
                                       value={
                                         criminal.bondDate
-                                          ? new Date(criminal.bondDate).toLocaleDateString('en-IN')
+                                          ? formatDisplayDate(criminal.bondDate)
                                           : null
                                       }
                                       icon={Calendar}
@@ -1503,14 +1591,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                       label='Residing Since'
                                       value={
                                         present.sinceResiding
-                                          ? new Date(present.sinceResiding).toLocaleDateString(
-                                              'en-IN',
-                                              {
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric',
-                                              }
-                                            )
+                                          ? formatDisplayDate(present.sinceResiding)
                                           : null
                                       }
                                       icon={Calendar}
@@ -1573,10 +1654,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                       label='Residing Since'
                                       value={
                                         permanent.sinceResiding
-                                          ? new Date(permanent.sinceResiding).toLocaleDateString(
-                                              'en-IN',
-                                              { year: 'numeric', month: 'long', day: 'numeric' }
-                                            )
+                                          ? formatDisplayDate(permanent.sinceResiding)
                                           : null
                                       }
                                       icon={Calendar}
@@ -1636,7 +1714,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                       {/* License Record Section — shown when license data exists */}
                       {showFullApplicationDetails && licenseData && (
-                        <div className='bg-white rounded-xl border-2 border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 p-6'>
+                        <div className='bg-white rounded-xl border-2 border-emerald-200 shadow-sm p-6'>
                           <div className='flex items-center justify-between border-b border-emerald-100 pb-4 mb-6'>
                             <div className='flex items-center gap-3'>
                               <div className='p-2.5 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600'>
@@ -1695,11 +1773,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 label='Valid From'
                                 value={
                                   licenseData.validFrom
-                                    ? new Date(licenseData.validFrom).toLocaleDateString('en-IN', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                      })
+                                    ? formatDisplayDate(licenseData.validFrom)
                                     : null
                                 }
                                 icon={Calendar}
@@ -1708,11 +1782,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 label='Valid Till'
                                 value={
                                   licenseData.validTill
-                                    ? new Date(licenseData.validTill).toLocaleDateString('en-IN', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                      })
+                                    ? formatDisplayDate(licenseData.validTill)
                                     : null
                                 }
                                 icon={Calendar}
@@ -1723,11 +1793,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 label='Issue Date'
                                 value={
                                   licenseData.issueDate
-                                    ? new Date(licenseData.issueDate).toLocaleDateString('en-IN', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                      })
+                                    ? formatDisplayDate(licenseData.issueDate)
                                     : null
                                 }
                                 icon={CalendarDays}
@@ -1736,10 +1802,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 label='Last Renewed'
                                 value={
                                   licenseData.lastRenewedDate
-                                    ? new Date(licenseData.lastRenewedDate).toLocaleDateString(
-                                        'en-IN',
-                                        { year: 'numeric', month: 'short', day: 'numeric' }
-                                      )
+                                    ? formatDisplayDate(licenseData.lastRenewedDate)
                                     : null
                                 }
                                 icon={History}
@@ -1851,13 +1914,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                       )}
                                       {wh.createdAt && (
                                         <span className='text-slate-400 ml-auto'>
-                                          {new Date(wh.createdAt).toLocaleString('en-IN', {
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                          })}
+                                          {formatDisplayDateTime(wh.createdAt)}
                                         </span>
                                       )}
                                     </div>
@@ -1960,7 +2017,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
               {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal */}
               {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
-                <div className='p-6 lg:p-8 border-t border-gray-100 bg-white print:hidden'>
+                <div
+                  id='application-processing'
+                  className='p-6 lg:p-8 border-t border-gray-100 bg-white print:hidden'
+                >
                   <div
                     ref={containerRef}
                     className='flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-0 relative w-full'
@@ -2009,7 +2069,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 <div className='bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center py-16'>
                                   <div className='flex flex-col items-center gap-3'>
                                     <div className='w-8 h-8 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin'></div>
-                                    <p className='text-sm text-gray-600'>Loading License...</p>
+                                    <p className='text-sm text-gray-600'>Loading original license…</p>
                                   </div>
                                 </div>
                               );
@@ -2018,10 +2078,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             // If on license tab and license not available, show message
                             if (isNotAvailable) {
                               return (
-                                <div className='bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm'>
+                                <div className='rounded-xl border border-amber-200 bg-amber-50 p-4'>
                                   <div className='flex items-start'>
                                     <svg
-                                      className='w-6 h-6 text-yellow-600 mr-3 flex-shrink-0 mt-0.5'
+                                      className='w-5 h-5 text-amber-600 mr-3 flex-shrink-0 mt-0.5'
                                       fill='none'
                                       stroke='currentColor'
                                       viewBox='0 0 24 24'
@@ -2034,12 +2094,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                       />
                                     </svg>
                                     <div>
-                                      <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
-                                        License Details Not Available
+                                      <h4 className='text-sm font-semibold text-amber-900 mb-1'>
+                                        Original License Not Available
                                       </h4>
-                                      <p className='text-sm text-yellow-700'>
-                                        The fresh application details could not be loaded. Please
-                                        check if the application ID is correct.
+                                      <p className='text-sm text-amber-800'>
+                                        The original license details could not be loaded. Please
+                                        try again, or open the license from License Management.
                                       </p>
                                     </div>
                                   </div>
@@ -2047,53 +2107,21 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               );
                             }
 
-                            // Read `user_data` from cookies
-                            let user_data: any = null;
-                            try {
-                              if (typeof document !== 'undefined' && document.cookie) {
-                                const cookie = document.cookie
-                                  .split(';')
-                                  .map(c => c.trim())
-                                  .find(c => c.startsWith('user='));
-                                if (cookie) {
-                                  const raw = cookie.split('=')[1] || '';
-                                  const decoded = decodeURIComponent(raw);
-                                  user_data = decoded ? JSON.parse(decoded) : null;
-                                }
-                              }
-                            } catch (e) {
-                              user_data = null;
-                            }
-
-                            const currentUserId = user_data?.id
-                              ? Number(user_data.id)
-                              : user?.id
-                                ? Number(user.id)
-                                : null;
+                            const currentUserId =
+                              readCookieUserId() ?? (user?.id ? Number(user.id) : null);
                             const applicationUserId = Number(displayApp?.currentUser?.id) || null;
                             // Check for final/closed status first — if final, show only a status message
-                            const finalStatuses = [
-                              'REJECTED',
-                              'CANCELLED',
-                              'DISPOSED',
-                              'EXPIRED',
-                              'CLOSE',
-                            ];
                             const rawStatusCode =
                               displayApp?.workflowStatus?.code || displayApp?.status || '';
                             const rawStatusName = displayApp?.workflowStatus?.name || rawStatusCode;
-                            const isFinalStatus = finalStatuses.some(
-                              s =>
-                                String(rawStatusCode).toUpperCase() === s ||
-                                String(rawStatusName).toUpperCase() === s
-                            );
+                            const isFinalStatus = isFinalWorkflowStatus(displayApp);
                             if (isFinalStatus) {
                               const displayStatus =
                                 String(rawStatusName).charAt(0).toUpperCase() +
                                 String(rawStatusName).slice(1).toLowerCase();
                               const isClosedStatus = String(rawStatusCode).toUpperCase() === 'CLOSE' || String(rawStatusName).toUpperCase() === 'CLOSE';
                               return (
-                                <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
+                                <div className='rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3'>
                                   <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
                                     <svg
                                       className='w-5 h-5'
@@ -2112,9 +2140,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   <div>
                                     <p className='text-sm font-semibold text-amber-900'>
                                       {isClosedStatus ? (
-                                        <>Your application has been <span className='uppercase font-bold'>Closed</span>. No further processing is allowed.</>
+                                        <>This application has been <span className='uppercase font-bold'>Closed</span>. No further action can be taken on it.</>
                                       ) : (
-                                        <>Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.</>
+                                        <>This application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further action can be taken on it.</>
                                       )}
                                     </p>
                                   </div>
@@ -2154,10 +2182,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               </>
                             ) : (
                               /* Show message if user is not authorized */
-                              <div className='bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm'>
+                              <div className='rounded-xl border border-amber-200 bg-amber-50 p-4'>
                                 <div className='flex items-start'>
                                   <svg
-                                    className='w-6 h-6 text-yellow-600 mr-3 flex-shrink-0 mt-0.5'
+                                    className='w-5 h-5 text-amber-600 mr-3 flex-shrink-0 mt-0.5'
                                     fill='none'
                                     stroke='currentColor'
                                     viewBox='0 0 24 24'
@@ -2170,16 +2198,16 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                     />
                                   </svg>
                                   <div>
-                                    <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
+                                    <h4 className='text-sm font-semibold text-amber-900 mb-1'>
                                       {isClosed ? 'Application Closed' : 'Action Not Available'}
                                     </h4>
-                                    <p className='text-sm text-yellow-700 leading-relaxed'>
+                                    <p className='text-sm text-amber-800 leading-relaxed'>
                                       {isClosed
                                         ? 'This application has been closed. No further actions can be taken on it.'
                                         : 'At this point, you cannot take action on this request. This application is currently assigned to another user.'}
                                     </p>
                                     {!isClosed && displayApp?.currentUser && (
-                                      <p className='text-sm text-yellow-700 mt-2'>
+                                      <p className='text-sm text-amber-800 mt-2'>
                                         <span className='font-medium'>Current handler:</span>{' '}
                                         {displayApp.currentUser.username}
                                       </p>
@@ -2234,7 +2262,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           {isRenewalView && activeTab === 'original' && originalLicenseLoading ? (
                             <div className='flex flex-col items-center justify-center h-full'>
                               <div className='w-8 h-8 border-4 border-green-100 border-t-green-600 rounded-full animate-spin mb-3'></div>
-                              <p className='text-sm text-gray-600'>Loading license history...</p>
+                              <p className='text-sm text-gray-600'>Loading application history…</p>
                             </div>
                           ) : null}
                           {(() => {
@@ -2298,7 +2326,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   return (
                                     <div
                                       key={h.id}
-                                      className='border-l-4 pl-4 pr-4 py-3 rounded-r-lg transition-all duration-200 hover:shadow-sm'
+                                      className='border-l-4 pl-4 pr-4 py-3 rounded-r-lg'
                                       style={{
                                         borderLeftColor: borderColor,
                                         backgroundColor: backgroundColor,

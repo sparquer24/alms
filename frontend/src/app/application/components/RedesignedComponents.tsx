@@ -1,8 +1,40 @@
+'use client';
+
 import React from 'react';
 import { getStatusStyle } from '../../../utils/statusColors';
-import { formatStatusLabel, formatPhone } from '../../../utils/formatters';
+import { formatStatusLabel, formatPhone, humanize, formatDisplayDate } from '../../../utils/formatters';
 import { openAttachment } from '../../../utils/attachmentViewer';
-import { UserRound, FileText, Eye, Download, FolderOpen } from 'lucide-react';
+import { UserRound, FileText, Eye, EyeOff, Download, FolderOpen } from 'lucide-react';
+
+/**
+ * Aadhaar shown as XXXX XXXX 1234 (UIDAI display guideline); officers can reveal the
+ * full number when they need to verify it.
+ */
+export function MaskedAadhaar({ value }: { value?: string | number | null }) {
+  const [revealed, setRevealed] = React.useState(false);
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (digits.length < 4) return <span className='font-mono'>{value ?? ''}</span>;
+  const shown = revealed
+    ? digits.replace(/(\d{4})(?=\d)/g, '$1 ')
+    : `XXXX XXXX ${digits.slice(-4)}`;
+  return (
+    <span className='inline-flex items-center gap-1.5'>
+      <span className='font-mono'>{shown}</span>
+      <button
+        type='button'
+        onClick={e => {
+          e.stopPropagation();
+          setRevealed(r => !r);
+        }}
+        className='text-slate-400 hover:text-slate-700 print:hidden'
+        aria-label={revealed ? 'Hide Aadhaar number' : 'Show full Aadhaar number'}
+        title={revealed ? 'Hide' : 'Show full number'}
+      >
+        {revealed ? <EyeOff className='w-3.5 h-3.5' /> : <Eye className='w-3.5 h-3.5' />}
+      </button>
+    </span>
+  );
+}
 
 export function StatusBadge({ status, label }: { status: any; label?: string }) {
   const style = getStatusStyle(status?.name || status?.code || status);
@@ -27,32 +59,36 @@ export function DetailItem({
   icon: Icon,
   className = '',
   mono = false,
+  emptyText,
 }: {
   label: string;
   value: React.ReactNode;
   icon?: React.ComponentType<{ className?: string }>;
   className?: string;
   mono?: boolean;
+  /** Shown (muted) when the value is empty; without it an empty field is hidden. */
+  emptyText?: string;
 }) {
-  if (value === undefined || value === null || value === '') return null;
+  const isEmpty = value === undefined || value === null || value === '' || value === '-';
+  if (isEmpty && !emptyText) return null;
   return (
     <div
-      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100 hover:border-slate-200 hover:bg-slate-100/50 transition-all duration-200 ${className}`}
+      className={`flex items-start gap-2.5 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100 ${className}`}
     >
-      {Icon && (
-        <div className='p-1.5 rounded-md bg-blue-50 text-blue-600 flex-shrink-0 shadow-sm'>
-          <Icon className='w-4 h-4' />
-        </div>
-      )}
-      <div className='min-w-0 flex-1 flex flex-col justify-center'>
-        <p className='text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-0.5 leading-none'>
+      {Icon && <Icon className='mt-0.5 w-4 h-4 flex-shrink-0 text-slate-400' />}
+      <div className='min-w-0 flex-1'>
+        <p className='text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-0.5 leading-tight'>
           {label}
         </p>
-        <p
-          className={`font-semibold text-slate-800 text-sm leading-tight break-words ${mono ? 'font-mono tracking-tight' : ''}`}
-        >
-          {value}
-        </p>
+        {isEmpty ? (
+          <p className='text-sm italic text-slate-400 leading-tight'>{emptyText}</p>
+        ) : (
+          <div
+            className={`font-semibold text-slate-800 text-sm leading-tight break-words ${mono ? 'font-mono tracking-tight' : ''}`}
+          >
+            {value}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -73,7 +109,7 @@ export function SectionCard({
 }) {
   return (
     <div
-      className={`bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden flex flex-col h-full ${className}`}
+      className={`bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full ${className}`}
     >
       <div className='p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between'>
         <div className='flex items-center gap-3'>
@@ -116,13 +152,13 @@ export function SummaryCard({
   }
 
   return (
-    <div className='bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center'>
-      <div className='relative group mb-4'>
+    <div className='bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col items-center'>
+      <div className='relative mb-4'>
         {displayPhotoUrl ? (
           <img
             src={displayPhotoUrl}
             alt='Applicant Photo'
-            className='w-48 h-48 object-cover rounded-xl border-2 border-slate-200 shadow-inner group-hover:border-blue-400 transition-colors duration-300'
+            className='w-48 h-48 object-cover rounded-xl border-2 border-slate-200 shadow-inner'
           />
         ) : (
           <div className='w-48 h-48 bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 text-xs gap-2'>
@@ -177,9 +213,9 @@ export function SummaryCard({
 
         {application?.aadharNumber && (
           <div className='flex justify-between items-center text-sm'>
-            <span className='text-slate-500 font-medium'>Aadhar</span>
-            <span className='font-semibold text-slate-800 font-mono text-xs'>
-              {application.aadharNumber}
+            <span className='text-slate-500 font-medium'>Aadhaar</span>
+            <span className='font-semibold text-slate-800 text-xs'>
+              <MaskedAadhaar value={application.aadharNumber} />
             </span>
           </div>
         )}
@@ -196,6 +232,25 @@ export function SummaryCard({
     </div>
   );
 }
+
+// Stored document type codes, as officers know them.
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  AADHAR_CARD: 'Aadhaar Card',
+  PAN_CARD: 'PAN Card',
+  MEDICAL_REPORT: 'Medical Certificate',
+  EXISTING_LICENSE: 'Existing Arms License',
+  OTHER_STATE_LICENSE: 'Other State Arms License',
+  REJECTED_LICENSE: 'Rejection Document',
+  CLAIM_DOCS: 'Special Consideration Evidence',
+  SIGNATURE_THUMB: 'Signature / Thumb Impression',
+  IRIS_SCAN: 'Iris Scan',
+};
+
+const documentTypeLabel = (raw: unknown): string => {
+  const code = String(raw || '').trim().toUpperCase();
+  if (!code) return 'Document';
+  return DOCUMENT_TYPE_LABELS[code] || humanize(code);
+};
 
 export function DocumentTable({ documents }: { documents: any[] }) {
   if (!documents || documents.length === 0) {
@@ -222,7 +277,7 @@ export function DocumentTable({ documents }: { documents: any[] }) {
           </thead>
           <tbody className='divide-y divide-slate-100 bg-white'>
             {documents.map((doc, idx) => {
-              const docType = String(doc.type || doc.fileType || '').toUpperCase() || 'DOCUMENT';
+              const docType = documentTypeLabel(doc.type || doc.fileType);
               const docName = String(doc.name || doc.fileName || 'file');
               const isPdf =
                 String(doc.type || '')
@@ -233,7 +288,7 @@ export function DocumentTable({ documents }: { documents: any[] }) {
                   .toLowerCase()
                   .includes('image') || /\.(png|jpe?g|gif|svg|webp)$/.test(docName.toLowerCase());
               const uploadDate = doc.uploadedAt || doc.createdAt || doc.date;
-              const dateStr = uploadDate ? new Date(uploadDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+              const dateStr = uploadDate ? formatDisplayDate(uploadDate) : '-';
 
               return (
                 <tr key={idx} className='hover:bg-slate-50/80 transition-colors'>

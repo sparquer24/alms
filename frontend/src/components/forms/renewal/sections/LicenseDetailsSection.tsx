@@ -11,8 +11,10 @@ import {
 } from '../../../../utils/areaOfValidity';
 import {
   deleteRenewalDocument,
+  discardStagedRenewalDocument,
   getDocumentUploadMeta,
-  uploadRenewalDocument,
+  isStagedRenewalDocument,
+  stageRenewalDocument,
 } from '../../../../utils/renewalFileUpload';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -69,7 +71,6 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
   const selectedArea = normalizeAreaOfValidity(formData.areaOfValidity);
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [loadingWeapons, setLoadingWeapons] = useState(false);
-  const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -174,39 +175,27 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
       return;
     }
 
-    setUploadingEvidence(true);
-    onStatus?.('Uploading documentary evidence...');
-
-    try {
-      // Delete existing documents first
-      if (specialEvidenceFiles && specialEvidenceFiles.length > 0) {
-        for (const fileItem of specialEvidenceFiles) {
-          const meta = getDocumentUploadMeta(fileItem);
-          if (meta.id) {
-            try {
-              await deleteRenewalDocument(meta.id);
-            } catch (err) {
-              console.error('Failed to delete old special evidence document:', err);
-            }
-          }
-        }
-      }
-
-      const meta = await uploadRenewalDocument(renewalId, 'specialEvidenceUploaded', file);
-      const nextFiles = [meta];
-      onPatch({
-        specialEvidenceUploaded: meta,
-        specialEvidenceFiles: nextFiles,
-      });
-      onStatus?.('Document uploaded successfully.');
-    } catch (err: any) {
-      onError?.(err?.message || 'Failed to upload documentary evidence.');
-    } finally {
-      setUploadingEvidence(false);
-    }
+    // Held in form state only; uploaded (replacing the saved evidence) on Save to Draft / Next.
+    const current = formData.specialEvidenceUploaded;
+    const staged = stageRenewalDocument(
+      file,
+      isStagedRenewalDocument(current) ? current : specialEvidenceFiles
+    );
+    onPatch({ specialEvidenceUploaded: staged, specialEvidenceFiles: [staged] });
+    onStatus?.('Document added. Click Save to Draft or Next to save it.');
   };
 
   const handleEvidenceDelete = (fileId: number | undefined, index: number) => async () => {
+    const current = formData.specialEvidenceUploaded;
+    if (isStagedRenewalDocument(current)) {
+      const restored = discardStagedRenewalDocument(current);
+      const files = Array.isArray(restored) ? restored : restored ? [restored] : [];
+      onPatch({
+        specialEvidenceFiles: files,
+        specialEvidenceUploaded: files.length ? files[files.length - 1] : null,
+      });
+      return;
+    }
     setDeletingFileId(fileId ?? -index);
     onStatus?.('Removing document...');
 
@@ -406,21 +395,20 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB each'
             onFileSelect={isReadOnly ? () => {} : handleEvidenceUpload}
             uploaded={specialEvidenceFiles.length > 0}
-            disabled={!renewalId || uploadingEvidence || isReadOnly}
+            disabled={!renewalId || isReadOnly}
             fileName={
-              uploadingEvidence
-                ? 'Uploading...'
-                : isSyncingPrefilled &&
-                    specialEvidenceFiles.some(f => {
-                      const m = getDocumentUploadMeta(f);
-                      return m.fileUrl && !m.id;
-                    })
-                  ? 'Uploading prefilled file...'
-                  : specialEvidenceFiles.length === 1
-                    ? getDocumentUploadMeta(specialEvidenceFiles[0]).fileName
-                    : specialEvidenceFiles.length > 1
-                      ? `${specialEvidenceFiles.length} files uploaded`
-                      : undefined
+              isSyncingPrefilled &&
+              specialEvidenceFiles.some(f => {
+                if (isStagedRenewalDocument(f)) return false;
+                const m = getDocumentUploadMeta(f);
+                return m.fileUrl && !m.id;
+              })
+                ? 'Uploading prefilled file...'
+                : specialEvidenceFiles.length === 1
+                  ? getDocumentUploadMeta(specialEvidenceFiles[0]).fileName
+                  : specialEvidenceFiles.length > 1
+                    ? `${specialEvidenceFiles.length} files uploaded`
+                    : undefined
             }
           />
           {specialEvidenceFiles.map((file, index) => {
@@ -433,6 +421,11 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
                 <div className='flex flex-wrap items-center gap-3'>
                   <span className='text-gray-600'>{displayName}</span>
                   {meta.fileType && <span className='text-gray-500'>({meta.fileType})</span>}
+                  {isStagedRenewalDocument(file) && (
+                    <span className='rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700'>
+                      Not saved yet. Click Save to Draft or Next to save.
+                    </span>
+                  )}
                 </div>
                 <div className='flex flex-wrap items-center gap-3'>
                   {meta.fileUrl && (
@@ -440,7 +433,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
                       type='button'
                       className='text-blue-600 underline hover:text-blue-800'
                       onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
-                      disabled={isDeleting || uploadingEvidence}
+                      disabled={isDeleting}
                     >
                       View
                     </button>
@@ -450,9 +443,13 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
                       type='button'
                       className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
                       onClick={handleEvidenceDelete(meta.id, index)}
-                      disabled={isDeleting || uploadingEvidence || !renewalId}
+                      disabled={isDeleting || !renewalId}
                     >
-                      {isDeleting ? 'Removing...' : 'Remove'}
+                      {isDeleting
+                        ? 'Removing...'
+                        : isStagedRenewalDocument(file) && file.replaces
+                          ? 'Undo replace'
+                          : 'Remove'}
                     </button>
                   )}
                 </div>

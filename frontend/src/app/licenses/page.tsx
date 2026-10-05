@@ -261,7 +261,7 @@ function LicenseManagementContent() {
   const searchParams = useSearchParams();
   const { userRole, isAuthenticated, isLoading, initialized } = useAuth();
   const { setShowSidebar, headerHeight } = useLayout();
-  const [checked, setChecked] = useState(false);
+  const [checkedState, setChecked] = useState(false);
 
   // The URL is the single source of truth for tab/filters/pagination, so a page
   // refresh or browser Back/Forward always lands on exactly what the URL says.
@@ -289,6 +289,9 @@ function LicenseManagementContent() {
 
   const role = useMemo(() => normalizeRole(userRole), [userRole]);
   const canAccess = role ? LICENSE_ROLES.has(role) : false;
+  // Already signed in with access (client-side navigation): skip the loading
+  // skeleton on first render. The effect below still handles redirects.
+  const checked = checkedState || (initialized && !isLoading && isAuthenticated && canAccess);
   const isZS = role === 'ZS';
 
   useEffect(() => {
@@ -557,7 +560,7 @@ function LicenseManagementContent() {
   const printTable = () => window.print();
 
   if (!initialized || isLoading || !checked) {
-    return <PageLayoutSkeleton />;
+    return <PageLayoutSkeleton sidebar={false} />;
   }
 
   return (
@@ -1204,8 +1207,8 @@ function LicenseManagementContent() {
 
 export default function LicenseManagementPage() {
   return (
-    <LayoutProvider>
-      <Suspense fallback={<PageLayoutSkeleton />}>
+    <LayoutProvider initialShowSidebar={false}>
+      <Suspense fallback={<PageLayoutSkeleton sidebar={false} />}>
         <LicenseManagementContent />
       </Suspense>
     </LayoutProvider>

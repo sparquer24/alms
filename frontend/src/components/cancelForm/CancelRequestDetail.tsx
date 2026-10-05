@@ -7,6 +7,7 @@ import {
   SectionCard,
   SummaryCard,
   DocumentTable,
+  MaskedAadhaar,
 } from '@/app/application/components/RedesignedComponents';
 import EnhancedApplicationTimeline from '@/components/EnhancedApplicationTimeline';
 import {
@@ -55,7 +56,7 @@ import { getStatusStyle } from '@/utils/statusColors';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
 import { apiClient } from '@/config/authenticatedApiClient';
 import { LazySection } from '@/components/LazySection';
-import { formatGender } from '@/utils/formatters';
+import { formatGender, formatDisplayDate, formatDisplayDateTime } from '@/utils/formatters';
 import { truncateFilename } from '@/utils/string';
 import PrintApplicationForm from '@/app/application/components/PrintApplicationForm';
 
@@ -65,7 +66,7 @@ const fmtDate = (value?: string) => {
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString('en-IN', {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
   });
 };
@@ -569,7 +570,7 @@ function OriginalLicenseDetails({
   return (
     <div className='space-y-8 bg-slate-50/30 rounded-3xl'>
       {/* ================= 1. Application Information Section ================= */}
-      <div className='bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6'>
+      <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6'>
         <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-6'>
           <div className='flex items-center gap-3'>
             <div className='p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600'>
@@ -618,17 +619,9 @@ function OriginalLicenseDetails({
                 label='Date of Birth'
                 value={
                   app?.dateOfBirth
-                    ? new Date(app.dateOfBirth).toLocaleDateString('en-IN', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })
+                    ? formatDisplayDate(app.dateOfBirth)
                     : app?.dob
-                      ? new Date(app.dob).toLocaleDateString('en-IN', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })
+                      ? formatDisplayDate(app.dob)
                       : null
                 }
                 icon={CalendarDays}
@@ -639,8 +632,8 @@ function OriginalLicenseDetails({
             )}
             {app?.aadharNumber && (
               <DetailItem
-                label='Aadhar Number'
-                value={app.aadharNumber}
+                label='Aadhaar Number'
+                value={<MaskedAadhaar value={app.aadharNumber} />}
                 icon={Fingerprint}
                 mono
               />
@@ -680,13 +673,7 @@ function OriginalLicenseDetails({
             {app?.applicationDate && (
               <DetailItem
                 label='Date & Time of Submission'
-                value={new Date(app.applicationDate).toLocaleString('en-IN', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                value={formatDisplayDateTime(app.applicationDate)}
                 icon={CalendarDays}
                 className='md:col-span-2'
               />
@@ -702,9 +689,8 @@ function OriginalLicenseDetails({
               applicationId={String(licenseId ?? '')}
               applicantName={applicantName}
             />
-            <div className='bg-slate-50/50 rounded-2xl border border-slate-100 p-6 overflow-hidden relative group mt-6'>
-              <div className='absolute inset-0 bg-gradient-to-br from-blue-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none'></div>
-              <div className='relative z-10'>
+            <div className='bg-slate-50/50 rounded-2xl border border-slate-100 p-6 overflow-hidden mt-6'>
+              <div>
                 <LazySection minHeight='400px'>
                   <EnhancedApplicationTimeline
                     application={app}
@@ -837,7 +823,7 @@ function OriginalLicenseDetails({
               label='Bond Date'
               value={
                 criminalHistory.bondDate
-                  ? new Date(criminalHistory.bondDate).toLocaleDateString('en-IN')
+                  ? formatDisplayDate(criminalHistory.bondDate)
                   : null
               }
               icon={Calendar}

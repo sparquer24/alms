@@ -34,6 +34,7 @@ const RENEWAL_FILE_TYPE_MAP: Record<string, string> = {
   claimDocsUploaded: 'CLAIM_DOCS',
   specialEvidenceUploaded: 'CLAIM_DOCS',
   rejectedLicenseUploaded: 'REJECTED_LICENSE',
+  rejectionDocUploaded: 'REJECTED_LICENSE',
   otherUploaded: 'OTHER',
   addressProofUploaded: 'OTHER',
   characterCertificateUploaded: 'OTHER',

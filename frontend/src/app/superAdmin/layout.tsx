@@ -12,7 +12,11 @@ import Footer from '@/components/Footer';
 export default function SuperAdminLayout({ children }: { children: any }) {
   const { userRole, token, isLoading, initialized } = useAuth();
   const router = useRouter();
-  const [checked, setChecked] = useState(false);
+  // Start as checked when auth is already resolved (client-side navigation into
+  // this section) so the full-screen spinner doesn't flash on every visit.
+  const [checked, setChecked] = useState(
+    () => initialized && !isLoading && !!token && normalizeRole(userRole) === 'SUPER_ADMIN'
+  );
 
   useEffect(() => {
     // Wait until auth is initialized and we have the necessary values

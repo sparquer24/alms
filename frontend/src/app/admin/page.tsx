@@ -9,7 +9,7 @@ import Link from 'next/link';
 
 // Type assertion for Next.js Link to fix React 18 compatibility
 const LinkFixed = Link as any;
-import { PageLayoutSkeleton } from '@/components/Skeleton';
+import { ContentSkeleton } from '@/components/Skeleton';
 
 // Dynamically import charts to avoid SSR issues
 const LineChart = dynamic(() => import('@/components/charts/LineChart'), { ssr: false }) as any;
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
   };
 
   if (isLoading) {
-    return <PageLayoutSkeleton />;
+    return <ContentSkeleton />;
   }
 
   if (error) {

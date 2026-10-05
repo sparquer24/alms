@@ -19,6 +19,8 @@ interface FormFooterProps {
   onSubmit?: () => void;
   isLoading?: boolean;
   disableActions?: boolean;
+  /** Overrides disableActions for Save to Draft only (a draft may be incomplete). */
+  disableSaveDraft?: boolean;
   errors?: Record<string, string>;
 }
 
@@ -31,6 +33,7 @@ const FormFooter = ({
   onSubmit,
   isLoading = false,
   disableActions = false,
+  disableSaveDraft,
   errors,
 }: FormFooterProps) => {
   const errorEntries = errors ? Object.entries(errors).filter(([_, msg]) => msg && msg.trim()) : [];
@@ -110,7 +113,7 @@ const FormFooter = ({
           <button
             type='button'
             onClick={onSaveToDraft}
-            disabled={isLoading || disableActions}
+            disabled={isLoading || (disableSaveDraft ?? disableActions)}
             suppressHydrationWarning
             className='flex items-center justify-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]'
           >

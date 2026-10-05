@@ -1,4 +1,5 @@
 import React from 'react';
+import AppShellSkeleton from './AppShellSkeleton';
 
 // Base Skeleton Component
 export const Skeleton: React.FC<{ className?: string; children?: React.ReactNode }> = ({ 
@@ -205,8 +206,8 @@ export const SidebarSkeleton: React.FC = () => (
 );
 
 // Header Skeleton
-export const HeaderSkeleton: React.FC = () => (
-  <div className="fixed top-0 md:top-4 left-0 md:left-66 right-0 md:right-4 h-[64px] md:h-[70px] bg-white shadow-sm border border-gray-200 md:rounded-2xl z-30">
+export const HeaderSkeleton: React.FC<{ fullWidth?: boolean }> = ({ fullWidth = false }) => (
+  <div className={`fixed top-0 md:top-4 left-0 ${fullWidth ? 'md:left-4' : 'md:left-66'} right-0 md:right-4 h-[64px] md:h-[70px] bg-white shadow-sm border border-gray-200 md:rounded-2xl z-30`}>
     <div className="flex items-center justify-between h-full px-4 md:px-6">
       {/* Search Area */}
       <div className="flex items-center space-x-4 flex-1">
@@ -224,19 +225,28 @@ export const HeaderSkeleton: React.FC = () => (
   </div>
 );
 
-// Page Layout Skeleton (combines header, sidebar, and content)
-export const PageLayoutSkeleton: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
-  <div className="flex h-screen w-full bg-gray-50">
-    <SidebarSkeleton />
-    <HeaderSkeleton />
-  <main className="flex-1 p-2 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px]">
-      {children || (
-        <div className="bg-white rounded-lg shadow p-6">
-          <Skeleton className="h-8 w-48 mb-6" />
-          <TableSkeleton />
-        </div>
-      )}
-    </main>
+// Page Layout Skeleton (combines header, sidebar, and content).
+// Keeps the real sidebar/header on screen once the officer is signed in, so
+// only the content area changes while the next page loads.
+export const PageLayoutSkeleton: React.FC<{ children?: React.ReactNode; sidebar?: boolean }> = ({
+  children,
+  sidebar = true,
+}) => (
+  <AppShellSkeleton
+    sidebar={sidebar}
+    sidebarFallback={<SidebarSkeleton />}
+    headerFallback={<HeaderSkeleton fullWidth={!sidebar} />}
+  >
+    {children || <ContentSkeleton />}
+  </AppShellSkeleton>
+);
+
+// Content-only skeleton for routes whose layout already renders the
+// sidebar/header (inbox, admin, superAdmin) — avoids drawing a second shell.
+export const ContentSkeleton: React.FC = () => (
+  <div className="bg-white rounded-lg shadow p-6">
+    <Skeleton className="h-8 w-48 mb-6" />
+    <TableSkeleton />
   </div>
 );
 
