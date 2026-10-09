@@ -10,6 +10,8 @@ import {
     AnalyticsResponseDto,
     ApplicationRecordDto,
 } from './dto/analytics.dto';
+import { CacheResponse } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 @ApiTags('Analytics')
 @ApiBearerAuth('JWT-auth')
@@ -19,6 +21,7 @@ export class AnalyticsController {
     constructor(private readonly analyticsService: AnalyticsService) { }
 
     @Get('applications')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({
         summary: 'Get Applications by Week',
         description:
@@ -86,6 +89,7 @@ export class AnalyticsController {
     }
 
     @Get('role-load')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({
         summary: 'Get Role-wise Application Load',
         description:
@@ -153,6 +157,7 @@ export class AnalyticsController {
     }
 
     @Get('states')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({
         summary: 'Get Application State Distribution',
         description:
@@ -220,6 +225,7 @@ export class AnalyticsController {
     }
 
     @Get('admin-activities')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'user')
     @ApiOperation({
         summary: 'Get Admin Activity Feed',
         description:
@@ -289,6 +295,7 @@ export class AnalyticsController {
     }
 
     @Get('applications/details')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({
         summary: 'Get Applications Details',
         description:
@@ -388,6 +395,7 @@ export class AnalyticsController {
     }
 
     @Get('funnel')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({ summary: 'Application Funnel — counts per lifecycle stage' })
     async getApplicationFunnel(@Req() req?: any) {
         const user = req ? (req as any).user : null;
@@ -398,6 +406,7 @@ export class AnalyticsController {
     }
 
     @Get('aging')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({ summary: 'Application Aging — pending apps grouped by age buckets' })
     async getAgingBuckets(@Req() req?: any) {
         const user = req ? (req as any).user : null;
@@ -408,6 +417,7 @@ export class AnalyticsController {
     }
 
     @Get('action-required')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({ summary: 'Action Required — 5 key counts needing admin attention' })
     async getActionRequired(@Req() req?: any) {
         const user = req ? (req as any).user : null;
@@ -418,6 +428,7 @@ export class AnalyticsController {
     }
 
     @Get('license-expiry')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({ summary: 'License Expiry Buckets — 30/60/90 days + expired' })
     async getLicenseExpiryBuckets(@Req() req?: any) {
         const user = req ? (req as any).user : null;
@@ -428,6 +439,7 @@ export class AnalyticsController {
     }
 
     @Get('monthly-comparison')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({ summary: 'Monthly Comparison — this month vs last month' })
     async getMonthlyComparison(@Req() req?: any) {
         const user = req ? (req as any).user : null;
@@ -438,6 +450,7 @@ export class AnalyticsController {
     }
 
     @Get('processing-performance')
+    @CacheResponse(CacheKeys.analytics, CacheTtl.analytics, 'jurisdiction')
     @ApiOperation({ summary: 'Processing Performance — avg days, median, SLA %, delayed' })
     async getProcessingPerformance(@Req() req?: any) {
         const user = req ? (req as any).user : null;

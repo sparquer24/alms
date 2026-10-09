@@ -3,6 +3,8 @@ import { ApiOperation, ApiTags, ApiQuery, ApiBody, ApiResponse, ApiBearerAuth } 
 import { ActionesService } from "./actiones.service";
 import { RolesActionsMapping, Actiones } from "@prisma/client";
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
+import { CacheResponse, InvalidateCache } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 @ApiTags("Actiones")
 @ApiBearerAuth('JWT-auth')
@@ -45,6 +47,7 @@ export class ActionesController {
   }
 
   @Get("all")
+  @CacheResponse(CacheKeys.actions, CacheTtl.reference)
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Get all actions",
@@ -56,6 +59,7 @@ export class ActionesController {
   }
 
   @Get("RolesActionsMapping")
+  @CacheResponse(CacheKeys.actions, CacheTtl.reference)
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Get all action mappings",
@@ -85,6 +89,7 @@ export class ActionesController {
   }
 
   @Post()
+  @InvalidateCache(CacheKeys.actions, CacheKeys.statuses)
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Create a new Action",
@@ -113,6 +118,7 @@ export class ActionesController {
   }
 
   @Post("RolesActionsMapping")
+  @InvalidateCache(CacheKeys.actions, CacheKeys.statuses)
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Create action",
@@ -147,6 +153,7 @@ export class ActionesController {
   }
 
   @Put("RolesActionsMapping/:id")
+  @InvalidateCache(CacheKeys.actions, CacheKeys.statuses)
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Update action",
@@ -180,6 +187,7 @@ export class ActionesController {
     }
   }
   @Delete("RolesActionsMapping/:id")
+  @InvalidateCache(CacheKeys.actions, CacheKeys.statuses)
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Delete action mapping",

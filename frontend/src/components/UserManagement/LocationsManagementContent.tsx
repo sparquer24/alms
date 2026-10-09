@@ -751,18 +751,21 @@ export default function LocationsManagementContent() {
         {error && <AdminErrorAlert message={(error as Error).message} title={''} />}
 
         {/* Main Content Card */}
-        <AdminCard title={levelConfig.label} fill={!isLoading && items.length > 0}>
-        
-        {/* Search Results Info and Pagination Info */}
-        {(searchQuery || items.length > 0) && (
-          <div style={{ marginBottom: AdminSpacing.sm, fontSize: '12px', color: colors.text.secondary, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>
+        <AdminCard fill={!isLoading && items.length > 0}>
+
+        {/* Title with search results and pagination info on the same line */}
+        <div style={{ marginBottom: AdminSpacing.md, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: AdminSpacing.md }}>
+          <h3 style={{ color: colors.text.primary, fontSize: '16px', fontWeight: 600, margin: 0, whiteSpace: 'nowrap' }}>
+            {levelConfig.label}
+          </h3>
+          {(searchQuery || items.length > 0) && (
+            <span style={{ fontSize: '12px', color: colors.text.secondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
               {searchQuery && items.length > 0 && <span>Found {items.length} result{items.length !== 1 ? 's' : ''} for "{searchQuery}" • </span>}
               {items.length > 0 && <span>Showing {Math.min((currentPage - 1) * itemsPerPage + 1, items.length)} - {Math.min(currentPage * itemsPerPage, items.length)} of {items.length}</span>}
               {searchQuery && items.length === 0 && <span>No results found for "{searchQuery}"</span>}
             </span>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Loading State */}
         {isLoading && <AdminTableSkeleton />}

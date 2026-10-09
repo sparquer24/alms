@@ -17,6 +17,7 @@ import {
   XCircle,
   LayoutDashboard,
   Lock,
+  BadgeCheck,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -31,6 +32,7 @@ const LogOutFixed = LogOut as any;
 const UsersFixed = Users as any;
 const ShieldFixed = Shield as any;
 const GitBranchFixed = GitBranch as any;
+const BadgeCheckFixed = BadgeCheck as any;
 const RefreshCcwFixed = RefreshCcw as any;
 const MapPinFixed = MapPin as any;
 const FileTextFixed = FileText as any;
@@ -57,6 +59,7 @@ export type MenuMetaKey =
   | 'roleMapping'
   | 'permissions'
   | 'flowMapping'
+  | 'approvalRules'
   | 'locationsManagement'
   | 'actionMapping'
   | 'rejected';
@@ -124,6 +127,10 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   flowMapping: {
     label: 'Flow Mapping',
     icon: () => <GitBranchFixed className='w-5 h-5' aria-label='Flow Mapping' />,
+  },
+  approvalRules: {
+    label: 'Approval Rules',
+    icon: () => <BadgeCheckFixed className='w-5 h-5' aria-label='Approval Rules' />,
   },
   locationsManagement: {
     label: 'Locations Management',

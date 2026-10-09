@@ -49,3 +49,29 @@ export const formatPhone = (p?: string) => {
   }
   return p;
 };
+
+const toValidDate = (value?: string | number | Date | null): Date | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+/** "12 Mar 2026" — the date format used on detail screens. Empty string when missing/invalid. */
+export const formatDisplayDate = (value?: string | number | Date | null): string => {
+  const d = toValidDate(value);
+  return d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+};
+
+/** "12 Mar 2026, 3:40 pm". Empty string when missing/invalid. */
+export const formatDisplayDateTime = (value?: string | number | Date | null): string => {
+  const d = toValidDate(value);
+  return d
+    ? d.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : '';
+};

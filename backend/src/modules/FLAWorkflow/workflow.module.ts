@@ -4,11 +4,10 @@ import { WorkflowController as WorkflowStatusesActionsController } from './workf
 import { WorkflowService } from './workflow.service';
 import { CancelWorkflowHandler } from './handlers/cancel-workflow.handler';
 import { LicensesModule } from '../licenses/licenses.module';
-import { PrismaService } from '../../services/prisma.service';
 
 @Module({
   imports: [LicensesModule],
   controllers: [WorkflowController, WorkflowStatusesActionsController],
-  providers: [WorkflowService, CancelWorkflowHandler, PrismaService],
+  providers: [WorkflowService, CancelWorkflowHandler],
 })
 export class WorkflowModule {}

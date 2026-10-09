@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { getCookie, setCookie } from 'cookies-next';
 import ApplicationsByTypeView from '../../components/ApplicationsByTypeView';
 import { useAuth } from '@/hooks/useAuth';
-import { PageLayoutSkeleton } from '../../components/Skeleton';
+import { ContentSkeleton } from '../../components/Skeleton';
 import { isAdminRole } from '../../utils/roleUtils';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 
@@ -54,7 +54,7 @@ function InboxContent() {
 // Main component with Suspense boundary
 export default function InboxQueryPage() {
   return (
-    <Suspense fallback={<PageLayoutSkeleton />}>
+    <Suspense fallback={<ContentSkeleton />}>
       <InboxContent />
     </Suspense>
   );

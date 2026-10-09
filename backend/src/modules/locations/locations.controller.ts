@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Delete, Query, Body, Param, ParseIntPipe, HttpException, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
+import { CacheResponse, InvalidateCache } from '../../cache/cache.decorators';
+import { CacheKeys } from '../../cache/cache';
 
 @ApiTags('Locations')
 @Controller('locations')
@@ -9,6 +11,7 @@ export class LocationsController {
 
   // States API - GET /locations/states?id=1 (optional)
   @Get('states')
+  @CacheResponse(CacheKeys.locations, 3600)
   @ApiOperation({
     summary: 'Get States',
     description: 'Retrieve all states or a specific state by ID. SUPER_ADMIN sees all states, ADMIN sees empty list (starts from district)'
@@ -84,6 +87,7 @@ export class LocationsController {
 
   // Districts API - GET /locations/districts?id=1&stateId=1 (both optional)
   @Get('districts')
+  @CacheResponse(CacheKeys.locations, 3600)
   @ApiOperation({
     summary: 'Get Districts',
     description: 'Retrieve all districts or filter by state ID, or get specific district by ID'
@@ -181,6 +185,7 @@ export class LocationsController {
 
   // Range Offices API - GET /locations/range-offices?id=1&districtId=1 (both optional)
   @Get('range-offices')
+  @CacheResponse(CacheKeys.locations, 3600)
   @ApiOperation({
     summary: 'Get Range Offices',
     description: 'Retrieve all range offices or filter by district ID, or get specific range office by ID'
@@ -277,6 +282,7 @@ export class LocationsController {
 
   // Zones API - GET /locations/zones?id=1&rangeOfficeId=1 (both optional)
   @Get('zones')
+  @CacheResponse(CacheKeys.locations, 3600)
   @ApiOperation({
     summary: 'Get Zones',
     description: 'Retrieve all zones or filter by range office ID, or get specific zone by ID'
@@ -374,6 +380,7 @@ export class LocationsController {
 
   // Divisions API - GET /locations/divisions?id=1&zoneId=1 (both optional)
   @Get('divisions')
+  @CacheResponse(CacheKeys.locations, 3600)
   @ApiOperation({
     summary: 'Get Divisions',
     description: 'Retrieve all divisions or filter by zone ID, or get specific division by ID'
@@ -471,6 +478,7 @@ export class LocationsController {
 
   // Police Stations API - GET /locations/police-stations?id=1&divisionId=1 (both optional)
   @Get('police-stations')
+  @CacheResponse(CacheKeys.locations, 3600)
   @ApiOperation({
     summary: 'Get Police Stations',
     description: 'Retrieve all police stations or filter by division ID, or get specific police station by ID'
@@ -568,6 +576,7 @@ export class LocationsController {
 
   // Enhanced: Get location hierarchy for a specific location type and ID
   @Get('hierarchy')
+  @CacheResponse(CacheKeys.locations, 3600)
   @ApiOperation({
     summary: 'Get Location Hierarchy',
     description: 'Get the complete location hierarchy for a specific location. Provide only one location ID parameter.'
@@ -705,6 +714,7 @@ export class LocationsController {
   /* ===== CREATE ENDPOINTS ===== */
 
   @Post('states')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Create State' })
   @ApiResponse({ status: 201, description: 'State created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
@@ -728,6 +738,7 @@ export class LocationsController {
   }
 
   @Post('districts')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Create District' })
   @ApiResponse({ status: 201, description: 'District created successfully' })
   async createDistrict(@Body() body: { name: string; parentId?: number; stateId?: number }) {
@@ -754,6 +765,7 @@ export class LocationsController {
   }
 
   @Post('range-offices')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Create Range Office' })
   @ApiResponse({ status: 201, description: 'Range Office created successfully' })
   async createRangeOffice(@Body() body: { name: string; parentId?: number; districtId?: number }) {
@@ -780,6 +792,7 @@ export class LocationsController {
   }
 
   @Post('zones')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Create Zone' })
   @ApiResponse({ status: 201, description: 'Zone created successfully' })
   async createZone(@Body() body: { name: string; parentId?: number; rangeOfficeId?: number }) {
@@ -806,6 +819,7 @@ export class LocationsController {
   }
 
   @Post('divisions')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Create Division' })
   @ApiResponse({ status: 201, description: 'Division created successfully' })
   async createDivision(@Body() body: { name: string; parentId?: number; zoneId?: number }) {
@@ -832,6 +846,7 @@ export class LocationsController {
   }
 
   @Post('police-stations')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Create Police Station' })
   @ApiResponse({ status: 201, description: 'Police Station created successfully' })
   async createPoliceStation(@Body() body: { name: string; parentId?: number; divisionId?: number }) {
@@ -860,6 +875,7 @@ export class LocationsController {
   /* ===== UPDATE ENDPOINTS ===== */
 
   @Put('states/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Update State' })
   @ApiResponse({ status: 200, description: 'State updated successfully' })
   async updateState(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
@@ -882,6 +898,7 @@ export class LocationsController {
   }
 
   @Put('districts/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Update District' })
   @ApiResponse({ status: 200, description: 'District updated successfully' })
   async updateDistrict(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
@@ -904,6 +921,7 @@ export class LocationsController {
   }
 
   @Put('zones/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Update Zone' })
   @ApiResponse({ status: 200, description: 'Zone updated successfully' })
   async updateZone(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
@@ -926,6 +944,7 @@ export class LocationsController {
   }
 
   @Put('range-offices/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Update Range Office' })
   @ApiResponse({ status: 200, description: 'Range Office updated successfully' })
   async updateRangeOffice(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
@@ -948,6 +967,7 @@ export class LocationsController {
   }
 
   @Put('divisions/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Update Division' })
   @ApiResponse({ status: 200, description: 'Division updated successfully' })
   async updateDivision(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
@@ -970,6 +990,7 @@ export class LocationsController {
   }
 
   @Put('police-stations/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Update Police Station' })
   @ApiResponse({ status: 200, description: 'Police Station updated successfully' })
   async updatePoliceStation(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
@@ -994,6 +1015,7 @@ export class LocationsController {
   /* ===== DELETE ENDPOINTS ===== */
 
   @Delete('states/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Delete State' })
   @ApiResponse({ status: 200, description: 'State deleted successfully' })
   async deleteState(@Param('id', ParseIntPipe) id: number) {
@@ -1012,6 +1034,7 @@ export class LocationsController {
   }
 
   @Delete('districts/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Delete District' })
   @ApiResponse({ status: 200, description: 'District deleted successfully' })
   async deleteDistrict(@Param('id', ParseIntPipe) id: number) {
@@ -1030,6 +1053,7 @@ export class LocationsController {
   }
 
   @Delete('zones/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Delete Zone' })
   @ApiResponse({ status: 200, description: 'Delete Zone' })
   async deleteZone(@Param('id', ParseIntPipe) id: number) {
@@ -1048,6 +1072,7 @@ export class LocationsController {
   }
 
   @Delete('range-offices/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Delete Range Office' })
   @ApiResponse({ status: 200, description: 'Range Office deleted successfully' })
   async deleteRangeOffice(@Param('id', ParseIntPipe) id: number) {
@@ -1066,6 +1091,7 @@ export class LocationsController {
   }
 
   @Delete('divisions/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Delete Division' })
   @ApiResponse({ status: 200, description: 'Division deleted successfully' })
   async deleteDivision(@Param('id', ParseIntPipe) id: number) {
@@ -1084,6 +1110,7 @@ export class LocationsController {
   }
 
   @Delete('police-stations/:id')
+  @InvalidateCache(CacheKeys.locations, CacheKeys.authUserPrefix, CacheKeys.flowMapping)
   @ApiOperation({ summary: 'Delete Police Station' })
   @ApiResponse({ status: 200, description: 'Police Station deleted successfully' })
   async deletePoliceStation(@Param('id', ParseIntPipe) id: number) {

@@ -84,25 +84,16 @@ const BiometricInformation = forwardRef(function BiometricInformation(
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
 
-  const handleDevices = React.useCallback(
-    (mediaDevices: MediaDeviceInfo[]) => {
-      const videoDevices = mediaDevices.filter(({ kind }) => kind === "videoinput");
-      setDevices(videoDevices);
-      if (videoDevices.length > 0 && !selectedDeviceId) {
-        setSelectedDeviceId(videoDevices[0].deviceId);
-      }
-    },
-    [selectedDeviceId]
-  );
-
-  useEffect(() => {
-    if (!showWebcamModal) return;
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-      navigator.mediaDevices.enumerateDevices().then(handleDevices).catch(err => {
-        console.warn('[Webcam] Enumerate devices failed:', err);
-      });
-    }
-  }, [showWebcamModal, handleDevices]);
+  // Cameras are listed only after the browser has granted access (before that the
+  // device ids are blank). The default camera is used until the user picks another,
+  // so opening the modal never switches devices while the first stream is starting.
+  const loadCameraDevices = React.useCallback(() => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
+    navigator.mediaDevices
+      .enumerateDevices()
+      .then(mediaDevices => setDevices(mediaDevices.filter(({ kind, deviceId }) => kind === 'videoinput' && deviceId)))
+      .catch(err => console.warn('[Webcam] Enumerate devices failed:', err));
+  }, []);
 
   useImperativeHandle(ref, () => ({
     focusFirstInvalid: () => {
@@ -170,49 +161,8 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     };
   }, []);
 
-  /** 📷 Handle camera permission state using Permissions API */
-  useEffect(() => {
-    if (!showWebcamModal) return;
-
-    let permissionStatus: PermissionStatus | null = null;
-
-    const handleStateChange = () => {
-      if (!permissionStatus) return;
-      console.log('📷 [Permissions API] Camera state is:', permissionStatus.state);
-      if (permissionStatus.state === 'denied') {
-        // Do NOT setStreamActive(false) or setCameraPermissionDenied(true) automatically here.
-        // False negatives are common in Electron or HTTP setups. We let react-webcam mount and attempt getUserMedia.
-        console.warn('📷 [Permissions API] Camera permission is denied by query, but attempting to mount Webcam for real-time validation.');
-      } else if (permissionStatus.state === 'granted') {
-        setCameraPermissionDenied(false);
-        setStreamActive(true);
-      } else if (permissionStatus.state === 'prompt') {
-        setCameraPermissionDenied(false);
-        setStreamActive(true);
-      }
-    };
-
-    const setupPermissionsQuery = async () => {
-      if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
-        try {
-          const status = await navigator.permissions.query({ name: 'camera' as PermissionName });
-          permissionStatus = status;
-          handleStateChange();
-          status.onchange = handleStateChange;
-        } catch (e) {
-          console.warn('[BiometricInformation] Camera Permissions API query not fully supported:', e);
-        }
-      }
-    };
-
-    setupPermissionsQuery();
-
-    return () => {
-      if (permissionStatus) {
-        permissionStatus.onchange = null;
-      }
-    };
-  }, [showWebcamModal]);
+  // Camera permission is handled by react-webcam's onUserMedia / onUserMediaError, as in
+  // the fresh application form; navigator.permissions.query({ name: 'camera' }) is unreliable.
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
@@ -962,6 +912,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                     onChange={(e) => setSelectedDeviceId(e.target.value)}
                     className='w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white text-sm'
                   >
+                    <option value=''>Default camera</option>
                     {devices.map((device, idx) => (
                       <option key={device.deviceId} value={device.deviceId}>
                         {device.label || `Camera ${idx + 1}`}
@@ -1033,14 +984,18 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                           facingMode: selectedDeviceId ? undefined : 'user',
                           deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined
                         }}
-                        onUserMedia={() => { setWebcamReady(true); setCameraPermissionDenied(false); }}
+                        onUserMedia={() => { setWebcamReady(true); setCameraPermissionDenied(false); loadCameraDevices(); }}
                         onUserMediaError={(err: any) => {
                           console.error('❌ [Webcam] Camera access failure detailed:', err);
-                          const errName = err?.name || '';
-                          const errMsg = err?.message || '';
+                          const errName = typeof err === 'string' ? '' : err?.name || '';
+                          const errMsg = typeof err === 'string' ? err : err?.message || '';
                           console.error(`❌ [Webcam] Error Name: ${errName}, Message: ${errMsg}`);
-                          
-                          if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError' || errMsg.includes('Permission') || errMsg.includes('denied')) {
+
+                          if (typeof window !== 'undefined' && !window.isSecureContext) {
+                            // Browsers only expose the camera on HTTPS (or localhost).
+                            setStreamActive(false);
+                            toast.error('Camera is only available over a secure (HTTPS) connection. Please open the application using https://.');
+                          } else if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
                             setStreamActive(false);
                             setCameraPermissionDenied(true);
                             toast.error('Camera permission was denied. Please allow camera access in browser settings.');
@@ -1052,11 +1007,12 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                             toast.error('Camera is currently in use by another application (Zoom, Teams, etc.). Please close it and try again.');
                           } else if (errName === 'OverconstrainedError' || errName === 'ConstraintNotSatisfiedError') {
                             setStreamActive(false);
+                            setSelectedDeviceId('');
                             toast.error('Camera does not support the requested video constraints.');
                           } else {
+                            // Not a permission problem (e.g. AbortError while the device starts) — let the user retry.
                             setStreamActive(false);
-                            setCameraPermissionDenied(true);
-                            toast.error(`Unable to access camera (${errName || 'Error'}: ${errMsg || 'Unknown error'}).`);
+                            toast.error(`Unable to start the camera (${errName || 'Error'}: ${errMsg || 'Unknown error'}). Please try again.`);
                           }
                         }}
                       />

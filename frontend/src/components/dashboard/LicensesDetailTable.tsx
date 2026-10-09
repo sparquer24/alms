@@ -252,28 +252,28 @@ export const LicensesDetailTable: React.FC<LicensesDetailTableProps> = ({
         <table className="w-full text-left text-xs border-collapse">
           <thead className="bg-gray-50 text-gray-600 uppercase font-semibold border-b border-gray-200 select-none">
             <tr>
-              <th className="py-3 px-4 w-14">S.No</th>
-              <th className="py-3 px-4">License Number</th>
-              <th className="py-3 px-4">License Holder</th>
-              <th className="py-3 px-4">Weapon Category</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Validity Horizon</th>
-              <th className="py-3 px-4">Renewals</th>
-              <th className="py-3 px-4 text-right">Actions</th>
+              <th className="py-1.5 px-4 w-14">S.No</th>
+              <th className="py-1.5 px-4">License Number</th>
+              <th className="py-1.5 px-4">License Holder</th>
+              <th className="py-1.5 px-4">Weapon Category</th>
+              <th className="py-1.5 px-4">Status</th>
+              <th className="py-1.5 px-4">Validity Horizon</th>
+              <th className="py-1.5 px-4">Renewals</th>
+              <th className="py-1.5 px-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="py-3.5 px-4"><div className="h-3 w-6 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-32 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-28 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-24 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-4 w-20 bg-gray-200 rounded-full"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-28 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-12 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4 text-right"><div className="h-6 w-16 bg-gray-200 rounded ml-auto"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3 w-6 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-32 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-28 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-24 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-4 w-20 bg-gray-200 rounded-full"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-28 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-12 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4 text-right"><div className="h-6 w-16 bg-gray-200 rounded ml-auto"></div></td>
                 </tr>
               ))
             ) : data.length > 0 ? (
@@ -289,10 +289,10 @@ export const LicensesDetailTable: React.FC<LicensesDetailTableProps> = ({
 
                 return (
                   <tr key={lic.id} className="hover:bg-blue-50/40 transition-colors group">
-                    <td className="py-3.5 px-4 text-gray-500 font-mono font-medium">{sNo}</td>
+                    <td className="py-0.5 px-4 text-gray-500 font-mono font-medium">{sNo}</td>
 
                     {/* License Number & UIN */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <div className="flex items-center gap-2">
                         <Award className="w-4 h-4 text-[#B8860B] shrink-0" />
                         <div>
@@ -307,7 +307,7 @@ export const LicensesDetailTable: React.FC<LicensesDetailTableProps> = ({
                     </td>
 
                     {/* License Holder */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <div className="font-semibold text-gray-900">
                         {lic.firstName} {lic.lastName}
                       </div>
@@ -320,21 +320,21 @@ export const LicensesDetailTable: React.FC<LicensesDetailTableProps> = ({
                     </td>
 
                     {/* Arms Category */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <span className="font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-[11px]">
                         {lic.armsCategory ? String(lic.armsCategory).replace(/_/g, ' ') : 'Standard Category'}
                       </span>
                     </td>
 
                     {/* Status Badge */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}>
                         {statusCfg.label}
                       </span>
                     </td>
 
                     {/* Validity Dates */}
-                    <td className="py-3.5 px-4 text-gray-600">
+                    <td className="py-0.5 px-4 text-gray-600">
                       <div className="flex flex-col">
                         <div className="font-mono text-xs text-gray-900">
                           Till {lic.validTill ? format(new Date(lic.validTill), 'dd MMM yyyy') : '--'}
@@ -355,12 +355,12 @@ export const LicensesDetailTable: React.FC<LicensesDetailTableProps> = ({
                     </td>
 
                     {/* Renewal Count */}
-                    <td className="py-3.5 px-4 font-mono font-medium text-gray-700">
+                    <td className="py-0.5 px-4 font-mono font-medium text-gray-700">
                       {lic.renewalCount ? `${lic.renewalCount} Renewed` : 'Original'}
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-0.5 px-4 text-right">
                       <button
                         type="button"
                         onClick={() => setSelectedRecord({
@@ -402,7 +402,7 @@ export const LicensesDetailTable: React.FC<LicensesDetailTableProps> = ({
       )}
 
       {/* Pagination */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-100 mt-3 text-xs text-gray-600">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1.5 border-t border-gray-100 mt-1 text-xs text-gray-600">
         <div>
           Showing {data.length > 0 ? (page - 1) * limit + 1 : 0} to {Math.min(page * limit, totalRecords)} of {totalRecords.toLocaleString()} licenses
         </div>
@@ -412,12 +412,12 @@ export const LicensesDetailTable: React.FC<LicensesDetailTableProps> = ({
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
-            className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <span className="px-3 py-1 font-semibold text-gray-800 bg-gray-100 rounded-md">
+          <span className="px-2.5 py-0.5 font-semibold text-gray-800 bg-gray-100 rounded-md">
             {page} / {totalPages}
           </span>
 
@@ -425,7 +425,7 @@ export const LicensesDetailTable: React.FC<LicensesDetailTableProps> = ({
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages || loading}
-            className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

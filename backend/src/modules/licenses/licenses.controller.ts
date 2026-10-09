@@ -5,6 +5,8 @@ import { LicensesService } from './licenses.service';
 import { CommitLicenseImportDto, PreviewLicenseImportDto } from './dto/import-licenses.dto';
 import { AuthGuard } from '../../middleware/auth.middleware';
 import { Roles } from '../../decorators/roles.decorator';
+import { CacheResponse, InvalidateCache } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 /** Roles allowed to import, mirroring LICENSE_ROLES on the License Management page. */
 const LICENSE_IMPORT_ROLES = ['ADMIN', 'SUPER_ADMIN', 'ZS', 'DCP', 'CP', 'JTCP', 'ARMS_SUPDT', 'ARMS_SEAT', 'ACO'];
@@ -63,6 +65,7 @@ export class LicensesController {
   }
 
   @Post('generate/:freshApplicationId')
+  @InvalidateCache(CacheKeys.licenseStats, CacheKeys.licenseLists)
   @ApiOperation({ summary: 'Generate a license PDF from a fresh application' })
   async generateLicense(
     @Param('freshApplicationId') freshApplicationId: string,
@@ -77,6 +80,7 @@ export class LicensesController {
   // ---------------------------------------------------------------------------
 
   @Post('import/preview')
+  @InvalidateCache(CacheKeys.licenseStats, CacheKeys.licenseLists)
   @UseGuards(AuthGuard)
   @Roles(...LICENSE_IMPORT_ROLES)
   @ApiBearerAuth('JWT-auth')
@@ -92,6 +96,7 @@ export class LicensesController {
   }
 
   @Post('import')
+  @InvalidateCache(CacheKeys.licenseStats, CacheKeys.licenseLists)
   @UseGuards(AuthGuard)
   @Roles(...LICENSE_IMPORT_ROLES)
   @ApiBearerAuth('JWT-auth')
@@ -109,6 +114,7 @@ export class LicensesController {
   }
 
   @Post('import/rollback/:batchId')
+  @InvalidateCache(CacheKeys.licenseStats, CacheKeys.licenseLists)
   @UseGuards(AuthGuard)
   @Roles(...LICENSE_IMPORT_ROLES)
   @ApiBearerAuth('JWT-auth')
@@ -185,6 +191,7 @@ export class LicensesController {
   }
 
   @Get('expiring')
+  @CacheResponse(CacheKeys.licenseLists, CacheTtl.licenses, 'jurisdiction')
   @ApiOperation({ summary: 'Get active licenses expiring within a selected window' })
   @ApiQuery({ name: 'days', required: false, type: Number, example: 90 })
   async getExpiringLicenses(
@@ -215,6 +222,7 @@ export class LicensesController {
   }
 
   @Get('expired')
+  @CacheResponse(CacheKeys.licenseLists, CacheTtl.licenses, 'jurisdiction')
   @ApiOperation({ summary: 'Get expired licenses' })
   async getExpiredLicenses(
     @Query('page') page?: string,

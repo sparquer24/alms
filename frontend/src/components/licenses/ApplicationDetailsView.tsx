@@ -5,6 +5,7 @@ import {
   SectionCard,
   SummaryCard,
   DocumentTable,
+  MaskedAadhaar,
 } from '@/app/application/components/RedesignedComponents';
 import {
   UserRound,
@@ -40,7 +41,7 @@ import {
   Landmark,
   BriefcaseBusiness,
 } from 'lucide-react';
-import { formatGender, formatStatusLabel, formatApplicationType } from '@/utils/formatters';
+import { formatGender, formatStatusLabel, formatApplicationType, formatDisplayDate, formatDisplayDateTime } from '@/utils/formatters';
 import { LazySection } from '@/components/LazySection';
 import { ApplicationHistoryCards } from './ApplicationHistoryCards';
 
@@ -66,7 +67,7 @@ export function ApplicationDetailsView({ application, hideLicenseDetails }: { ap
   return (
     <div className="space-y-8">
       {/* 1. Application Information Section */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600">
@@ -113,9 +114,9 @@ export function ApplicationDetailsView({ application, hideLicenseDetails }: { ap
                 label="Date of Birth"
                 value={
                   application?.dateOfBirth
-                    ? new Date(application.dateOfBirth).toLocaleDateString('en-IN')
+                    ? formatDisplayDate(application.dateOfBirth)
                     : application?.dob
-                    ? new Date(application.dob).toLocaleDateString('en-IN')
+                    ? formatDisplayDate(application.dob)
                     : null
                 }
                 icon={CalendarDays}
@@ -131,8 +132,8 @@ export function ApplicationDetailsView({ application, hideLicenseDetails }: { ap
             )}
             {application?.aadharNumber && (
               <DetailItem
-                label="Aadhar Number"
-                value={application.aadharNumber}
+                label="Aadhaar Number"
+                value={<MaskedAadhaar value={application.aadharNumber} />}
                 icon={Fingerprint}
                 mono
               />
@@ -165,7 +166,7 @@ export function ApplicationDetailsView({ application, hideLicenseDetails }: { ap
             {application?.applicationDate && (
               <DetailItem
                 label="Date & Time of Submission"
-                value={new Date(application.applicationDate).toLocaleString('en-IN')}
+                value={formatDisplayDateTime(application.applicationDate)}
                 icon={CalendarDays}
                 className="md:col-span-2"
               />

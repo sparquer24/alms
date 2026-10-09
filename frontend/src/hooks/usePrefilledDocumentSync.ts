@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   getDocumentUploadMeta,
+  isStagedRenewalDocument,
   RENEWAL_DOCUMENT_FIELD_KEYS,
   syncPendingRenewalDocuments,
 } from '../utils/renewalFileUpload';
@@ -25,6 +26,8 @@ export function buildPendingDocumentsSignature(
 
   for (const key of fieldKeys) {
     if (key === 'specialEvidenceFiles') continue;
+    // Files the user picked are saved on Save to Draft / Next, never in the background.
+    if (isStagedRenewalDocument(formData[key])) continue;
     const meta = getDocumentUploadMeta(formData[key]);
     if (meta.fileUrl && !meta.id) {
       parts.push(`${key}:${meta.fileUrl}`);
@@ -42,6 +45,7 @@ export function buildPendingDocumentsSignature(
     : [];
 
   evidenceList.forEach((file, index) => {
+    if (isStagedRenewalDocument(file)) return;
     const meta = getDocumentUploadMeta(file);
     if (meta.fileUrl && !meta.id) {
       parts.push(`evidence-${index}:${meta.fileUrl}`);

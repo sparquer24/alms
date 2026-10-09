@@ -16,6 +16,8 @@ import { AuthGuard } from '../../middleware/auth.middleware';
 import { FlowMappingService } from './flow-mapping.service';
 import { CreateFlowMappingDto, UpdateFlowMappingDto, ValidateFlowMappingDto } from './dto/flow-mapping.dto';
 import { FlowMappingContext } from '../../constants/flow-mapping';
+import { CacheResponse, InvalidateCache } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 @ApiTags('Flow Mapping')
 @ApiBearerAuth('JWT-auth')
@@ -63,6 +65,7 @@ export class FlowMappingController {
      * Get flow mapping for a specific role
      */
     @Get(':roleId')
+    @CacheResponse(CacheKeys.flowMapping, CacheTtl.reference, 'jurisdiction')
     @ApiOperation({
         summary: 'Get flow mapping for a role',
         description: 'Retrieve workflow mapping configuration for a specific role',
@@ -108,6 +111,7 @@ export class FlowMappingController {
      * Get all flow mappings
      */
     @Get()
+    @CacheResponse(CacheKeys.flowMapping, CacheTtl.reference, 'jurisdiction')
     @ApiOperation({
         summary: 'Get all flow mappings',
         description: 'Retrieve all role workflow mappings in the system',
@@ -148,6 +152,7 @@ export class FlowMappingController {
      * Create or update flow mapping
      */
     @Put(':roleId')
+    @InvalidateCache(CacheKeys.flowMapping)
     @ApiOperation({
         summary: 'Create or update flow mapping for a role',
         description: 'Set the next roles that can receive applications from the current role',
@@ -194,6 +199,7 @@ export class FlowMappingController {
      * Create flow mapping
      */
     @Post()
+    @InvalidateCache(CacheKeys.flowMapping)
     @ApiOperation({
         summary: 'Create flow mapping',
         description: 'Create a new workflow mapping for a role',
@@ -236,6 +242,7 @@ export class FlowMappingController {
      * Validate flow mapping for circular dependencies
      */
     @Post('validate')
+    @InvalidateCache(CacheKeys.flowMapping)
     @ApiOperation({
         summary: 'Validate flow mapping',
         description: 'Check if a proposed flow mapping would create circular dependencies',
@@ -277,6 +284,7 @@ export class FlowMappingController {
      * Delete flow mapping
      */
     @Delete(':roleId')
+    @InvalidateCache(CacheKeys.flowMapping)
     @ApiOperation({
         summary: 'Delete flow mapping for a role',
         description: 'Remove the workflow mapping configuration for a role',
@@ -312,6 +320,7 @@ export class FlowMappingController {
      * Get next roles for a role
      */
     @Get(':roleId/next-roles')
+    @CacheResponse(CacheKeys.flowMapping, CacheTtl.reference, 'jurisdiction')
     @ApiOperation({
         summary: 'Get next roles for a role',
         description: 'Retrieve which roles can receive applications from a specific role',
@@ -355,6 +364,7 @@ export class FlowMappingController {
      * Duplicate flow mapping
      */
     @Post(':sourceRoleId/duplicate/:targetRoleId')
+    @InvalidateCache(CacheKeys.flowMapping)
     @ApiOperation({
         summary: 'Duplicate flow mapping',
         description: 'Copy workflow mapping from one role to another',
@@ -395,6 +405,7 @@ export class FlowMappingController {
      * Reset flow mapping
      */
     @Post(':roleId/reset')
+    @InvalidateCache(CacheKeys.flowMapping)
     @ApiOperation({
         summary: 'Reset flow mapping',
         description: 'Clear all next roles from a role mapping (set to empty)',

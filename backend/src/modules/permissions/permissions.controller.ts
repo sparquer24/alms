@@ -2,6 +2,8 @@ import { Controller, Get, Post, Put, Delete, Param, Query, Body, BadRequestExcep
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { PermissionsService } from './permissions.service';
+import { CacheResponse, InvalidateCache } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 @ApiTags('Permissions')
 @ApiBearerAuth('JWT-auth')
@@ -11,6 +13,7 @@ export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 
   @Get()
+  @CacheResponse(CacheKeys.permissions, CacheTtl.reference)
   @ApiOperation({
     summary: 'Get all permissions',
     description: 'Retrieve the permission catalog, each with the roles currently assigned it',
@@ -23,6 +26,7 @@ export class PermissionsController {
   }
 
   @Get(':id')
+  @CacheResponse(CacheKeys.permissions, CacheTtl.reference)
   @ApiOperation({ summary: 'Get permission by ID' })
   @ApiResponse({ status: 200, description: 'Permission retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Permission not found' })
@@ -39,6 +43,7 @@ export class PermissionsController {
   }
 
   @Post()
+  @InvalidateCache(CacheKeys.permissions, CacheKeys.roles)
   @ApiOperation({ summary: 'Create a new permission definition' })
   @ApiBody({
     schema: {
@@ -59,6 +64,7 @@ export class PermissionsController {
   }
 
   @Put(':id')
+  @InvalidateCache(CacheKeys.permissions, CacheKeys.roles)
   @ApiOperation({ summary: 'Update an existing permission definition' })
   @ApiBody({
     schema: {
@@ -86,6 +92,7 @@ export class PermissionsController {
   }
 
   @Delete(':id')
+  @InvalidateCache(CacheKeys.permissions, CacheKeys.roles)
   @ApiOperation({
     summary: 'Delete a permission definition',
     description: 'Removes the permission from the catalog. Does not retroactively strip the flag from roles that already have it set.',
