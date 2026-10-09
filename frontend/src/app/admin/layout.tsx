@@ -15,11 +15,15 @@ import { normalizeRole } from '@/utils/roleUtils';
 export default function AdminLayout({ children }: { children: any }) {
   const { userRole, token, isLoading, initialized } = useAuth();
   const router = useRouter();
-  const [checked, setChecked] = useState(false);
-
   const effectiveRole = useMemo(() => {
     return normalizeRole(userRole);
   }, [userRole]);
+
+  // Start as checked when auth is already resolved (client-side navigation into
+  // this section) so the full-screen spinner doesn't flash on every visit.
+  const [checked, setChecked] = useState(
+    () => initialized && !isLoading && !!token && effectiveRole === 'ADMIN'
+  );
 
   useEffect(() => {
     // Wait until auth is initialized and we have the necessary values

@@ -11,6 +11,7 @@ export type AdminMenuItemKey =
     | 'roleMapping'
     | 'permissions'
     | 'flowMapping'
+    | 'approvalRules'
     | 'locationsManagement'
     | 'actionMapping';
 
@@ -60,6 +61,13 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
         label: 'Flow Mapping',
         path: '/admin/flowMapping',
         order: 5,
+    },
+    approvalRules: {
+        name: 'approvalRules',
+        key: 'approvalRules',
+        label: 'Approval Rules',
+        path: '/admin/approvalRules',
+        order: 5.5,
     },
     locationsManagement: {
         name: 'locationsManagement',
@@ -147,6 +155,9 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'flow-mapping': 'flowMapping',
         'flowmap': 'flowMapping',
         'flow': 'flowMapping',
+        'approvalrules': 'approvalRules',
+        'approval_rules': 'approvalRules',
+        'approval-rules': 'approvalRules',
         'locationsmanagement': 'locationsManagement',
         'locations_management': 'locationsManagement',
         'locations-management': 'locationsManagement',

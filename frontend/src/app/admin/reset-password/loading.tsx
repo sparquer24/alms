@@ -1,9 +1,6 @@
-import { PageLayoutSkeleton, FormSkeleton } from '../../../components/Skeleton';
+import { FormSkeleton } from '../../../components/Skeleton';
 
+// Rendered inside the admin layout, which already draws the sidebar/header.
 export default function Loading() {
-  return (
-    <PageLayoutSkeleton>
-      <FormSkeleton fields={4} />
-    </PageLayoutSkeleton>
-  );
+  return <FormSkeleton fields={4} />;
 }

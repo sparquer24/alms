@@ -12,7 +12,9 @@ import { useAuth } from '../../hooks/useAuth';
 // Layout component that renders Sidebar and Header once for all /inbox routes
 export default function InboxLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, initialized } = useAuth();
-  const [checked, setChecked] = useState(false);
+  // Start as checked when auth is already resolved (client-side navigation into
+  // this section) so the full-screen spinner doesn't flash on every visit.
+  const [checked, setChecked] = useState(() => initialized && !isLoading && isAuthenticated);
 
   useEffect(() => {
     // Wait for auth initialization

@@ -34,6 +34,7 @@ const RENEWAL_FILE_TYPE_MAP: Record<string, string> = {
   claimDocsUploaded: 'CLAIM_DOCS',
   specialEvidenceUploaded: 'CLAIM_DOCS',
   rejectedLicenseUploaded: 'REJECTED_LICENSE',
+  rejectionDocUploaded: 'REJECTED_LICENSE',
   otherUploaded: 'OTHER',
   addressProofUploaded: 'OTHER',
   characterCertificateUploaded: 'OTHER',
@@ -95,14 +96,10 @@ export class RenewalService {
       const getLicNo = (item: any) =>
         String(item?.licenseNumber || item?.licenseNo || item?.license?.licenseNumber || item?.license?.licenseNo || '').toLowerCase();
 
-      const exactMatch = list.find((item) => getLicNo(item) === normalizedLicense);
-      if (exactMatch) return exactMatch;
-
-      const partialMatch = list.find((item) => getLicNo(item).includes(normalizedLicense));
-      if (partialMatch) return partialMatch;
-
-      if (list.length > 0) return list[0];
-      return null;
+      // Exact match only: `search` also matches names/ack numbers, so a partial
+      // or first-row fallback could resume a different license's renewal.
+      // The list is newest-first, so this is the latest renewal for the license.
+      return list.find((item) => getLicNo(item) === normalizedLicense) ?? null;
     } catch (err) {
       console.warn('findRenewalByLicenseNumber query error:', err);
       return null;

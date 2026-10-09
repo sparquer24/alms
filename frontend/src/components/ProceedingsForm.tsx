@@ -8,10 +8,46 @@ const SelectFixed = Select as any;
 import styles from './ProceedingsForm.module.css';
 import { fetchData, postData, setAuthToken } from '../api/axiosConfig';
 import { TiptapRichTextEditor } from './TiptapRichTextEditor';
+import ConfirmationModal from './ConfirmationModal';
 import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
 
 import { ApplicationData } from '../types';
+
+// Approval rule for the application (GET /approval-rules/application): who
+// makes the final decision here, and whether they approve or only recommend.
+type ApplicationApprovalRule = {
+  approverRoleCode: string;
+  approverRoleName: string;
+  decision: 'APPROVE' | 'RECOMMEND';
+  area: 'DISTRICT' | 'STATE' | 'INDIA';
+  purpose: string;
+  isCurrentUserDecisionRole: boolean;
+};
+
+const RULE_AREA_LABELS: Record<ApplicationApprovalRule['area'], string> = {
+  DISTRICT: 'District-wide',
+  STATE: 'State-wide',
+  INDIA: 'Throughout India',
+};
+
+const RULE_PURPOSE_LABELS: Record<string, string> = {
+  SELF_PROTECTION: 'Self protection',
+  SPORTS: 'Sports / target shooting',
+  HEIRLOOM_POLICY: 'Heirloom policy',
+  CROP_PROTECTION: 'Crop protection',
+};
+
+const describeApprovalRule = (rule: ApplicationApprovalRule): string => {
+  const scope = [RULE_PURPOSE_LABELS[rule.purpose], RULE_AREA_LABELS[rule.area]].filter(Boolean).join(' · ');
+  const options = rule.decision === 'APPROVE' ? 'Approve or Reject' : 'Recommend or Not Recommend';
+  if (rule.isCurrentUserDecisionRole) {
+    return rule.decision === 'APPROVE'
+      ? `${scope}: you make the final decision — ${options}.`
+      : `${scope}: this application cannot be approved locally — you can only ${options}.`;
+  }
+  return `${scope}: final decision by ${rule.approverRoleName} (${rule.approverRoleCode}) — ${options}.`;
+};
 
 interface UserOption {
   value: string;
@@ -178,6 +214,7 @@ export default function ProceedingsForm({
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // DCP Hearing State
   const [hearingDate, setHearingDate] = useState('');
@@ -219,6 +256,26 @@ export default function ProceedingsForm({
 
   const hierarchyApplicationType = resolveHierarchyApplicationType(applicationData?.applicationType);
   const workflowApplicationType = resolveWorkflowApplicationType(applicationData?.applicationType);
+
+  // The backend narrows the decision actions by the approval rule; explain why here
+  const [approvalRule, setApprovalRule] = useState<ApplicationApprovalRule | null>(null);
+  useEffect(() => {
+    const appliesToRules =
+      workflowApplicationType === 'FreshLicenseApplicationForm' ||
+      workflowApplicationType === 'RenewalApplicationForm';
+    if (!applicationId || !appliesToRules) {
+      setApprovalRule(null);
+      return;
+    }
+    let active = true;
+    const params = new URLSearchParams({ applicationType: workflowApplicationType, applicationId: String(applicationId) });
+    fetchData(`/approval-rules/application?${params.toString()}`)
+      .then((res: any) => active && setApprovalRule(res?.data ?? null))
+      .catch(() => active && setApprovalRule(null));
+    return () => {
+      active = false;
+    };
+  }, [applicationId, workflowApplicationType]);
 
   const currentRole = roleFromCookie || userRole;
 
@@ -423,6 +480,11 @@ export default function ProceedingsForm({
       return;
     }
 
+    // Workflow actions cannot be undone, so the officer confirms what will happen first.
+    setShowConfirm(true);
+  };
+
+  const submitAction = async () => {
     // Build payload for /workflow/action
     const actionId = Number(selectedAction?.value);
 
@@ -1213,6 +1275,17 @@ ${content}
                     }}
                   />
                 </div>
+                {approvalRule && (
+                  <p
+                    className={`mt-1 rounded-md border px-2 py-1 text-xs ${
+                      approvalRule.decision === 'RECOMMEND'
+                        ? 'border-yellow-300 bg-yellow-50 text-yellow-800'
+                        : 'border-gray-200 bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    {describeApprovalRule(approvalRule)}
+                  </p>
+                )}
                 {actionsError && (
                   <p className={styles.helpText}>
                     Failed to load actions from server. Using defaults. Error: {actionsError}
@@ -1608,6 +1681,57 @@ ${content}
           )}
         </div>
       </div>
+
+      {/* Confirm before the action is sent — workflow actions cannot be undone */}
+      {(() => {
+        const code = String(selectedAction?.code || '').toUpperCase();
+        const isFinalDecision = ['APPROVE', 'REJECT', 'CLOSE', 'DISPOSE', 'CANCEL'].some(k =>
+          code.includes(k)
+        );
+        const recipient = isCloseAction ? currentZSUserOption?.label : nextUser?.label;
+        const attachmentCount = attachmentFiles.length + (roleFromCookie === 'SHO' && draftLetter.trim() ? 1 : 0);
+        return (
+          <ConfirmationModal
+            isOpen={showConfirm}
+            onClose={() => setShowConfirm(false)}
+            onConfirm={submitAction}
+            title={`Confirm: ${selectedAction?.label || 'Action'}`}
+            actionButtonText={selectedAction?.label ? `Yes, ${selectedAction.label}` : 'Confirm'}
+            actionButtonColor={
+              isFinalDecision ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+            }
+            message={
+              <div className='space-y-3 text-sm'>
+                <dl className='grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5'>
+                  <dt className='text-gray-500'>Action</dt>
+                  <dd className='font-semibold text-gray-900'>{selectedAction?.label}</dd>
+                  {recipient && (
+                    <>
+                      <dt className='text-gray-500'>Forward to</dt>
+                      <dd className='font-semibold text-gray-900'>{recipient}</dd>
+                    </>
+                  )}
+                  {selectedAction?.code === 'SCHEDULE_HEARING' && hearingDate && (
+                    <>
+                      <dt className='text-gray-500'>Hearing</dt>
+                      <dd className='font-semibold text-gray-900'>
+                        {new Date(hearingDate).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </dd>
+                    </>
+                  )}
+                  <dt className='text-gray-500'>Attachments</dt>
+                  <dd className='text-gray-900'>{attachmentCount || 'None'}</dd>
+                </dl>
+                <p className={isFinalDecision ? 'font-medium text-red-700' : 'text-gray-600'}>
+                  {isFinalDecision
+                    ? 'This is a final decision on the application and cannot be undone.'
+                    : 'Once submitted, this action cannot be undone.'}
+                </p>
+              </div>
+            }
+          />
+        );
+      })()}
 
       {/* Ground Report Editor */}
       {showGroundReportEditor && (

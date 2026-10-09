@@ -36,6 +36,10 @@ describe('LicensesService', () => {
         renewalApplicationId: null,
         cancelApplicationId: null,
         lastModifiedAppType: 'FRESH',
+        firstName: 'John',
+        middleName: 'M',
+        lastName: 'Doe',
+        status: 'ACTIVE',
       };
 
       const sourceApplication = {
@@ -56,7 +60,11 @@ describe('LicensesService', () => {
       expect(result).not.toBeNull();
       const mapped = result as any;
       expect(mapped).toEqual(expect.objectContaining({
-        id: 7,
+        // `id` is the license PK; the source application is exposed separately
+        id: 42,
+        status: 'ACTIVE',
+        sourceApplicationId: 7,
+        sourceApplicationType: 'FRESH',
         acknowledgementNo: 'ACK-001',
         firstName: 'John',
         middleName: 'M',
@@ -94,6 +102,7 @@ describe('LicensesService', () => {
       expect(result).not.toBeNull();
       const mapped = result as any;
       expect(mapped).toEqual({
+        id: 42,
         licenseId: 42,
         licenseNumber: 'LIC-1001',
         almsLicenseId: 'ALMS-9001',
@@ -174,6 +183,10 @@ describe('LicensesService', () => {
             id: 42,
             licenseNumber: 'LIC-1001',
             almsLicenseId: 'ALMS-9001',
+            firstName: 'Jane',
+            middleName: 'K',
+            lastName: 'Doe',
+            status: 'ACTIVE',
             freshApplicationId: null,
             renewalApplicationId: 99,
             cancelApplicationId: null,
@@ -219,11 +232,13 @@ describe('LicensesService', () => {
       const service = module.get<LicensesService>(LicensesService);
       const result = await service.getLicenseById('42');
 
-      // The service first checks for a draft renewal (findFirst with isSubmit: false)
-      // When none found, it falls through to the standard license lookup
+      // `id` is always the license PK; the source renewal is exposed separately.
       expect(prismaMock.licenses.findUnique).toHaveBeenCalled();
       expect(result).toEqual(expect.objectContaining({
-        id: 99,
+        id: 42,
+        status: 'ACTIVE',
+        sourceApplicationId: 99,
+        sourceApplicationType: 'RENEWAL',
         acknowledgementNo: 'REN-001',
         firstName: 'Jane',
         middleName: 'K',

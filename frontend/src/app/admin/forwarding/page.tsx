@@ -107,15 +107,15 @@ export default function ForwardingPage() {
         <table className="w-full border text-sm">
           <thead>
             <tr className="bg-[#f4f7fb] text-[#001F54]">
-              <th className="border px-2 py-2 font-semibold">Source</th>
-              <th className="border px-2 py-2 font-semibold">Targets</th>
+              <th className="border px-2 py-1.5 font-semibold">Source</th>
+              <th className="border px-2 py-1.5 font-semibold">Targets</th>
             </tr>
           </thead>
           <tbody>
             {mappings.map((m, i) => (
               <tr key={i} className="hover:bg-[#f0f4fa]">
-                <td className="border px-2 py-2">{m.source}</td>
-                <td className="border px-2 py-2">{m.targets.join(", ")}</td>
+                <td className="border px-2 py-0.5">{m.source}</td>
+                <td className="border px-2 py-0.5">{m.targets.join(", ")}</td>
               </tr>
             ))}
           </tbody>

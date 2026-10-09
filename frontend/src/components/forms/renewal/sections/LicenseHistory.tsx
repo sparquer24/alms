@@ -6,8 +6,10 @@ import { FileUpload } from '../../elements/FileUpload';
 import { openDocumentFile } from '../../../../services/fileHandler';
 import {
   deleteRenewalDocument,
+  discardStagedRenewalDocument,
   getDocumentUploadMeta,
-  uploadRenewalDocument,
+  isStagedRenewalDocument,
+  stageRenewalDocument,
 } from '../../../../utils/renewalFileUpload';
 
 type ErrorsMap = Record<string, string | undefined>;
@@ -39,7 +41,6 @@ const LicenseHistory = forwardRef(function LicenseHistory(
   ref: any
 ) {
   const { formData, onChange, errors = {}, renewalId, onPatch, onError, onStatus, isReadOnly = false } = props;
-  const [uploadingRejectionDoc, setUploadingRejectionDoc] = useState(false);
   const [deletingRejectionDocId, setDeletingRejectionDocId] = useState<number | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -115,8 +116,8 @@ const LicenseHistory = forwardRef(function LicenseHistory(
 
   // --- Rejection Document Upload Handlers ---
   const rejectionDocMeta = getDocumentUploadMeta(formData?.rejectionDocUploaded);
-  const isRejectionUploading = uploadingRejectionDoc;
   const isRejectionDeleting = Boolean(rejectionDocMeta.id && deletingRejectionDocId === rejectionDocMeta.id);
+  const isRejectionStaged = isStagedRenewalDocument(formData?.rejectionDocUploaded);
   const showRejectionDoc = Boolean((rejectionDocMeta.uploaded || rejectionDocMeta.id) && rejectionDocMeta.fileName);
 
   const handleRejectionDocUpload = async (file: File) => {
@@ -132,30 +133,16 @@ const LicenseHistory = forwardRef(function LicenseHistory(
       return;
     }
 
-    setUploadingRejectionDoc(true);
-    onStatus?.('Uploading rejection document...');
-
-    try {
-      // Delete existing document first if present
-      if (rejectionDocMeta.id) {
-        try {
-          await deleteRenewalDocument(rejectionDocMeta.id);
-        } catch (err) {
-          console.error('Failed to delete existing rejection document:', err);
-        }
-      }
-
-      const meta = await uploadRenewalDocument(renewalId, 'rejectionDocUploaded', file);
-      onPatch?.({ rejectionDocUploaded: meta });
-      onStatus?.('Rejection document uploaded successfully.');
-    } catch (err: any) {
-      onError?.(err?.message || 'Failed to upload rejection document.');
-    } finally {
-      setUploadingRejectionDoc(false);
-    }
+    // Held in form state only; uploaded (and any replaced file deleted) on Save to Draft / Next.
+    onPatch?.({ rejectionDocUploaded: stageRenewalDocument(file, formData?.rejectionDocUploaded) });
+    onStatus?.('Document added. Click Save to Draft or Next to save it.');
   };
 
   const handleRejectionDocDelete = async () => {
+    if (isStagedRenewalDocument(formData?.rejectionDocUploaded)) {
+      onPatch?.({ rejectionDocUploaded: discardStagedRenewalDocument(formData.rejectionDocUploaded) });
+      return;
+    }
     if (!rejectionDocMeta.id) {
       onPatch?.({ rejectionDocUploaded: null });
       return;
@@ -182,8 +169,10 @@ const LicenseHistory = forwardRef(function LicenseHistory(
     <div className='space-y-4'>
       <div className='space-y-5'>
         <div>
-          <p className='text-sm font-medium'>Whether the applicant has applied for -</p>
-          <p className='text-sm mt-2'>(a) Arms License before?</p>
+          <p className='text-sm font-medium'>
+            Since the license was granted or last renewed, whether the applicant has -
+          </p>
+          <p className='text-sm mt-2'>(a) Applied for any other arms license?</p>
           {yn('hasAppliedBefore', Boolean(formData.hasAppliedBefore))}
           {formData.hasAppliedBefore && (
             <div className='mt-3 grid grid-cols-1 md:grid-cols-2 gap-4'>
@@ -225,20 +214,6 @@ const LicenseHistory = forwardRef(function LicenseHistory(
           {/* Rejection Document Upload — shown only when Result = Rejected */}
           {formData.hasAppliedBefore && String(formData.applicationResult || '').toLowerCase() === 'rejected' && (
             <div className='mt-4'>
-              {isRejectionUploading && (
-                <div className='mb-2 flex items-center gap-2 text-xs text-blue-600'>
-                  <svg
-                    className='animate-spin h-4 w-4'
-                    xmlns='http://www.w3.org/2000/svg'
-                    fill='none'
-                    viewBox='0 0 24 24'
-                  >
-                    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-                    <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
-                  </svg>
-                  <span>Uploading rejection document...</span>
-                </div>
-              )}
               <FileUpload
                 label='Rejection Document (Upload proof of rejection)'
                 name='rejectionDocUploaded'
@@ -247,20 +222,19 @@ const LicenseHistory = forwardRef(function LicenseHistory(
                 hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB each'
                 onFileSelect={isReadOnly ? () => {} : handleRejectionDocUpload}
                 uploaded={showRejectionDoc}
-                fileName={
-                  isRejectionUploading
-                    ? 'Uploading...'
-                    : showRejectionDoc
-                    ? rejectionDocMeta.fileName
-                    : undefined
-                }
-                disabled={!renewalId || isReadOnly || isRejectionUploading}
+                fileName={showRejectionDoc ? rejectionDocMeta.fileName : undefined}
+                disabled={!renewalId || isReadOnly}
               />
               {errors['rejectionDocUploaded'] && (
                 <p className='text-red-500 text-xs mt-1'>{errors['rejectionDocUploaded']}</p>
               )}
               {showRejectionDoc && (
                 <div className='mt-2 space-y-2 text-xs'>
+                  {isRejectionStaged && (
+                    <p className='inline-block rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700'>
+                      Not saved yet. Click Save to Draft or Next to save.
+                    </p>
+                  )}
                   {rejectionDocMeta.fileName && <p className='text-gray-600'>File name: {rejectionDocMeta.fileName}</p>}
                   {rejectionDocMeta.fileType && <p className='text-gray-600'>File type: {rejectionDocMeta.fileType}</p>}
                   {rejectionDocMeta.fileUrl && (
@@ -269,7 +243,7 @@ const LicenseHistory = forwardRef(function LicenseHistory(
                         type='button'
                         className='text-blue-600 underline hover:text-blue-800 inline-flex items-center gap-1'
                         onClick={() => openDocumentFile(rejectionDocMeta.fileUrl!, rejectionDocMeta.fileName)}
-                        disabled={isRejectionUploading || isRejectionDeleting}
+                        disabled={isRejectionDeleting}
                       >
                         <svg xmlns='http://www.w3.org/2000/svg' className='h-3.5 w-3.5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
                           <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
@@ -282,12 +256,18 @@ const LicenseHistory = forwardRef(function LicenseHistory(
                           type='button'
                           className='text-red-600 underline hover:text-red-800 disabled:opacity-50 inline-flex items-center gap-1'
                           onClick={handleRejectionDocDelete}
-                          disabled={isRejectionUploading || isRejectionDeleting || !renewalId}
+                          disabled={isRejectionDeleting || !renewalId}
                         >
                           <svg xmlns='http://www.w3.org/2000/svg' className='h-3.5 w-3.5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
                             <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
                           </svg>
-                          {isRejectionDeleting ? 'Deleting...' : 'Delete'}
+                          {isRejectionDeleting
+                            ? 'Deleting...'
+                            : isRejectionStaged
+                            ? formData.rejectionDocUploaded.replaces
+                              ? 'Undo replace'
+                              : 'Remove'
+                            : 'Delete'}
                         </button>
                       )}
                     </div>
@@ -299,7 +279,7 @@ const LicenseHistory = forwardRef(function LicenseHistory(
         </div>
 
         <div>
-          <p className='text-sm'>(b) License been revoked or suspended</p>
+          <p className='text-sm'>(b) Had this or any other license revoked or suspended?</p>
           {yn('licenseRevokedOrSuspended', Boolean(formData.licenseRevokedOrSuspended))}
           {formData.licenseRevokedOrSuspended && (
             <div className='mt-3 grid grid-cols-1 md:grid-cols-2 gap-4'>

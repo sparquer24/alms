@@ -53,11 +53,13 @@ export const useLayout = () => useContext(LayoutContext);
 
 interface LayoutProviderProps {
   children: ReactNode;
+  /** Start with the sidebar hidden (for full-width pages) so the header doesn't shift after first paint. */
+  initialShowSidebar?: boolean;
 }
 
-export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
+export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children, initialShowSidebar = true }) => {
   const [showHeader, setShowHeader] = useState(true);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(initialShowSidebar);
   const [headerOptions, setHeaderOptions] = useState<HeaderOptions | undefined>(undefined);
   const [headerHeight, setHeaderHeight] = useState<number | null>(null);
 

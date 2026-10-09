@@ -1,9 +1,11 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
+import cache, { CacheKeys } from '../../cache/cache';
 import { Sex, FileType, LicensePurpose, Prisma, RoleFlowApplicationType } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
 import { normalizeHierarchyApplicationType } from '../../constants/flow-mapping';
+import { AREA_OF_VALIDITY, normalizeAreaOfValidity } from '../../constants/area-of-validity';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -170,7 +172,9 @@ export class ApplicationFormService {
       .filter(id => isNaN(Number(id)))
       .map(s => s.toUpperCase());
 
-    const statuses = await prisma.statuses.findMany({
+    // Statuses rarely change; status writes clear this prefix (see StatusController)
+    const cacheKey = CacheKeys.statuses + 'resolve:' + [...identifiers].map(String).sort().join(',');
+    const statuses = await cache.wrap(cacheKey, 3600, () => prisma.statuses.findMany({
       where: {
         OR: [
           ...(numericIds.length ? [{ id: { in: numericIds } }] : []),
@@ -181,7 +185,7 @@ export class ApplicationFormService {
         ]
       },
       select: { id: true, code: true, name: true }
-    });
+    }));
 
     const resolved = Array.from(new Set(statuses.map((s: { id: number }) => s.id)));
     return resolved as number[];
@@ -432,6 +436,20 @@ export class ApplicationFormService {
 
       if (!existingApplication) {
         return [new BadRequestException(`Application with ID ${applicationId} not found`), null];
+      }
+
+      // Store one canonical area of validity; it drives which actions officers get
+      if (Array.isArray(data?.licenseDetails)) {
+        for (const detail of data.licenseDetails) {
+          if (!detail?.areaOfValidity) continue;
+          const area = normalizeAreaOfValidity(detail.areaOfValidity);
+          if (!area) {
+            return [new BadRequestException(
+              `Invalid area of validity '${detail.areaOfValidity}'. Choose one of: ${Object.values(AREA_OF_VALIDITY).join(', ')}.`,
+            ), null];
+          }
+          detail.areaOfValidity = area;
+        }
       }
 
       // Validate declaration fields only when submitting
@@ -1140,6 +1158,95 @@ export class ApplicationFormService {
   // orderBy: parsedOrderBy,
   // order: parsedOrder as 'asc' | 'desc',
   // currentUserId: req.user?.sub, 
+  /**
+   * "Sent" inbox tab: the latest action this user took on each Fresh, Renewal and
+   * Cancel application, sorted and paginated in the database. Applications are keyed
+   * by (type, id) - ids are only unique within one application table.
+   */
+  private async getSentApplications(
+    userId: number,
+    opts: { page: number; limit: number; orderBy?: string; order?: 'asc' | 'desc' },
+  ) {
+    const { page, limit } = opts;
+    const skip = (page - 1) * limit;
+
+    // Whitelisted sort expressions (interpolated with Prisma.raw, so never user text)
+    const orderColumns: Record<string, string> = {
+      actionTakenAt: '"actionTakenAt"',
+      applicationId: '"applicationId"',
+      acknowledgementNo: '"acknowledgementNo"',
+      applicationType: '"applicationType"',
+      createdAt: '"createdAt"',
+      applicantName: '"firstName"',
+    };
+    const orderColumn = orderColumns[opts.orderBy ?? ''] ?? orderColumns.actionTakenAt;
+    const orderDirection = opts.order && opts.order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    // DISTINCT ON keeps the newest history row per application within each table.
+    // Cancel requests take the applicant from their license, as the other inbox tabs do.
+    const sent = Prisma.sql`
+      WITH sent AS (
+        (SELECT DISTINCT ON (h."applicationId")
+            'Fresh'::text AS "applicationType", h.id AS "workflowHistoryId", h."applicationId",
+            h."createdAt" AS "actionTakenAt", h."actionTaken", h.remarks AS "actionRemarks",
+            a."acknowledgementNo", a."createdAt", a."firstName", a."middleName", a."lastName"
+          FROM "FreshLicenseApplicationsFormWorkflowHistories" h
+          JOIN "FreshLicenseApplicationPersonalDetails" a ON a.id = h."applicationId"
+          WHERE h."previousUserId" = ${userId}
+          ORDER BY h."applicationId", h."createdAt" DESC, h.id DESC)
+        UNION ALL
+        (SELECT DISTINCT ON (h."applicationId")
+            'Renewal License'::text, h.id, h."applicationId",
+            h."createdAt", h."actionTaken", h.remarks,
+            a."acknowledgementNo", a."createdAt", a."firstName", a."middleName", a."lastName"
+          FROM "RenewalApplicationsFormWorkflowHistories" h
+          JOIN "RenewalFormPersonalDetails" a ON a.id = h."applicationId"
+          WHERE h."previousUserId" = ${userId}
+          ORDER BY h."applicationId", h."createdAt" DESC, h.id DESC)
+        UNION ALL
+        (SELECT DISTINCT ON (h."applicationId")
+            'Cancel Request'::text, h.id, h."applicationId",
+            h."createdAt", COALESCE(NULLIF(h."actionTaken", ''), 'CANCELLED'),
+            COALESCE(NULLIF(h.remarks, ''), c."cancellationReason", ''),
+            COALESCE(c."acknowledgementNo", l."licenseNumber"), c."createdAt",
+            COALESCE(l."firstName", NULLIF(TRIM(c."applicantName"), '')), l."middleName", l."lastName"
+          FROM "CancelWorkflowHistories" h
+          JOIN "CancelFormRequests" c ON c.id = h."applicationId"
+          LEFT JOIN "Licenses" l ON l.id = c."licenseId"
+          WHERE h."previousUserId" = ${userId}
+          ORDER BY h."applicationId", h."createdAt" DESC, h.id DESC)
+      )`;
+
+    const rows = await prisma.$queryRaw<any[]>`
+      ${sent}
+      SELECT *, COUNT(*) OVER()::int AS "total"
+      FROM sent
+      ORDER BY ${Prisma.raw(orderColumn)} ${Prisma.raw(orderDirection)} NULLS LAST,
+               "actionTakenAt" DESC, "workflowHistoryId" DESC
+      LIMIT ${limit} OFFSET ${skip}`;
+
+    // A page past the end returns no rows, so the window count is unavailable
+    let total = rows[0]?.total ?? 0;
+    if (rows.length === 0 && skip > 0) {
+      const [{ count }] = await prisma.$queryRaw<{ count: number }[]>`${sent} SELECT COUNT(*)::int AS count FROM sent`;
+      total = count;
+    }
+
+    const data = rows.map((row) => ({
+      applicationId: row.applicationId,
+      acknowledgementNo: row.acknowledgementNo,
+      createdAt: row.createdAt,
+      applicantName: [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' '),
+      workflowHistoryId: row.workflowHistoryId,
+      actionTakenAt: row.actionTakenAt,
+      actionTaken: row.actionTaken,
+      actionRemarks: row.actionRemarks,
+      applicationType: row.applicationType,
+    }));
+
+    return { total, page, limit, data };
+  }
+
   public async getFilteredApplications(filter: {
     statusIds?: Array<number | string>;
     currentUserId?: string;
@@ -1163,207 +1270,7 @@ export class ApplicationFormService {
       if (filter.isSent === true && filter.currentUserId) {
         const parsedUserId = Number(filter.currentUserId);
         if (!isNaN(parsedUserId)) {
-          // We'll get the latest action per application
-          const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-            where: {
-              previousUserId: parsedUserId
-            },
-            select: {
-              id: true,
-              applicationId: true,
-              createdAt: true,
-              actionTaken: true,
-              remarks: true,
-              application: {
-                select: {
-                  id: true,
-                  almsLicenseId: true,
-                  acknowledgementNo: true,
-                  createdAt: true,
-                  firstName: true,
-                  middleName: true,
-                  lastName: true,
-                }
-              }
-            },
-            orderBy: {
-              createdAt: 'desc'
-            }
-          });
-          // need to get renewal applications as well 
-          const renewalWorkflowHistories = await prisma.renewalApplicationsFormWorkflowHistories.findMany({
-            where: {
-              previousUserId: parsedUserId
-            },
-            select: {
-              id: true,
-              applicationId: true,
-              createdAt: true,
-              actionTaken: true,
-              remarks: true,
-              application: {
-                select: {
-                  id: true,
-                  acknowledgementNo: true,
-                  createdAt: true,
-                  firstName: true,
-                  middleName: true,
-                  lastName: true,
-                }
-              }
-            },
-            orderBy: {
-              createdAt: 'desc'
-            }
-          });
-          // Fetch cancel license histories for isSent
-          const historyData = await prisma.cancelWorkflowHistories.findMany({
-            where: {
-              previousUserId: parsedUserId
-            },
-            select: {
-              id: true,
-              applicationId: true,
-              createdAt: true,
-              remarks: true,
-              actionTaken: true,
-              application: {
-                select: {
-                  id: true,
-                  licenseId: true,
-                  cancellationReason: true,
-                  createdAt: true,
-                }
-              }
-            },
-            orderBy: {
-              createdAt: 'desc'
-            }
-          });
-
-          // Resolve original application details for cancel requests
-          const freshLicenseIds = historyData.map((h: any) => h.application?.licenseId)
-            .filter((id: any): id is number => id != null);
-          const uniqueFreshLicenseIds = [...new Set(freshLicenseIds)];
-
-          // Batch-fetch original application details to avoid N+1 queries
-          const originalAppsMap = new Map<number, any>();
-          if (uniqueFreshLicenseIds.length > 0) {
-            const [freshApps, renewalApps] = await Promise.all([
-              prisma.freshLicenseApplicationPersonalDetails.findMany({
-                where: { id: { in: uniqueFreshLicenseIds } },
-                select: { id: true, acknowledgementNo: true, firstName: true, middleName: true, lastName: true, createdAt: true },
-              }),
-              prisma.renewalFormPersonalDetails.findMany({
-                where: { id: { in: uniqueFreshLicenseIds } },
-                select: { id: true, acknowledgementNo: true, firstName: true, middleName: true, lastName: true, createdAt: true },
-              })
-            ]);
-            [...freshApps, ...renewalApps].forEach((app: any) => {
-              originalAppsMap.set(app.id, app);
-            });
-          }
-
-          // "applicationType": "Renewal License",   "applicationType": "Fresh",
-          const allworkflowHistories = [
-            ...workflowHistories.map(h => ({ ...h, applicationType: 'Fresh' })),
-            ...renewalWorkflowHistories.map(h => ({ ...h, applicationType: 'Renewal License' })),
-            ...historyData.map((h: any) => {
-              const freshLicenseId = h.application?.licenseId;
-              const originalApp = freshLicenseId ? originalAppsMap.get(freshLicenseId) : null;
-              return {
-                id: h.id,
-                applicationId: h.application?.id ?? h.applicationId,
-                createdAt: h.createdAt,
-                actionTaken: h.actionTaken || 'CANCELLED',
-                remarks: h.remarks || h.application?.cancellationReason || '',
-                application: {
-                  id: h.application?.id ?? h.applicationId,
-                  acknowledgementNo: originalApp?.acknowledgementNo ?? null,
-                  createdAt: originalApp?.createdAt || h.application?.createdAt || h.createdAt,
-                  firstName: originalApp?.firstName ?? null,
-                  middleName: originalApp?.middleName ?? null,
-                  lastName: originalApp?.lastName ?? null,
-                },
-                applicationType: 'Cancel Request',
-              };
-            }),
-          ];
-
-          if (allworkflowHistories.length === 0) {
-            return [null, { total: 0, page, limit, data: [] }];
-          }
-
-          // Group by applicationId and keep only the latest action per application
-          const latestActionsMap = new Map<number, any>();
-          for (const history of allworkflowHistories) {
-            if (!latestActionsMap.has(history.applicationId)) {
-              latestActionsMap.set(history.applicationId, history);
-            }
-          }
-
-          // Convert to array
-          let latestActions = Array.from(latestActionsMap.values());
-
-          // Apply ordering if specified
-          const allowedOrderFields = ['applicationId', 'acknowledgementNo', "applicationType", 'createdAt', 'applicantName', 'actionTakenAt'];
-          const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'actionTakenAt';
-          const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
-
-          latestActions.sort((a, b) => {
-            let aValue, bValue;
-
-            if (orderByField === 'actionTakenAt') {
-              aValue = a.createdAt;
-              bValue = b.createdAt;
-            } else if (orderByField === 'applicationId') {
-              aValue = a.application?.id;
-              bValue = b.application?.id;
-            } else if (orderByField === 'acknowledgementNo') {
-              aValue = a.application?.acknowledgementNo;
-              bValue = b.application?.acknowledgementNo;
-            } else if (orderByField === 'createdAt') {
-              aValue = a.application?.createdAt;
-              bValue = b.application?.createdAt;
-            } else if (orderByField === 'applicantName') {
-              aValue = a.application?.firstName;
-              bValue = b.application?.firstName;
-            } else {
-              aValue = a.createdAt;
-              bValue = b.createdAt;
-            }
-
-            if (aValue < bValue) return orderDirection === 'asc' ? -1 : 1;
-            if (aValue > bValue) return orderDirection === 'asc' ? 1 : -1;
-            return 0;
-          });
-
-          // Apply pagination
-          const total = latestActions.length;
-          const paginatedActions = latestActions.slice(skip, skip + limit);
-
-          // Transform the data to match the expected output format
-          const paginatedResults = paginatedActions.map(history => {
-            const applicantName = [
-              history.application?.firstName,
-              history.application?.middleName,
-              history.application?.lastName
-            ].filter(Boolean).join(' ');
-
-            return {
-              applicationId: history.application?.id,
-              acknowledgementNo: history.application?.acknowledgementNo,
-              createdAt: history.application?.createdAt,
-              applicantName: applicantName,
-              workflowHistoryId: history.id,
-              actionTakenAt: history.createdAt,
-              actionTaken: history.actionTaken,
-              actionRemarks: history.remarks,
-              applicationType: history.applicationType
-            };
-          });
-
-          return [null, { total, page, limit, data: paginatedResults }];
+          return [null, await this.getSentApplications(parsedUserId, { page, limit, orderBy: filter.orderBy, order: filter.order })];
         }
       }
 

@@ -124,28 +124,28 @@ export default function SuperAdminLicenseManagement() {
             <table className='w-full border-collapse'>
               <thead className='bg-gray-50 border-b border-gray-200 sticky top-0 z-10'>
                 <tr>
-                  <th className='px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-12'>S.No</th>
-                  <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>License Number</th>
-                  <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Applicant Name</th>
-                  <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>License Type</th>
-                  <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Status</th>
-                  <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Issue Date</th>
-                  <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Expiry Date</th>
-                  <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Zone</th>
-                  <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Actions</th>
+                  <th className='px-6 py-1.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-12'>S.No</th>
+                  <th className='px-6 py-1.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>License Number</th>
+                  <th className='px-6 py-1.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Applicant Name</th>
+                  <th className='px-6 py-1.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>License Type</th>
+                  <th className='px-6 py-1.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Status</th>
+                  <th className='px-6 py-1.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Issue Date</th>
+                  <th className='px-6 py-1.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Expiry Date</th>
+                  <th className='px-6 py-1.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Zone</th>
+                  <th className='px-6 py-1.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider'>Actions</th>
                 </tr>
               </thead>
               <tbody className='divide-y divide-gray-200'>
                 {paginatedLicenses.length > 0 ? (
                   paginatedLicenses.map((license, index) => (
                     <tr key={license.id} className='hover:bg-gray-50 transition-colors'>
-                      <td className='px-6 py-4 text-center text-sm text-gray-600 font-medium'>
+                      <td className='px-6 py-0.5 text-center text-sm text-gray-600 font-medium'>
                         {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                       </td>
-                      <td className='px-6 py-4 text-sm text-gray-900'>{license.licenseNumber}</td>
-                      <td className='px-6 py-4 text-sm text-gray-900'>{license.applicantName}</td>
-                      <td className='px-6 py-4 text-sm text-gray-900'>{license.licenseType}</td>
-                      <td className='px-6 py-4 text-sm'>
+                      <td className='px-6 py-0.5 text-sm text-gray-900'>{license.licenseNumber}</td>
+                      <td className='px-6 py-0.5 text-sm text-gray-900'>{license.applicantName}</td>
+                      <td className='px-6 py-0.5 text-sm text-gray-900'>{license.licenseType}</td>
+                      <td className='px-6 py-0.5 text-sm'>
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           license.status === 'Active' ? 'bg-green-100 text-green-800' :
                           license.status === 'Expired' ? 'bg-red-100 text-red-800' :
@@ -155,10 +155,10 @@ export default function SuperAdminLicenseManagement() {
                           {license.status}
                         </span>
                       </td>
-                      <td className='px-6 py-4 text-sm text-gray-900'>{license.issueDate}</td>
-                      <td className='px-6 py-4 text-sm text-gray-900'>{license.expiryDate}</td>
-                      <td className='px-6 py-4 text-sm text-gray-900'>{license.zone}</td>
-                      <td className='px-6 py-4 text-sm font-medium'>
+                      <td className='px-6 py-0.5 text-sm text-gray-900'>{license.issueDate}</td>
+                      <td className='px-6 py-0.5 text-sm text-gray-900'>{license.expiryDate}</td>
+                      <td className='px-6 py-0.5 text-sm text-gray-900'>{license.zone}</td>
+                      <td className='px-6 py-0.5 text-sm font-medium'>
                         <button
                           onClick={() => router.push(`/licenses/${license.id}`)}
                           className='text-[#001F54] hover:text-[#0A1C33] transition-colors'

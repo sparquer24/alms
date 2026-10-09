@@ -1,5 +1,5 @@
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function Loading() {
-  return <PageLayoutSkeleton />;
+  return <PageLayoutSkeleton sidebar={false} />;
 }

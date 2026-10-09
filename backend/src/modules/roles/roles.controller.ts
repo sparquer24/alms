@@ -2,6 +2,8 @@ import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, BadReque
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { RolesService } from './roles.service';
+import { CacheResponse, InvalidateCache } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 @ApiTags('Roles')
 @ApiBearerAuth('JWT-auth')
@@ -11,6 +13,7 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) { }
 
   @Get()
+  @CacheResponse(CacheKeys.roles, CacheTtl.reference, 'role')
   @ApiOperation({
     summary: 'Get all roles',
     description: 'Retrieve roles with optional filtering, search, and pagination'
@@ -92,6 +95,7 @@ export class RolesController {
   }
 
   @Get(':id')
+  @CacheResponse(CacheKeys.roles, CacheTtl.reference)
   @ApiOperation({
     summary: 'Get role by ID',
     description: 'Retrieve a specific role by its ID'
@@ -117,6 +121,7 @@ export class RolesController {
   }
 
   @Post()
+  @InvalidateCache(CacheKeys.authUserPrefix, CacheKeys.roles, CacheKeys.flowMapping)
   @ApiOperation({
     summary: 'Create a new role',
     description: 'Create a new role with permissions and capabilities'
@@ -160,6 +165,7 @@ export class RolesController {
   }
 
   @Put(':id')
+  @InvalidateCache(CacheKeys.authUserPrefix, CacheKeys.roles, CacheKeys.flowMapping)
   @ApiOperation({
     summary: 'Update an existing role',
     description: 'Update role details, permissions, and capabilities'
@@ -200,6 +206,7 @@ export class RolesController {
   }
 
   @Delete(':id')
+  @InvalidateCache(CacheKeys.authUserPrefix, CacheKeys.roles, CacheKeys.flowMapping)
   @ApiOperation({
     summary: 'Delete a role',
     description: 'Soft-delete a role by setting is_active to false'
@@ -221,6 +228,7 @@ export class RolesController {
   }
 
   @Patch(':id/deactivate')
+  @InvalidateCache(CacheKeys.authUserPrefix, CacheKeys.roles, CacheKeys.flowMapping)
   @ApiOperation({
     summary: 'Deactivate a role',
     description: 'Set a role as inactive without deleting it'
@@ -238,6 +246,7 @@ export class RolesController {
   }
 
   @Patch(':id/activate')
+  @InvalidateCache(CacheKeys.authUserPrefix, CacheKeys.roles, CacheKeys.flowMapping)
   @ApiOperation({
     summary: 'Activate a role',
     description: 'Set a role as active'
