@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Param, Query, Patch, UseGuards, Request, HttpCode, HttpStatus, ForbiddenException, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Patch, UseGuards, Request, HttpCode, HttpStatus, ForbiddenException, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { CancelFormService } from './cancel-form.service';
 import { CreateCancelRequestDto, CreateCancelRequestResponseDto } from './dto/create-cancel-request.dto';
 import { UpdateCancelRequestDto } from './dto/update-cancel-request.dto';
 import { CancelRequestActionDto, CancelRequestActionResponseDto } from './dto/cancel-request-action.dto';
+import { UploadCancelFileDto } from './dto/upload-file.dto';
 import { AuthGuard } from '../../middleware/auth.middleware';
 
 @ApiTags('Cancel Form')
@@ -310,5 +311,57 @@ export class CancelFormController {
       }
       throw error;
     }
+  }
+  /**
+   * Attach a supporting document to a cancel request
+   */
+  @Post(':id/upload-file')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Upload a supporting document',
+    description: 'Attach a PDF or image (max 5 MB, up to 10 files) to a cancel request. Requester only, before the request is processed.',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Cancel request ID' })
+  @ApiBody({ type: UploadCancelFileDto })
+  @ApiResponse({ status: 201, description: 'File uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file, too many files, or request already processed' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Not the requester' })
+  @ApiResponse({ status: 404, description: 'Cancel request not found' })
+  async uploadFile(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UploadCancelFileDto,
+    @Request() req: any,
+  ) {
+    const userId = req.user?.sub || req.user?.userId || req.user?.id;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated.');
+    }
+    const result = await this.cancelFormService.uploadFile(id, dto, Number(userId));
+    return {
+      success: true,
+      message: 'File uploaded successfully',
+      data: result,
+    };
+  }
+
+  /**
+   * Remove a supporting document from a cancel request
+   */
+  @Delete('file/:fileId')
+  @ApiOperation({ summary: 'Delete a supporting document' })
+  @ApiParam({ name: 'fileId', type: Number, description: 'File ID' })
+  @ApiResponse({ status: 200, description: 'File deleted successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Not the requester' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  async deleteFile(
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @Request() req: any,
+  ) {
+    const userId = req.user?.sub || req.user?.userId || req.user?.id;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated.');
+    }
+    await this.cancelFormService.deleteFile(fileId, Number(userId));
+    return { success: true, message: 'File deleted successfully' };
   }
 }

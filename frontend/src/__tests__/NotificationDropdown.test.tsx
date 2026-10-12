@@ -4,9 +4,15 @@ import '@testing-library/jest-dom';
 import NotificationDropdown from '../components/NotificationDropdown';
 import { useNotifications } from '../config/notificationContext';
 
-// Mock the notification context
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+// Mock the notification context, keeping the real link helper
 jest.mock('../config/notificationContext', () => ({
-  useNotifications: jest.fn()
+  ...jest.requireActual('../config/notificationContext'),
+  useNotifications: jest.fn(),
 }));
 
 describe('NotificationDropdown', () => {
@@ -18,7 +24,9 @@ describe('NotificationDropdown', () => {
       message: 'This is a test notification',
       isRead: false,
       createdAt: new Date().toISOString(),
-      type: 'SYSTEM_ALERT'
+      type: 'APPLICATION_ASSIGNED',
+      applicationId: 42,
+      applicationType: 'RENEWAL'
     },
     {
       id: '2',
@@ -26,7 +34,7 @@ describe('NotificationDropdown', () => {
       message: 'This is another notification',
       isRead: true,
       createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      type: 'APPLICATION_STATUS_CHANGE'
+      type: 'APPLICATION_APPROVED'
     }
   ];
 
@@ -80,6 +88,15 @@ describe('NotificationDropdown', () => {
     
     // Check if markAsRead was called with the correct ID
     expect(mockMarkAsRead).toHaveBeenCalledWith('1');
+  });
+
+  test('opens the application a notification is about and closes the dropdown', () => {
+    render(<NotificationDropdown onClose={mockOnClose} />);
+
+    fireEvent.click(screen.getByText('Test Notification'));
+
+    expect(mockPush).toHaveBeenCalledWith('/renewalApplication/42');
+    expect(mockOnClose).toHaveBeenCalled();
   });
 
   test('renders empty state when no notifications', () => {

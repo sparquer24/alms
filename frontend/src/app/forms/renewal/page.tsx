@@ -3491,10 +3491,6 @@ function RenewalFormPageContent() {
     const errs: Record<string, string> = {};
     if (!data.idProofUploaded) errs['idProofUploaded'] = 'Aadhar Card document is required.';
     if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
-    if (!data.medicalCertificateUploaded)
-      errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
-    if (!data.existingArmsLicenseUploaded)
-      errs['existingArmsLicenseUploaded'] = 'A copy of the license being renewed is required.';
     return errs;
   };
 

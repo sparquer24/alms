@@ -58,6 +58,8 @@ import { apiClient } from '@/config/authenticatedApiClient';
 import { LazySection } from '@/components/LazySection';
 import { formatGender, formatDisplayDate, formatDisplayDateTime } from '@/utils/formatters';
 import { truncateFilename } from '@/utils/string';
+import { openAttachment } from '@/utils/attachmentViewer';
+import { formatFileSize } from '@/utils/fileValidation';
 import PrintApplicationForm from '@/app/application/components/PrintApplicationForm';
 
 const fmtDate = (value?: string) => {
@@ -371,6 +373,38 @@ export default function CancelRequestDetail({
                           </div>
                         );
                       })()}
+                      {Array.isArray(request.fileUploads) && request.fileUploads.length > 0 && (
+                        <div className='px-6 pb-6'>
+                          <div className='pt-4 border-t border-slate-100'>
+                            <p className='text-xs font-bold uppercase tracking-wide text-slate-400 mb-2'>
+                              Supporting Documents ({request.fileUploads.length})
+                            </p>
+                            <ul className='grid gap-2 sm:grid-cols-2'>
+                              {request.fileUploads.map((file: any) => (
+                                <li key={file.id}>
+                                  <button
+                                    type='button'
+                                    onClick={() => openAttachment(file)}
+                                    className='flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm hover:border-blue-300 hover:bg-blue-50'
+                                    title={file.fileName}
+                                  >
+                                    <FileText className='w-4 h-4 flex-shrink-0 text-blue-600' />
+                                    <span className='min-w-0 flex-1 truncate text-slate-700'>
+                                      {file.fileName || 'Document'}
+                                    </span>
+                                    {file.fileSize ? (
+                                      <span className='flex-shrink-0 text-xs text-slate-400'>
+                                        {formatFileSize(file.fileSize)}
+                                      </span>
+                                    ) : null}
+                                    <Eye className='w-4 h-4 flex-shrink-0 text-slate-400' />
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

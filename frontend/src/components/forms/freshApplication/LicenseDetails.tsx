@@ -7,6 +7,7 @@ import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
 import { FileUploadService, FileUploadResponse } from '../../../api/fileUploadService';
+import { getFileSizeError, MB } from '../../../utils/fileValidation';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
@@ -156,6 +157,7 @@ const LicenseDetails = () => {
   const [loadingWeapons, setLoadingWeapons] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
 
   // Helper function to safely get license detail
   const getLicenseDetail = () => {
@@ -309,11 +311,12 @@ const LicenseDetails = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setEvidenceError(null);
 
-    // Check file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-    if (file.size > maxSize) {
-      alert('File size must be less than 10MB');
+    const sizeError = getFileSizeError(file, 10 * MB);
+    if (sizeError) {
+      setEvidenceError(sizeError);
+      e.target.value = '';
       return;
     }
 
@@ -358,7 +361,7 @@ const LicenseDetails = () => {
 
         setUploadProgress('');
       } catch (error: any) {
-        alert(`File upload failed: ${error.message}`);
+        setEvidenceError(`Could not upload "${file.name}". ${error?.message || 'Please try again.'}`);
         setUploadProgress('');
       } finally {
         setUploadingFiles(false);
@@ -407,7 +410,7 @@ const LicenseDetails = () => {
           console.debug('[LicenseDetails] file deleted from server successfully:', fileId);
         } catch (error: any) {
           console.error('[LicenseDetails] failed to delete file:', error);
-          alert(`Failed to delete file from server: ${error.message}`);
+          setEvidenceError(`Could not remove the file. ${error?.message || 'Please try again.'}`);
           return;
         }
       } else {
@@ -491,7 +494,7 @@ const LicenseDetails = () => {
         };
       });
     } catch (error: any) {
-      alert(`Failed to upload some files: ${error.message}`);
+      setEvidenceError(`Some files could not be uploaded. ${error?.message || 'Please try again.'}`);
     } finally {
       setUploadingFiles(false);
       setUploadProgress('');
@@ -785,6 +788,12 @@ const LicenseDetails = () => {
                   />
                 </div>
               </div>
+
+              {evidenceError && (
+                <p className='mt-2 text-sm text-red-600' role='alert'>
+                  {evidenceError}
+                </p>
+              )}
 
               {/* Upload Progress */}
               {uploadingFiles && uploadProgress && (

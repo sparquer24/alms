@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, memo, useCallback } from 'react';
-import { useNotifications } from '../config/notificationContext';
+import { useNotifications, getNotificationHref, Notification } from '../config/notificationContext';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 // Type assertion for Next.js Link to fix React 18 compatibility
 const LinkFixed = Link as any;
@@ -11,20 +12,12 @@ interface NotificationDropdownProps {
   onClose?: () => void;
 }
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  createdAt: string;
-  isRead: boolean;
-}
-
-const NotificationItem = memo(({ notification, onMarkAsRead, formatDate }: { notification: Notification; onMarkAsRead: (id: string) => void; formatDate: (dateString: string) => string }) => (
+const NotificationItem = memo(({ notification, onOpen, formatDate }: { notification: Notification; onOpen: (n: Notification) => void; formatDate: (dateString: string) => string }) => (
   <li
-    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 ${
+    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
       !notification.isRead ? 'bg-indigo-50' : ''
     }`}
-    onClick={() => onMarkAsRead(notification.id)}
+    onClick={() => onOpen(notification)}
   >
     <div className="flex items-start">
       <div
@@ -44,6 +37,17 @@ const NotificationItem = memo(({ notification, onMarkAsRead, formatDate }: { not
 const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => {
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Clicking a notification marks it read and opens the application it is about.
+  const openNotification = useCallback((notification: Notification) => {
+    markAsRead(notification.id);
+    const href = getNotificationHref(notification);
+    if (href) {
+      onClose?.();
+      router.push(href);
+    }
+  }, [markAsRead, onClose, router]);
 
   const formatDate = useCallback((dateString: string): string => {
     const date = new Date(dateString);
@@ -106,7 +110,7 @@ const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => {
               <NotificationItem
                 key={notification.id}
                 notification={notification}
-                onMarkAsRead={markAsRead}
+                onOpen={openNotification}
                 formatDate={formatDate}
               />
             ))}

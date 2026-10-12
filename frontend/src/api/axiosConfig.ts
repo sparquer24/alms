@@ -15,6 +15,17 @@ const axiosInstance = axios.create({
 
 // Helper function to extract error message from nested error structure
 const extractErrorMessage = (error: any): string => {
+  const status = error?.response?.status;
+  // Body-size and connection failures come back as HTML/plain pages, not our JSON errors
+  if (status === 413) {
+    return 'The file is too large to upload. Please choose a smaller file (or compress it) and try again.';
+  }
+  if (error?.code === 'ECONNABORTED') {
+    return 'The request took too long and timed out. Please check your internet connection or upload a smaller file.';
+  }
+  if (error?.request && !error?.response) {
+    return 'Could not reach the server. Please check your internet connection and try again.';
+  }
   // Try to extract from nested structure: details.response.error or details.response.message
   if (error?.response?.data?.details?.response?.error) {
     return error.response.data.details.response.error;
@@ -29,9 +40,12 @@ const extractErrorMessage = (error: any): string => {
   if (error?.response?.data?.error) {
     return error.response.data.error;
   }
-  // Check for plain data string
-  if (typeof error?.response?.data === 'string') {
+  // Check for plain data string (skip HTML error pages from proxies/servers)
+  if (typeof error?.response?.data === 'string' && !/^\s*</.test(error.response.data)) {
     return error.response.data;
+  }
+  if (status >= 500) {
+    return 'The server ran into a problem. Please try again in a moment.';
   }
   if (error?.message) {
     return error.message;

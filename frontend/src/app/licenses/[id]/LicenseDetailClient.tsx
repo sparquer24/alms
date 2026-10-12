@@ -20,6 +20,7 @@ import { SectionCard, DetailItem, SummaryCard, DocumentTable, StatusBadge, Maske
 import { getDocuments } from '@/services/documentService';
 import { getStatusStyle } from '@/utils/statusColors';
 import { formatGender, formatStatusLabel, humanize } from '@/utils/formatters';
+import { getPendingRenewalId } from '@/utils/licenseRenewal';
 
 type Tab = 'details' | 'fresh' | 'renewals' | 'cancellations';
 
@@ -95,19 +96,6 @@ const getValidityChip = (license: LicenseData): { label: string; className: stri
     label: `Valid till ${formatDate(license.validTill)}`,
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   };
-};
-
-/**
- * A renewal still in progress. Once a renewal is approved it becomes the license's
- * last modifying application, and the next renewal can be started.
- */
-const getPendingRenewalId = (license: any): number | null => {
-  const id = license?.renewalApplicationId;
-  if (!id) return null;
-  const completed =
-    String(license.lastModifiedAppType || '').toUpperCase() === 'RENEWAL' &&
-    String(license.lastModifiedAppId ?? license.lastModifiedRenewalId) === String(id);
-  return completed ? null : id;
 };
 
 export default function LicenseDetailClient({ params }: { params: Promise<{ id: string }> }) {

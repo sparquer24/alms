@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
+import { getFileSizeError, MB } from '../../../utils/fileValidation';
 // Load react-webcam dynamically to avoid SSR/type conflicts
 // @ts-expect-error - dynamic import & react-webcam types can conflict with project React types
 const Webcam = dynamic(() => import('react-webcam').then(mod => mod.default), {
@@ -169,17 +170,9 @@ const BiometricInformation = () => {
         }
 
         // 2. File Size Validation: 20 KB - 5 MB
-        const minSize = 20 * 1024;
-        const maxSize = 5 * 1024 * 1024;
-        if (file.size < minSize) {
-          toast.error('File size too small. Minimum allowed size is 20 KB.');
-          e.target.value = '';
-          setUploadingFiles(false);
-          setUploadProgress('');
-          return;
-        }
-        if (file.size > maxSize) {
-          toast.error('File size too large. Maximum allowed size is 5 MB.');
+        const sizeError = getFileSizeError(file, 5 * MB, { minBytes: 20 * 1024 });
+        if (sizeError) {
+          toast.error(sizeError);
           e.target.value = '';
           setUploadingFiles(false);
           setUploadProgress('');

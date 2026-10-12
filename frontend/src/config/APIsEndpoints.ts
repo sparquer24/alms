@@ -50,6 +50,10 @@ export const USER_APIS = {
 
 // Notification APIs
 export const NOTIFICATION_APIS = {
+  LIST: `/notifications`,
+  UNREAD_COUNT: `/notifications/unread-count`,
+  MARK_READ: (id: string | number) => `/notifications/${encodeURIComponent(String(id))}/read`,
+  MARK_ALL_READ: `/notifications/read-all`,
 };
 
 // Dashboard APIs

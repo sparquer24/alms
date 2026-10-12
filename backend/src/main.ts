@@ -64,10 +64,11 @@ async function bootstrap() {
     process.exit(0);
   });
 
-  // Increase body size limit to 10MB for JSON and URL-encoded requests
+  // Files are uploaded as base64 inside JSON (~4/3 of the raw size), so a 10MB
+  // file needs ~13.4MB of body. Keep this above the 10MB per-file UI limit.
   const express = require('express');
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  app.use(express.json({ limit: '20mb' }));
+  app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
   // Serve static files from the uploads directory
   app.useStaticAssets(resolve(process.cwd(), 'uploads'), {

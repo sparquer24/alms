@@ -9,6 +9,7 @@ import styles from './ProceedingsForm.module.css';
 import { fetchData, postData, setAuthToken } from '../api/axiosConfig';
 import { TiptapRichTextEditor } from './TiptapRichTextEditor';
 import ConfirmationModal from './ConfirmationModal';
+import { getFileSizeError } from '../utils/fileValidation';
 import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
 
@@ -560,7 +561,9 @@ export default function ProceedingsForm({
           });
         });
       } catch (err) {
-        setError('Failed to process selected attachments. Please try again.');
+        setError(
+          'Could not read one of the selected attachments. Remove it and select the file again, then submit.'
+        );
         return;
       }
     }
@@ -598,6 +601,8 @@ export default function ProceedingsForm({
       setSelectedAction(null);
       setNextUser(null);
       setRemarks('');
+      setAttachmentFiles([]);
+      setAttachmentError(null);
 
       if (onSuccess) onSuccess();
     } catch (err: any) {
@@ -624,8 +629,9 @@ export default function ProceedingsForm({
 
     const valid: File[] = [];
     for (const f of files) {
-      if (f.size > MAX_SIZE) {
-        setAttachmentError(`File too large: (max 1MB)`);
+      const sizeError = getFileSizeError(f, MAX_SIZE);
+      if (sizeError) {
+        setAttachmentError(sizeError);
         e.target.value = '' as any;
         return;
       }
@@ -1589,7 +1595,8 @@ ${content}
                       className='block w-full text-xs text-gray-900 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
                     />
                     <p className='text-xs text-gray-500 mt-1'>
-                      Max 4 files, each up to 1MB. Allowed: PDF, images, Word.
+                      Max 4 files, each up to 1MB. Allowed: PDF, images, Word. Files are uploaded
+                      when you click Submit Action.
                     </p>
                     {attachmentError && (
                       <p className='text-xs text-red-600 mt-1' role='alert'>
@@ -1689,44 +1696,83 @@ ${content}
           code.includes(k)
         );
         const recipient = isCloseAction ? currentZSUserOption?.label : nextUser?.label;
-        const attachmentCount = attachmentFiles.length + (roleFromCookie === 'SHO' && draftLetter.trim() ? 1 : 0);
+        const hasGroundReport = roleFromCookie === 'SHO' && !!draftLetter.trim();
+        const attachmentNames = [
+          ...(hasGroundReport ? ['Ground report (generated PDF)'] : []),
+          ...attachmentFiles.map(f => `${f.name} (${Math.max(1, Math.round(f.size / 1024))} KB)`),
+        ];
+        const remarksText = remarks
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        const applicationRef = applicationData?.acknowledgementNo || `#${applicationId}`;
+        const row = (label: string, value: React.ReactNode) => (
+          <div className='grid grid-cols-[7.5rem_1fr] gap-3 px-3 py-2'>
+            <dt className='text-gray-500'>{label}</dt>
+            <dd className='min-w-0 break-words font-medium text-gray-900'>{value}</dd>
+          </div>
+        );
         return (
           <ConfirmationModal
             isOpen={showConfirm}
             onClose={() => setShowConfirm(false)}
             onConfirm={submitAction}
-            title={`Confirm: ${selectedAction?.label || 'Action'}`}
+            tone={isFinalDecision ? 'danger' : 'default'}
+            title={`${selectedAction?.label || 'Submit action'}?`}
+            subtitle={`Application ${applicationRef}`}
             actionButtonText={selectedAction?.label ? `Yes, ${selectedAction.label}` : 'Confirm'}
-            actionButtonColor={
-              isFinalDecision ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
-            }
+            cancelButtonText='Go back'
             message={
               <div className='space-y-3 text-sm'>
-                <dl className='grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5'>
-                  <dt className='text-gray-500'>Action</dt>
-                  <dd className='font-semibold text-gray-900'>{selectedAction?.label}</dd>
-                  {recipient && (
-                    <>
-                      <dt className='text-gray-500'>Forward to</dt>
-                      <dd className='font-semibold text-gray-900'>{recipient}</dd>
-                    </>
+                <p className='text-gray-600'>Please review the details before you submit.</p>
+                <dl className='divide-y divide-gray-100 rounded-lg border border-gray-200'>
+                  {row('Action', selectedAction?.label)}
+                  {recipient && row(isCloseAction ? 'Closed by' : 'Forward to', recipient)}
+                  {selectedAction?.code === 'SCHEDULE_HEARING' &&
+                    hearingDate &&
+                    row(
+                      'Hearing',
+                      `${new Date(hearingDate).toLocaleString('en-IN', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}${hearingLocation ? ` · ${hearingLocation}` : ''}`
+                    )}
+                  {row(
+                    'Remarks',
+                    <span className='line-clamp-3 font-normal text-gray-700' title={remarksText}>
+                      {remarksText || '—'}
+                    </span>
                   )}
-                  {selectedAction?.code === 'SCHEDULE_HEARING' && hearingDate && (
-                    <>
-                      <dt className='text-gray-500'>Hearing</dt>
-                      <dd className='font-semibold text-gray-900'>
-                        {new Date(hearingDate).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                      </dd>
-                    </>
+                  {row(
+                    'Attachments',
+                    attachmentNames.length ? (
+                      <ul className='space-y-0.5 font-normal text-gray-700'>
+                        {attachmentNames.map(name => (
+                          <li key={name} className='truncate' title={name}>
+                            📎 {name}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className='font-normal text-gray-500'>None</span>
+                    )
                   )}
-                  <dt className='text-gray-500'>Attachments</dt>
-                  <dd className='text-gray-900'>{attachmentCount || 'None'}</dd>
                 </dl>
-                <p className={isFinalDecision ? 'font-medium text-red-700' : 'text-gray-600'}>
-                  {isFinalDecision
-                    ? 'This is a final decision on the application and cannot be undone.'
-                    : 'Once submitted, this action cannot be undone.'}
-                </p>
+                <div
+                  className={`flex items-start gap-2 rounded-lg px-3 py-2 ${
+                    isFinalDecision
+                      ? 'bg-red-50 text-red-800'
+                      : 'bg-amber-50 text-amber-800'
+                  }`}
+                >
+                  <span aria-hidden='true'>⚠</span>
+                  <p className={isFinalDecision ? 'font-medium' : ''}>
+                    {isFinalDecision
+                      ? 'This is a final decision on the application and cannot be undone.'
+                      : 'Once submitted, this action cannot be undone.'}
+                  </p>
+                </div>
               </div>
             }
           />

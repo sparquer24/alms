@@ -3,8 +3,13 @@ import prisma from '../../db/prismaClient';
 import { CreateCancelRequestDto } from './dto/create-cancel-request.dto';
 import { UpdateCancelRequestDto } from './dto/update-cancel-request.dto';
 import { CancelRequestActionDto } from './dto/cancel-request-action.dto';
+import { UploadCancelFileDto } from './dto/upload-file.dto';
 import { ACTION_CODES, STATUS_CODES } from '../../constants/workflow-actions';
 import { LicenseStatus } from '@prisma/client';
+
+const CANCEL_MAX_FILES = 10;
+const CANCEL_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB, matches the cancel form UI
+const CANCEL_ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
 
 @Injectable()
 export class CancelFormService {
@@ -250,6 +255,18 @@ export class CancelFormService {
               issueDate: true,
               createdAt: true,
               updatedAt: true,
+            },
+          },
+          fileUploads: {
+            orderBy: { uploadedAt: 'asc' },
+            select: {
+              id: true,
+              applicationId: true,
+              fileType: true,
+              fileUrl: true,
+              fileName: true,
+              fileSize: true,
+              uploadedAt: true,
             },
           },
           cancelWorkflowHistories: {
@@ -730,5 +747,72 @@ export class CancelFormService {
         `Failed to process cancel request: ${error?.message || 'Unknown error'}`,
       );
     }
+  }
+
+  /**
+   * Attach a supporting document to a cancel request. Only the requester may
+   * attach files, and only before the request has been actioned.
+   */
+  async uploadFile(applicationId: number, dto: UploadCancelFileDto, currentUserId: number): Promise<any> {
+    const cancelRequest = await prisma.cancelFormRequests.findUnique({
+      where: { id: applicationId },
+      select: { id: true, requestedBy: true, actionedBy: true, _count: { select: { fileUploads: true } } },
+    });
+    if (!cancelRequest) {
+      throw new NotFoundException('Cancel request not found.');
+    }
+    if (cancelRequest.requestedBy !== currentUserId) {
+      throw new ForbiddenException('You can only add documents to your own cancel requests.');
+    }
+    if (cancelRequest.actionedBy) {
+      throw new BadRequestException('Documents cannot be added after the cancel request has been processed.');
+    }
+    if (cancelRequest._count.fileUploads >= CANCEL_MAX_FILES) {
+      throw new BadRequestException(`A cancel request can have at most ${CANCEL_MAX_FILES} documents.`);
+    }
+
+    const extension = dto.fileName.split('.').pop()?.toLowerCase();
+    if (!extension || !CANCEL_ALLOWED_EXTENSIONS.includes(extension)) {
+      throw new BadRequestException(
+        `"${dto.fileName}" is not an allowed file type. Allowed: ${CANCEL_ALLOWED_EXTENSIONS.join(', ')}.`,
+      );
+    }
+    if (dto.fileSize <= 0 || dto.fileSize > CANCEL_MAX_FILE_SIZE) {
+      throw new BadRequestException(`"${dto.fileName}" must be between 1 byte and 5 MB.`);
+    }
+
+    try {
+      return await prisma.cancelFormFileUploads.create({
+        data: {
+          applicationId,
+          fileType: dto.fileType ?? 'OTHER',
+          fileUrl: dto.fileUrl,
+          fileName: dto.fileName,
+          fileSize: dto.fileSize,
+        },
+      });
+    } catch (error: any) {
+      throw new InternalServerErrorException(`Failed to save "${dto.fileName}": ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Remove a supporting document. Same rules as uploading: requester only, before processing.
+   */
+  async deleteFile(fileId: number, currentUserId: number): Promise<void> {
+    const file = await prisma.cancelFormFileUploads.findUnique({
+      where: { id: fileId },
+      select: { id: true, application: { select: { requestedBy: true, actionedBy: true } } },
+    });
+    if (!file) {
+      throw new NotFoundException('File not found.');
+    }
+    if (file.application.requestedBy !== currentUserId) {
+      throw new ForbiddenException('You can only remove documents from your own cancel requests.');
+    }
+    if (file.application.actionedBy) {
+      throw new BadRequestException('Documents cannot be removed after the cancel request has been processed.');
+    }
+    await prisma.cancelFormFileUploads.delete({ where: { id: fileId } });
   }
 }

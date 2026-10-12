@@ -37,10 +37,9 @@ const DOCUMENT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   { key: 'idProofUploaded', label: 'Aadhar Card', required: true },
   { key: 'panCardUploaded', label: 'PAN Card', required: true },
   { key: 'trainingCertificateUploaded', label: 'Training certificate' },
-  { key: 'medicalCertificateUploaded', label: 'Medical Certificate', required: true },
+  { key: 'medicalCertificateUploaded', label: 'Medical Certificate' },
   { key: 'otherStateLicenseUploaded', label: 'Other state Arms License (optional)' },
-  // A renewal is for an existing license, so a copy of it is always required
-  { key: 'existingArmsLicenseUploaded', label: 'Existing Arms License (license being renewed)', required: true },
+  { key: 'existingArmsLicenseUploaded', label: 'Existing Arms License (license being renewed)' },
   { key: 'safeCustodyUploaded', label: 'Safe custody (optional)' },
 ];
 

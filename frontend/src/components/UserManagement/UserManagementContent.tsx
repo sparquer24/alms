@@ -17,6 +17,7 @@ import { fetchData, postData, putData, deleteData } from '../../api/axiosConfig'
 import { useLocationHierarchy } from '../../hooks/useLocationHierarchy';
 import { ROLE_CODES, LOCATION_HIERARCHY_ROLES } from '../../constants';
 import { getUserFromCookie } from '../../utils/authCookies';
+import { getFileSizeError, MB } from '../../utils/fileValidation';
 
 // Types representing API user + transformed UI user
 interface ApiRole {
@@ -385,6 +386,16 @@ export default function UserManagementContent() {
 
   const handleBulkFile = (file: File) => {
     setBulkError('');
+    if (!/\.csv$/i.test(file.name)) {
+      setBulkError(`"${file.name}" is not a CSV file. Please upload a .csv file.`);
+      return;
+    }
+    const sizeError = getFileSizeError(file, 5 * MB);
+    if (sizeError) {
+      setBulkUsers([]);
+      setBulkError(sizeError);
+      return;
+    }
     Papa.parse(file, {
       header: true,
       complete: (results: any) => {
@@ -1192,6 +1203,7 @@ export default function UserManagementContent() {
                 <p className='text-sm text-slate-500'>
                   or <span className='text-blue-600 font-medium'>browse files</span>
                 </p>
+                <p className='text-xs text-slate-400 mt-1'>CSV only, max 5 MB</p>
                 <input
                   type='file'
                   accept='.csv'

@@ -6,6 +6,7 @@ import CancelService from '@/api/cancelService';
 import { ApplicationService } from '@/api/applicationService';
 import MantraSDKService from '@/services/mantraSDKService';
 import toast from 'react-hot-toast';
+import { getFileSizeError } from '@/utils/fileValidation';
 import {
   User, Hash, Users, VenusAndMars, Calendar, CreditCard, Fingerprint, ShieldCheck,
   FileText, AlertTriangle, UploadCloud, CheckCircle2, Info, Ban,
@@ -85,6 +86,8 @@ export default function SubmitCancelForm() {
   const urlLicenseId = searchParams?.get('licenseId') || '';
 
   const [loading, setLoading] = useState(false);
+  // Set once the request exists, so a retry only re-uploads documents that failed.
+  const [createdRequestId, setCreatedRequestId] = useState<number | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [verificationChecking, setVerificationChecking] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'>('ENTER_APP_ID');
@@ -139,8 +142,9 @@ export default function SubmitCancelForm() {
         e.target.value = '';
         return;
       }
-      if (f.size > MAX_ATTACHMENT_SIZE) {
-        setAttachmentError('File too large (max 5MB).');
+      const sizeError = getFileSizeError(f, MAX_ATTACHMENT_SIZE);
+      if (sizeError) {
+        setAttachmentError(sizeError);
         e.target.value = '';
         return;
       }
@@ -498,7 +502,36 @@ export default function SubmitCancelForm() {
         payload.licenseNumber = formData.licenseId;
       }
 
-      await CancelService.createCancelRequest(payload);
+      let requestId = createdRequestId;
+      if (!requestId) {
+        const created = await CancelService.createCancelRequest(payload);
+        requestId = Number(created?.data?.id ?? created?.id) || null;
+        if (requestId) setCreatedRequestId(requestId);
+      }
+
+      if (attachmentFiles.length > 0) {
+        if (!requestId) {
+          throw new Error('The request was submitted, but its ID was not returned, so documents could not be attached.');
+        }
+        const failed: File[] = [];
+        let firstError = '';
+        for (const file of attachmentFiles) {
+          try {
+            await CancelService.uploadFile(requestId, file);
+          } catch (uploadError: any) {
+            failed.push(file);
+            firstError ||= `"${file.name}": ${uploadError?.message || 'upload failed'}`;
+          }
+        }
+        if (failed.length > 0) {
+          setAttachmentFiles(failed);
+          const message = `Your request was submitted, but ${failed.length} document(s) could not be uploaded (${firstError}). Click "Retry Upload" to try again.`;
+          setAttachmentError(message);
+          toast.error(message);
+          return;
+        }
+      }
+
       toast.success('Cancellation request submitted successfully');
       router.push('/inbox');
     } catch (error: any) {
@@ -984,8 +1017,8 @@ export default function SubmitCancelForm() {
                   </div>
 
                   {attachmentError && (
-                    <p className='text-xs text-[#0F2D52] flex items-center gap-1'>
-                      <AlertTriangle className='w-3.5 h-3.5 flex-shrink-0' />
+                    <p className='text-xs text-red-600 flex items-start gap-1' role='alert'>
+                      <AlertTriangle className='w-3.5 h-3.5 flex-shrink-0 mt-px' />
                       {attachmentError}
                     </p>
                   )}
@@ -1051,7 +1084,7 @@ export default function SubmitCancelForm() {
                   ) : (
                     <>
                       <Send className='w-4 h-4' />
-                      Submit Request
+                      {createdRequestId ? 'Retry Upload' : 'Submit Request'}
                     </>
                   )}
                 </button>

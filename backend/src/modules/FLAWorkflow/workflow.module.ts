@@ -4,9 +4,10 @@ import { WorkflowController as WorkflowStatusesActionsController } from './workf
 import { WorkflowService } from './workflow.service';
 import { CancelWorkflowHandler } from './handlers/cancel-workflow.handler';
 import { LicensesModule } from '../licenses/licenses.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [LicensesModule],
+  imports: [LicensesModule, NotificationsModule],
   controllers: [WorkflowController, WorkflowStatusesActionsController],
   providers: [WorkflowService, CancelWorkflowHandler],
 })

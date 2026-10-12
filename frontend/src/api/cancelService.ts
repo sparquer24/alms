@@ -31,6 +31,27 @@ export class CancelService {
   }
 
   /**
+   * Attach a supporting document (sent as a data URL) to a cancel request
+   */
+  static async uploadFile(cancelRequestId: number, file: File): Promise<any> {
+    const fileUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error(`Could not read "${file.name}".`));
+      reader.readAsDataURL(file);
+    });
+    return apiClient.post(`/cancel-forms/${cancelRequestId}/upload-file`, {
+      fileUrl,
+      fileName: file.name,
+      fileSize: file.size,
+    });
+  }
+
+  static async deleteFile(fileId: number): Promise<any> {
+    return apiClient.delete(`/cancel-forms/file/${fileId}`);
+  }
+
+  /**
    * Get all cancel requests with optional filters
    */
   static async getCancelRequests(filters?: {

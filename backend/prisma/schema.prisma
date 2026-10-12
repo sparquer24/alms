@@ -157,36 +157,36 @@ model Permissions {
 }
 
 model RolesActionsMapping {
-  id              Int                      @id @default(autoincrement())
+  id              Int                     @id @default(autoincrement())
   roleId          Int
   actionId        Int
-  applicationType RoleFlowApplicationType  @default(ALL)
-  isActive        Boolean                  @default(true)
+  applicationType RoleFlowApplicationType @default(ALL)
+  isActive        Boolean                 @default(true)
   allowedById     Int?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  action          Actiones                 @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  role            Roles                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  allowedBy       Users?                   @relation(fields: [allowedById], references: [id])
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  action          Actiones                @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  role            Roles                   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  allowedBy       Users?                  @relation(fields: [allowedById], references: [id])
 
   @@unique([roleId, actionId, applicationType])
 }
 
 model RoleFlowMapping {
-  id              Int                       @id @default(autoincrement())
+  id              Int                     @id @default(autoincrement())
   currentRoleId   Int
   nextRoleIds     Int[]
   updatedBy       Int?
-  updatedAt       DateTime                  @default(now()) @updatedAt
-  createdAt       DateTime                  @default(now())
-  applicationType RoleFlowApplicationType   @default(ALL)
-  purpose         RoleFlowPurpose           @default(ALL)
+  updatedAt       DateTime                @default(now()) @updatedAt
+  createdAt       DateTime                @default(now())
+  applicationType RoleFlowApplicationType @default(ALL)
+  purpose         RoleFlowPurpose         @default(ALL)
   stateId         Int?
   districtId      Int?
-  currentRole     Roles                     @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
-  updatedByUser   Users?                    @relation(fields: [updatedBy], references: [id])
-  state           States?                   @relation(fields: [stateId], references: [id], onDelete: Cascade)
-  district        Districts?                @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  currentRole     Roles                   @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
+  updatedByUser   Users?                  @relation(fields: [updatedBy], references: [id])
+  state           States?                 @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  district        Districts?              @relation(fields: [districtId], references: [id], onDelete: Cascade)
 
   @@unique([currentRoleId, applicationType, purpose, stateId, districtId], name: "RoleFlowMapping_currentRoleId_applicationType_purpose_state_key")
 }
@@ -234,6 +234,7 @@ model Users {
   actionsFrom                    ActionHistories[]                               @relation("ActionFromUser")
   actionsTo                      ActionHistories[]                               @relation("ActionToUser")
   auditLogs                      AuditLogs[]                                     @relation("UserAuditLogs")
+  notifications                  Notifications[]                                 @relation("UserNotifications")
   cancelRequestActioners         CancelFormRequests[]                            @relation("CancelRequestActioner")
   cancelRequestCurrentUsers      CancelFormRequests[]                            @relation("CancelFormCurrentUser")
   cancelRequestPreviousUsers     CancelFormRequests[]                            @relation("CancelFormPreviousUser")
@@ -756,12 +757,26 @@ model CancelFormRequests {
   workflowStatus          Statuses?                 @relation("CancelFormWorkflowStatus", fields: [workFlowStatusId], references: [id])
   cancelWorkflowHistories CancelWorkflowHistories[] @relation("CancelWorkflowHistories")
   licensesFromCancel      Licenses[]                @relation("LicenseToCancelApp")
+  fileUploads             CancelFormFileUploads[]   @relation("CancelFormFileUploads")
 
   @@index([workFlowStatusId])
   @@index([currentUserId])
   @@index([createdAt])
   @@index([licenseId])
   @@index([stateId])
+}
+
+model CancelFormFileUploads {
+  id            Int                @id @default(autoincrement())
+  applicationId Int
+  fileType      FileType
+  fileUrl       String
+  uploadedAt    DateTime           @default(now())
+  fileName      String
+  fileSize      Int
+  application   CancelFormRequests @relation("CancelFormFileUploads", fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
 }
 
 model CancelWorkflowHistories {
@@ -856,25 +871,25 @@ model Licenses {
   pdfUrl                     String?
   digitalSignature           String?
   issuedBy                   Int?
-  freshApplicationId           Int?
-  freshApplication             FreshLicenseApplicationPersonalDetails? @relation("LicenseToFreshApp", fields: [freshApplicationId], references: [id])
-  renewalApplicationId         Int?
-  renewalApplication           RenewalFormPersonalDetails?             @relation("LicenseToRenewalApp", fields: [renewalApplicationId], references: [id])
-  cancelApplicationId          Int?
-  cancelApplication            CancelFormRequests?                     @relation("LicenseToCancelApp", fields: [cancelApplicationId], references: [id])
+  freshApplicationId         Int?
+  freshApplication           FreshLicenseApplicationPersonalDetails?  @relation("LicenseToFreshApp", fields: [freshApplicationId], references: [id])
+  renewalApplicationId       Int?
+  renewalApplication         RenewalFormPersonalDetails?              @relation("LicenseToRenewalApp", fields: [renewalApplicationId], references: [id])
+  cancelApplicationId        Int?
+  cancelApplication          CancelFormRequests?                      @relation("LicenseToCancelApp", fields: [cancelApplicationId], references: [id])
   lastModifiedAppId          Int?
-  lastModifiedAppType          String?
-  previousModifiedAppType      String?
-  previousModifiedAppId        Int?
-  renewalCount                 Int                                      @default(0)
-  createdAt                    DateTime                                 @default(now())
-  updatedAt                    DateTime                                 @updatedAt
-  cancelFormRequests           CancelFormRequests[]                     @relation("LicensesCancelLog")
-  freshApplications            FreshLicenseApplicationPersonalDetails[]
-  workflowHistories            LicenseWorkflowHistory[]
-  issuedByUser                 Users?                                   @relation("IssuedLicenses", fields: [issuedBy], references: [id])
-  renewalFormPersonalDetails   RenewalFormPersonalDetails[]             @relation("LicensesRenewalLink")
-  endorsedWeapons              WeaponTypeMaster[]                       @relation("LicenseEndorsedWeapons")
+  lastModifiedAppType        String?
+  previousModifiedAppType    String?
+  previousModifiedAppId      Int?
+  renewalCount               Int                                      @default(0)
+  createdAt                  DateTime                                 @default(now())
+  updatedAt                  DateTime                                 @updatedAt
+  cancelFormRequests         CancelFormRequests[]                     @relation("LicensesCancelLog")
+  freshApplications          FreshLicenseApplicationPersonalDetails[]
+  workflowHistories          LicenseWorkflowHistory[]
+  issuedByUser               Users?                                   @relation("IssuedLicenses", fields: [issuedBy], references: [id])
+  renewalFormPersonalDetails RenewalFormPersonalDetails[]             @relation("LicensesRenewalLink")
+  endorsedWeapons            WeaponTypeMaster[]                       @relation("LicenseEndorsedWeapons")
 
   @@index([aadharNumber])
   @@index([status])
@@ -1067,4 +1082,22 @@ model ApprovalRule {
 
   @@unique([applicationType, stateId, districtId, purpose, area])
   @@index([stateId, districtId])
+}
+
+/// In-app notifications shown in the header bell and on the Notifications page.
+model Notifications {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  type            String    @db.VarChar(40)
+  title           String
+  message         String
+  applicationId   Int?
+  applicationType String?   @db.VarChar(20)
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
+  user            Users     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([userId, createdAt])
 }

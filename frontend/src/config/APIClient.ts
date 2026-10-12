@@ -431,58 +431,21 @@ export const RoleApi = {
  * Notification API client - All endpoints require authentication
  */
 export const NotificationApi = {
+  /** Signed-in user's notifications, newest first: { notifications, unreadCount, pagination }. */
   getAll: async (params: NotificationQueryParams = {}): Promise<ApiResponse<any>> => {
-    try {
-      // Endpoint removed. Return exactly 3 simple placeholder notifications to keep UI concise.
-      const notifications = [
-        {
-          id: 'local-1',
-          type: 'INFO',
-          title: 'notifications',
-          message: 'Notifications API disabled',
-          isRead: false,
-          createdAt: new Date(Date.now() - 1 * 60_000).toISOString(),
-        },
-        {
-          id: 'local-2',
-          type: 'INFO',
-          title: 'notifications',
-          message: 'Showing local placeholder',
-          isRead: false,
-          createdAt: new Date(Date.now() - 30 * 60_000).toISOString(),
-        },
-        {
-          id: 'local-3',
-          type: 'INFO',
-          title: 'notifications',
-          message: 'Check back later',
-          isRead: false,
-          createdAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
-        },
-      ];
-      return { statusCode: 200, success: true, body: { notifications } } as any;
-    } catch (error) {
-      throw error;
-    }
+    const query: Record<string, any> = {};
+    if (params.page) query.page = params.page;
+    if (params.pageSize) query.pageSize = params.pageSize;
+    if (params.read !== undefined) query.read = String(params.read);
+    return apiClient.get(NOTIFICATION_APIS.LIST, query);
   },
 
-  markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
-    try {
-      // No-op locally, reflect success
-      return { statusCode: 200, success: true, body: { id: notificationId } } as any;
-    } catch (error) {
-      throw error;
-    }
-  },
+  getUnreadCount: async (): Promise<ApiResponse<any>> => apiClient.get(NOTIFICATION_APIS.UNREAD_COUNT),
 
-  markAllAsRead: async (): Promise<ApiResponse<any>> => {
-    try {
-      // No-op locally
-      return { statusCode: 200, success: true } as any;
-    } catch (error) {
-      throw error;
-    }
-  }
+  markAsRead: async (notificationId: string): Promise<ApiResponse<any>> =>
+    apiClient.put(NOTIFICATION_APIS.MARK_READ(notificationId), {}),
+
+  markAllAsRead: async (): Promise<ApiResponse<any>> => apiClient.put(NOTIFICATION_APIS.MARK_ALL_READ, {}),
 };
 
 

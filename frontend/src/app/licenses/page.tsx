@@ -33,6 +33,7 @@ import { PageSubHeader, SubHeaderButton, SubHeaderSearch, SubHeaderPills, SubHea
 import BulkLicenseImport, { downloadLicenseImportTemplate } from '@/components/licenses/BulkLicenseImport';
 import { markLicenseOpenedFromList, saveLicensesListUrl } from '@/components/licenses/licensesListUrl';
 import { PageLayoutSkeleton } from '@/components/Skeleton';
+import { getPendingRenewalId } from '@/utils/licenseRenewal';
 
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
 
@@ -1101,26 +1102,29 @@ function LicenseManagementContent() {
                                   >
                                     <Eye className='h-4 w-4' />
                                   </button>
+                                  {(() => {
+                                  const pendingRenewalId = getPendingRenewalId(license);
+                                  return (
                                   <div className='relative group'>
                                     <button
                                       type='button'
                                       disabled={license.status === 'CANCELLED'}
                                       onClick={() =>
-                                        license.renewalApplicationId
-                                          ? router.push(`/renewalApplication/${license.renewalApplicationId}`)
+                                        pendingRenewalId
+                                          ? router.push(`/renewalApplication/${pendingRenewalId}`)
                                           : router.push(`/forms/renewal?licenseId=${license.id}`)
                                       }
                                       className={`rounded px-2.5 py-0.5 text-xs leading-4 font-medium transition-colors ${
                                         license.status === 'CANCELLED'
                                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                          : license.renewalApplicationId
+                                          : pendingRenewalId
                                           ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                                           : 'bg-[#001F54] text-white hover:bg-[#012a73]'
                                       }`}
                                     >
-                                      {license.renewalApplicationId ? 'View Renewal' : 'Renewal'}
+                                      {pendingRenewalId ? 'View Renewal' : 'Renewal'}
                                     </button>
-                                    {(license.status === 'CANCELLED' || license.renewalApplicationId) && (
+                                    {(license.status === 'CANCELLED' || pendingRenewalId) && (
                                       <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
                                         <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
                                           {license.status === 'CANCELLED'
@@ -1131,6 +1135,8 @@ function LicenseManagementContent() {
                                       </div>
                                     )}
                                   </div>
+                                  );
+                                  })()}
                                   <div className='relative group'>
                                     <button
                                       type='button'

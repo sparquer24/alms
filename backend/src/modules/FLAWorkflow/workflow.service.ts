@@ -17,11 +17,13 @@ import {
   pickLockedIdentity,
   statusAfterRenewal,
 } from '../renewal/renewal-rules';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class WorkflowService {
   constructor(
     private readonly cancelWorkflowHandler: CancelWorkflowHandler,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getStatusesAndActions(id?: number) {
@@ -1071,7 +1073,18 @@ export class WorkflowService {
       // applicationType === 'FRESH' (or 'ALL' which shouldn't reach here after resolution)
       await this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
     }
-   
+
+    // 6. In-app notifications. Not awaited: the action is already committed, and
+    // notifyWorkflowAction logs and swallows its own errors.
+    void this.notificationsService.notifyWorkflowAction({
+      applicationType: applicationType === 'RENEWAL' ? 'RENEWAL' : applicationType === 'CANCEL' ? 'CANCEL' : 'FRESH',
+      applicationId: payload.applicationId,
+      actionCode,
+      actorUserId: payload.currentUserId,
+      nextUserId,
+      remarks: payload.remarks,
+    });
+
     return {
       success: true,
       message: `${payload.action.code.toLowerCase()} performed successfully.`,  

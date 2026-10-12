@@ -307,17 +307,22 @@ export class RenewalFormService {
         throw new NotFoundException('Renewal application not found.');
       }
 
-      // A renewal is for an existing license, so a copy of it must be on file
-      // before submission. Checked before any writes so a rejected submit
-      // leaves the draft untouched.
+      // Aadhar Card and PAN Card are the only mandatory renewal documents; they
+      // must be on file before submission. Checked before any writes so a
+      // rejected submit leaves the draft untouched.
       if (patchData.isSubmit === true) {
-        const existingLicenseCopies = await prisma.renewalFileUploads.count({
-          where: { applicationId, fileType: 'EXISTING_LICENSE' },
+        const uploadedTypes = await prisma.renewalFileUploads.findMany({
+          where: { applicationId, fileType: { in: ['AADHAR_CARD', 'PAN_CARD'] } },
+          select: { fileType: true },
+          distinct: ['fileType'],
         });
-        if (existingLicenseCopies === 0) {
-          throw new BadRequestException(
-            'Upload a copy of the license being renewed (Existing Arms License) before submitting.',
-          );
+        const present = new Set(uploadedTypes.map(file => file.fileType));
+        const missing = [
+          !present.has('AADHAR_CARD') && 'Aadhar Card',
+          !present.has('PAN_CARD') && 'PAN Card',
+        ].filter(Boolean);
+        if (missing.length > 0) {
+          throw new BadRequestException(`Upload the ${missing.join(' and ')} before submitting.`);
         }
       }
 
