@@ -16,6 +16,7 @@ import { InboxProvider } from '../context/InboxContext';
 import { AdminThemeProvider } from '../context/AdminThemeContext';
 import { GlobalActionProvider } from '../context/GlobalActionContext';
 import NavigationProgress from './NavigationProgress';
+import DocumentViewerModal from './common/DocumentViewerModal';
 
 
 
@@ -46,6 +47,7 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
                             {/* Both toast libraries are used in the app; each needs its own host. */}
                             <Toaster position='top-right' />
                             <ToastContainer position='top-right' autoClose={4000} newestOnTop />
+                            <DocumentViewerModal />
 
                           </GlobalActionProvider>
                         </InboxProvider>

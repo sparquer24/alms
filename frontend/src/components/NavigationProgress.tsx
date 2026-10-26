@@ -78,7 +78,7 @@ export default function NavigationProgress() {
       style={{ opacity: visible ? 1 : 0, transition: 'opacity 200ms ease' }}
     >
       <div
-        className='h-full bg-[#0F2D52] shadow-[0_0_8px_rgba(15,45,82,0.5)]'
+        className='h-full bg-[#0B1F3A] shadow-[0_0_8px_rgba(11,31,58,0.5)]'
         style={{
           width: `${progress}%`,
           transition: progress === 0 ? 'none' : 'width 200ms ease-out',

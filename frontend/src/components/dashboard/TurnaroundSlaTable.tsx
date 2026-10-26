@@ -144,7 +144,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
               onClick={() => setSlaFilter(tab.key as any)}
               className={`px-3 py-1.5 rounded-md transition-all ${
                 slaFilter === tab.key
-                  ? 'bg-[#0F2D52] text-white shadow-xs'
+                  ? 'bg-[#0B1F3A] text-white shadow-xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
@@ -162,7 +162,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search Ack No, License ID..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F2D52]/20 focus:border-[#0F2D52]"
+              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0B1F3A]/20 focus:border-[#0B1F3A]"
             />
           </div>
 
@@ -170,7 +170,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
             type="button"
             onClick={fetchTurnaroundData}
             disabled={loading}
-            className="p-2 text-gray-600 hover:text-[#0F2D52] bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="p-2 text-gray-600 hover:text-[#0B1F3A] bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -218,7 +218,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
 
                     <td className="py-0.5 px-4 font-semibold text-gray-900">
                       <div className="flex items-center gap-1.5 font-mono text-xs">
-                        <FileText className="w-3.5 h-3.5 text-[#0F2D52]" />
+                        <FileText className="w-3.5 h-3.5 text-[#0B1F3A]" />
                         <span>{row.licenseId || `APP-${row.applicationId}`}</span>
                       </div>
                     </td>
@@ -265,7 +265,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
                           appType: row.applicationType,
                           initialData: row,
                         })}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0F2D52] text-white hover:bg-[#1E3A8A] transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0B1F3A] text-white hover:bg-[#1E3A8A] transition-colors cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Inspect</span>

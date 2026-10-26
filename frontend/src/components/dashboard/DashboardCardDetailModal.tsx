@@ -78,7 +78,7 @@ export const DashboardCardDetailModal: React.FC<DashboardCardDetailModalProps> =
       case 'biometrics':
         return <Shield className="w-5 h-5 text-emerald-600" />;
       default:
-        return <Layers className="w-5 h-5 text-[#0F2D52]" />;
+        return <Layers className="w-5 h-5 text-[#0B1F3A]" />;
     }
   };
 
@@ -109,12 +109,12 @@ export const DashboardCardDetailModal: React.FC<DashboardCardDetailModalProps> =
 
       {/* Drawer Container */}
       <div
-        className={`relative z-10 bg-[#F4F6F9] h-full flex flex-col shadow-2xl transition-all duration-300 ${
+        className={`relative z-10 bg-[#F3F5F8] h-full flex flex-col shadow-2xl transition-all duration-300 ${
           isFullscreen ? 'w-full' : 'w-full max-w-6xl'
         }`}
       >
         {/* Drawer Header */}
-        <div className="px-6 py-4 bg-[#0F2D52] text-white flex items-center justify-between border-b border-white/10 shrink-0">
+        <div className="px-6 py-4 bg-[#0B1F3A] text-white flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-white/10 text-white backdrop-blur-xs">
               {getCategoryIcon()}
@@ -178,7 +178,7 @@ export const DashboardCardDetailModal: React.FC<DashboardCardDetailModalProps> =
                   onClick={() => handleTabClick(tab.key as CardCategoryType)}
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
                     isActive
-                      ? 'bg-[#0F2D52] text-white shadow-xs'
+                      ? 'bg-[#0B1F3A] text-white shadow-xs'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                 >

@@ -13,7 +13,7 @@ const ImageFixed = Image as any;
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
-import { CornerUpRight, Undo2, Flag, RefreshCcw, List, ChevronDown } from 'lucide-react';
+import { CornerUpRight, Undo2, Flag, RefreshCcw, List, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CornerUpRightFixed = CornerUpRight as any;
 const Undo2Fixed = Undo2 as any;
@@ -52,17 +52,24 @@ interface MenuItemProps {
   count?: number;
   active?: boolean;
   loading?: boolean;
+  collapsed?: boolean;
   onClick?: () => void;
   onActivate?: () => void;
 }
-const MenuItem = memo(({ icon, label, count, active, onClick, onActivate }: MenuItemProps) => (
+const MenuItem = memo(({ icon, label, count, active, collapsed, onClick, onActivate }: MenuItemProps) => (
   <li>
     <button
       type='button'
       onMouseDown={onActivate}
       onClick={onClick}
-      className={`flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2
-        ${active ? 'bg-[#001F54] text-white font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
+      title={collapsed ? `${label}${count !== undefined && count > 0 ? ` (${count})` : ''}` : undefined}
+      className={`group relative flex items-center w-full rounded-lg text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-1 ${
+        collapsed ? 'justify-center py-2 px-1' : 'px-2.5 py-2'
+      } ${
+        active
+          ? 'bg-[#0B1F3A] text-white font-semibold shadow-xs border-l-4 border-[#D4AF37]'
+          : 'text-gray-700 hover:bg-[#F3F5F8] hover:text-[#0B1F3A]'
+      }`}
       aria-current={active ? 'page' : undefined}
       role='menuitem'
       onKeyDown={e => {
@@ -73,17 +80,35 @@ const MenuItem = memo(({ icon, label, count, active, onClick, onActivate }: Menu
         }
       }}
     >
-      <span className={`inline-flex items-center justify-center w-7 h-7 mr-3 flex-shrink-0 transition-colors pl-3 ${active ? 'text-white' : 'text-gray-500'}`} aria-hidden='true'>
+      <span
+        className={`inline-flex items-center justify-center w-6 h-6 flex-shrink-0 transition-colors ${
+          active ? 'text-[#D4AF37]' : 'text-gray-500 group-hover:text-[#0B1F3A]'
+        } ${collapsed ? '' : 'mr-2.5'}`}
+        aria-hidden='true'
+      >
         {icon}
       </span>
-      <span className='flex-1 truncate'>{label}</span>
-      <span className='pr-3'></span>
-      {count !== undefined && count > 0 && (
-        <span className={`inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold rounded-full ml-2 transition-colors ${
-          active ? 'bg-white/20 text-white font-bold' : 'bg-[#0F2D52] text-white'
-        }`}>
-          {count > 99 ? '99+' : count}
-        </span>
+      {!collapsed && (
+        <>
+          <span className='flex-1 truncate font-medium'>{label}</span>
+          {count !== undefined && count > 0 && (
+            <span
+              className={`inline-flex items-center justify-center min-w-[20px] h-4.5 px-1.5 text-[10px] font-bold rounded-full ml-1.5 transition-colors ${
+                active
+                  ? 'bg-[#D4AF37] text-[#0B1F3A]'
+                  : 'bg-[#0B1F3A]/10 text-[#0B1F3A] group-hover:bg-[#0B1F3A] group-hover:text-white'
+              }`}
+            >
+              {count > 99 ? '99+' : count}
+            </span>
+          )}
+        </>
+      )}
+      {collapsed && count !== undefined && count > 0 && (
+        <span
+          className='absolute top-1 right-1.5 w-2 h-2 rounded-full bg-[#D4AF37] ring-1 ring-white'
+          aria-hidden='true'
+        />
       )}
     </button>
   </li>
@@ -97,6 +122,7 @@ const InboxSubMenuItem = memo(
     icon,
     count,
     active,
+    collapsed,
     onClick,
     onActivate,
   }: {
@@ -106,6 +132,7 @@ const InboxSubMenuItem = memo(
     count?: number;
     active: boolean;
     loading?: boolean;
+    collapsed?: boolean;
     onClick: (name: string) => void;
     onActivate?: (name: string) => void;
   }) => {
@@ -118,19 +145,20 @@ const InboxSubMenuItem = memo(
       [onClick, name]
     );
 
-    const className = useMemo(
-      () =>
-        `flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 ${active ? 'bg-[#001F54] text-white font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`,
-      [active]
-    );
-
     return (
       <li>
         <button
           type='button'
           onMouseDown={() => onActivate?.(name)}
           onClick={handleClick}
-          className={className}
+          title={collapsed ? `${label}${count !== undefined && count > 0 ? ` (${count})` : ''}` : undefined}
+          className={`group relative flex items-center w-full rounded-lg text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-1 ${
+            collapsed ? 'justify-center py-2 px-1' : 'px-2.5 py-1.5'
+          } ${
+            active
+              ? 'bg-[#0B1F3A] text-white font-semibold shadow-xs border-l-4 border-[#D4AF37]'
+              : 'text-gray-700 hover:bg-[#F3F5F8] hover:text-[#0B1F3A]'
+          }`}
           aria-pressed={active}
           aria-current={active ? 'page' : undefined}
           onKeyDown={e => {
@@ -142,18 +170,34 @@ const InboxSubMenuItem = memo(
           }}
         >
           <span
-            className={`inline-flex items-center justify-center w-7 h-7 mr-3 flex-shrink-0 transition-colors pl-3 ${active ? 'text-white' : 'text-gray-500'}`}
+            className={`inline-flex items-center justify-center w-6 h-6 flex-shrink-0 transition-colors ${
+              active ? 'text-[#D4AF37]' : 'text-gray-500 group-hover:text-[#0B1F3A]'
+            } ${collapsed ? '' : 'mr-2.5'}`}
             aria-hidden='true'
           >
             {icon}
           </span>
-          <span className='flex-1 truncate'>{label}</span>
-          {typeof count === 'number' && count > 0 && (
-            <span className={`inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-semibold rounded-full ml-2 mr-3 transition-colors ${
-              active ? 'bg-white/20 text-white font-bold' : 'bg-[#0F2D52] text-white'
-            }`}>
-              {count > 99 ? '99+' : count}
-            </span>
+          {!collapsed && (
+            <>
+              <span className='flex-1 truncate font-medium'>{label}</span>
+              {typeof count === 'number' && count > 0 && (
+                <span
+                  className={`inline-flex items-center justify-center min-w-[20px] h-4.5 px-1.5 text-[10px] font-bold rounded-full ml-1.5 transition-colors ${
+                    active
+                      ? 'bg-[#D4AF37] text-[#0B1F3A]'
+                      : 'bg-[#0B1F3A]/10 text-[#0B1F3A] group-hover:bg-[#0B1F3A] group-hover:text-white'
+                  }`}
+                >
+                  {count > 99 ? '99+' : count}
+                </span>
+              )}
+            </>
+          )}
+          {collapsed && typeof count === 'number' && count > 0 && (
+            <span
+              className='absolute top-1 right-1.5 w-2 h-2 rounded-full bg-[#D4AF37] ring-1 ring-white'
+              aria-hidden='true'
+            />
           )}
         </button>
       </li>
@@ -176,7 +220,7 @@ interface SidebarProps {
 let sidebarHasHydrated = false;
 
 export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
-  const { showSidebar } = useLayout();
+  const { showSidebar, sidebarCollapsed, toggleSidebarCollapsed } = useLayout();
   const [visible, setVisible] = useState(showSidebar);
   const dispatch = useDispatch();
   const router = useRouter();
@@ -1193,20 +1237,44 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
         />
       )}
       <aside
-        className={`z-40 w-[80vw] max-w-xs md:w-60 h-screen md:h-auto bg-white border border-gray-200 fixed left-0 top-0 md:left-4 md:top-4 md:bottom-4 flex flex-col shadow-xl md:shadow-lg md:rounded-2xl overflow-hidden
+        className={`z-40 w-[80vw] max-w-xs ${
+          sidebarCollapsed ? 'md:w-16' : 'md:w-60'
+        } h-screen md:h-auto bg-white border border-gray-200/90 fixed left-0 top-0 md:left-4 md:top-4 md:bottom-4 flex flex-col shadow-xl md:shadow-md md:rounded-xl overflow-hidden
         transition-all duration-300 ease-in-out
         ${showSidebar || mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0`}
       >
-        <div className='p-3 flex items-center gap-2 border-b border-gray-100'>
-          <ImageFixed
-            src='/icon-alms.svg'
-            alt='Arms License Icon'
-            width={36}
-            height={36}
-          />
-          <h1 className='text-sm font-bold leading-tight truncate'>Arms License</h1>
+        <div className={`p-2.5 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} border-b border-gray-100 flex-shrink-0`}>
+          <div className='flex items-center gap-2 min-w-0'>
+            <ImageFixed
+              src='/icon-alms.svg'
+              alt='Arms License Icon'
+              width={28}
+              height={28}
+              className='flex-shrink-0'
+            />
+            {!sidebarCollapsed && (
+              <div className='min-w-0'>
+                <h1 className='text-xs font-bold leading-tight truncate text-[#0B1F3A]'>Arms License</h1>
+                <p className='text-[10px] text-gray-500 truncate'>Government Portal</p>
+              </div>
+            )}
+          </div>
+          <button
+            type='button'
+            onClick={toggleSidebarCollapsed}
+            className='hidden md:flex items-center justify-center p-1 rounded-md text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className='w-4 h-4' />
+            ) : (
+              <ChevronLeft className='w-4 h-4' />
+            )}
+          </button>
         </div>
+
         {isAdminRole(effectiveRole) ? (
           <button
             type='button'
@@ -1215,10 +1283,13 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
               persistActiveNavToLocal('dashboard');
               router.push('/dashboard');
             }}
-            className={`w-full text-left px-0 py-2.5 flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none ${
+            title={sidebarCollapsed ? (roleConfig?.dashboardTitle ?? 'Dashboard') : undefined}
+            className={`w-full text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${
+              sidebarCollapsed ? 'flex justify-center py-2.5 px-0' : 'px-3 py-2.5 flex items-center gap-2.5'
+            } ${
               pathname === '/dashboard'
-                ? 'bg-[#0F2D52] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] shadow-inner'
-                : 'bg-[#001F54] text-white hover:bg-[#0A1C33]'
+                ? 'bg-[#0B1F3A] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] shadow-inner'
+                : 'bg-[#0B1F3A]/90 text-white hover:bg-[#0B1F3A]'
             }`}
           >
             <svg
@@ -1229,13 +1300,14 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className={`w-6 h-6 flex-shrink-0 pl-3 ${pathname === '/dashboard' ? 'text-[#D4AF37]' : 'text-white'}`}
+              className={`w-5 h-5 flex-shrink-0 ${pathname === '/dashboard' ? 'text-[#D4AF37]' : 'text-white'}`}
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
             </svg>
-            <span className='font-semibold text-sm truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
-            <span className='pr-3'></span>
+            {!sidebarCollapsed && (
+              <span className='font-bold text-xs truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
+            )}
           </button>
         ) : (
           <button
@@ -1244,7 +1316,10 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
               const defaultHome = getRoleBasedRedirectPath(effectiveRole);
               router.push(defaultHome);
             }}
-            className='w-full text-left bg-[#0F2D52] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] px-0 py-2.5 flex items-center gap-2 shadow-inner transition-all cursor-pointer focus-visible:outline-none'
+            title={sidebarCollapsed ? (roleConfig?.dashboardTitle ?? 'Dashboard') : undefined}
+            className={`w-full text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${
+              sidebarCollapsed ? 'flex justify-center py-2.5 px-0' : 'px-3 py-2.5 flex items-center gap-2.5'
+            } bg-[#0B1F3A] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] shadow-inner`}
           >
             <svg
               xmlns='http://www.w3.org/2000/svg'
@@ -1254,17 +1329,18 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className='w-6 h-6 flex-shrink-0 pl-3 text-[#D4AF37]'
+              className='w-5 h-5 flex-shrink-0 text-[#D4AF37]'
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
             </svg>
-            <span className='font-semibold text-sm truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
-            <span className='pr-3'></span>
+            {!sidebarCollapsed && (
+              <span className='font-bold text-xs truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
+            )}
           </button>
         )}
 
-        <nav className='flex-1 overflow-y-auto py-2 px-0'>
+        <nav className={`flex-1 overflow-y-auto thin-scrollbar py-2 ${sidebarCollapsed ? 'px-1' : 'px-1.5'}`}>
           <ul className='space-y-1'>
             {!isAdminRole(effectiveRole) && (
               <li>
@@ -1272,25 +1348,34 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
                 <button
                   type='button'
                   onClick={handleInboxToggle}
-                  className={`flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 ${
+                  title={sidebarCollapsed ? menuMeta.inbox.label : undefined}
+                  className={`flex items-center w-full rounded-lg text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-1 ${
+                    sidebarCollapsed ? 'justify-center py-2 px-1' : 'px-2.5 py-2'
+                  } ${
                     (activeItem && String(activeItem).startsWith('inbox-')) || isInboxOpen
-                      ? 'bg-[#001F54] text-white font-medium shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-[#0B1F3A] text-white font-semibold shadow-xs border-l-4 border-[#D4AF37]'
+                      : 'text-gray-700 hover:bg-[#F3F5F8] hover:text-[#0B1F3A]'
                   }`}
                 >
                   <span
-                    className='inline-flex items-center justify-center w-7 h-7 mr-3 flex-shrink-0 transition-colors pl-3'
+                    className={`inline-flex items-center justify-center w-6 h-6 flex-shrink-0 transition-colors ${
+                      (activeItem && String(activeItem).startsWith('inbox-')) || isInboxOpen ? 'text-[#D4AF37]' : 'text-gray-500'
+                    } ${sidebarCollapsed ? '' : 'mr-2.5'}`}
                     aria-hidden='true'
                   >
                     {menuMeta.inbox.icon() as any}
                   </span>
-                  <span className='flex-1'>{menuMeta.inbox.label}</span>
-                  <span className='ml-2 mr-3 flex-shrink-0 transition-transform duration-200' style={{ transform: isInboxOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
-                    <ChevronDown className='w-6 h-6' />
-                  </span>
+                  {!sidebarCollapsed && (
+                    <>
+                      <span className='flex-1 font-medium'>{menuMeta.inbox.label}</span>
+                      <span className='ml-2 flex-shrink-0 transition-transform duration-200' style={{ transform: isInboxOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
+                        <ChevronDown className='w-4 h-4' />
+                      </span>
+                    </>
+                  )}
                 </button>
                 {isInboxOpen && (
-                  <ul className='ml-8 mt-1 space-y-1' role='menu'>
+                  <ul className={`${sidebarCollapsed ? 'mt-1 space-y-1' : 'ml-4 mt-1 space-y-1 pl-2 border-l border-gray-200'}`} role='menu'>
                     {inboxSubItems.map(sub => {
                       const isActive = activeItem === normalizeNavKey(`inbox-${sub.name}`);
                       const subActionId = `inbox-${sub.name.toLowerCase().replace(/\s+/g, '')}`;
@@ -1304,6 +1389,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
                           count={sub.count}
                           active={isActive}
                           loading={isSubLoading}
+                          collapsed={sidebarCollapsed}
                           onClick={handleInboxSubItemClick}
                           onActivate={name => {
                             try {
@@ -1330,10 +1416,6 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
               .map(item => {
                 const normalizedKey = normalizeNavKey(item.name as string);
 
-                // Determine active state for the main menu item.
-                // - active if activeItem matches the normalized key (case-insensitive for admin items)
-                // - also active if any of its children are active (so parent and child can be active simultaneously)
-                // - as a general fallback, consider active if activeItem startsWith `${normalizedKey}-` (covers derived keys)
                 let isActive =
                   activeItem === normalizedKey ||
                   String(activeItem).toLowerCase() === normalizedKey.toLowerCase() ||
@@ -1346,14 +1428,12 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
                     (item as any).childs.length
                   ) {
                     const childs = (item as any).childs as Array<{ name?: string }>;
-                    // If any child normalized key equals activeItem mark parent active
                     for (const c of childs) {
                       const childKey = normalizeNavKey(String(c?.name ?? ''));
                       if (childKey && childKey === activeItem) {
                         isActive = true;
                         break;
                       }
-                      // also check combined keys like `${parent}-${child}` if those conventions are used
                       const combined = normalizeNavKey(
                         `${String(item.name)}-${String(c?.name ?? '')}`
                       );
@@ -1363,9 +1443,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
                       }
                     }
                   }
-                } catch {
-                  // ignore any errors during active determination
-                }
+                } catch {}
 
                 if (
                   !isActive &&
@@ -1386,6 +1464,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
                     label={item.label}
                     active={isActive}
                     loading={isLoading}
+                    collapsed={sidebarCollapsed}
                     onClick={() => handleMenuClick({ name: item.name, statusIds: item.statusIds })}
                     onActivate={() => {
                       try {
@@ -1399,23 +1478,28 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
           </ul>
         </nav>
 
-        <div className='p-3 border-t border-gray-200 mt-auto'>
+        <div className={`p-2 border-t border-gray-200 mt-auto bg-white flex-shrink-0 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
           <button
             type='button'
             onClick={handleLogout}
-            className='flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2 text-gray-600 hover:bg-red-50 hover:text-red-700'
+            title={sidebarCollapsed ? 'Logout' : undefined}
+            className={`flex items-center rounded-lg text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 text-gray-700 hover:bg-red-50 hover:text-red-700 font-medium ${
+              sidebarCollapsed ? 'justify-center p-2 w-full' : 'w-full px-2.5 py-2'
+            }`}
           >
             <span
-              className='inline-flex items-center justify-center w-7 h-7 mr-3 flex-shrink-0 pl-3'
+              className={`inline-flex items-center justify-center w-5 h-5 flex-shrink-0 ${
+                sidebarCollapsed ? '' : 'mr-2.5'
+              }`}
               aria-hidden='true'
             >
               <svg
                 xmlns='http://www.w3.org/2000/svg'
                 fill='none'
                 viewBox='0 0 24 24'
-                strokeWidth='1.5'
+                strokeWidth='1.75'
                 stroke='currentColor'
-                className='w-6 h-6'
+                className='w-4 h-4'
               >
                 <path
                   strokeLinecap='round'
@@ -1425,8 +1509,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
                 <path strokeLinecap='round' strokeLinejoin='round' d='M18 12H9m3-3l-3 3 3 3' />
               </svg>
             </span>
-            Logout
-            <span className='pr-3'></span>
+            {!sidebarCollapsed && <span>Logout</span>}
           </button>
         </div>
       </aside>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 export interface Column<T> {
   key: string;
@@ -36,7 +37,7 @@ export interface AdminDataTableProps<T> {
   onSelectionChange?: (selectedRows: T[]) => void;
   emptyMessage?: string;
   searchPlaceholder?: string;
-  className?: string; // Additional classes for the container
+  className?: string;
 }
 
 export function AdminDataTable<T extends { id?: string | number }>({
@@ -58,7 +59,6 @@ export function AdminDataTable<T extends { id?: string | number }>({
     direction: 'asc' | 'desc';
   } | null>(null);
 
-  // Handle row selection
   const handleRowSelect = (row: T) => {
     if (!row.id) return;
     
@@ -77,7 +77,6 @@ export function AdminDataTable<T extends { id?: string | number }>({
     }
   };
 
-  // Handle select all
   const handleSelectAll = () => {
     if (selectedRows.size === data.length && data.length > 0) {
       setSelectedRows(new Set());
@@ -93,7 +92,6 @@ export function AdminDataTable<T extends { id?: string | number }>({
     }
   };
 
-  // Handle sorting
   const handleSort = (key: string) => {
     setSortConfig(prev => {
       if (prev?.key === key) {
@@ -106,7 +104,6 @@ export function AdminDataTable<T extends { id?: string | number }>({
     });
   };
 
-  // Sort data
   const sortedData = [...data].sort((a, b) => {
     if (!sortConfig) return 0;
     
@@ -124,11 +121,11 @@ export function AdminDataTable<T extends { id?: string | number }>({
 
   if (loading) {
     return (
-      <div className={`flex flex-col flex-1 min-h-0 bg-white ${className}`}>
+      <div className={`flex flex-col flex-1 min-h-0 bg-white border border-slate-200 rounded-lg shadow-sm ${className}`}>
         <div className="animate-pulse p-4 flex-1">
-          <div className="h-10 bg-slate-200 rounded-t-lg mb-4"></div>
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-[25px] bg-slate-100 border-b border-slate-200 mb-1"></div>
+          <div className="h-10 bg-slate-100 rounded-md mb-4"></div>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-8 bg-slate-50 border-b border-slate-100 mb-1.5 rounded"></div>
           ))}
         </div>
       </div>
@@ -136,10 +133,10 @@ export function AdminDataTable<T extends { id?: string | number }>({
   }
 
   return (
-    <div className={`flex flex-col flex-1 min-h-0 bg-white ${className}`}>
+    <div className={`flex flex-col flex-1 min-h-0 bg-white border border-slate-200 rounded-lg shadow-sm ${className}`}>
       {/* Search and Filters */}
       {filters && (
-        <div className="p-4 border-b border-slate-200 flex-shrink-0">
+        <div className="p-3.5 border-b border-slate-200 bg-white flex-shrink-0">
           <div className="flex items-center space-x-4">
             <div className="w-full max-w-sm relative">
               <input
@@ -147,7 +144,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
                 placeholder={searchPlaceholder}
                 value={filters.searchQuery}
                 onChange={(e) => filters.onSearchChange(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-slate-800"
+                className="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0B1F3A] focus:border-[#0B1F3A] text-xs font-medium text-slate-800 placeholder-slate-400 transition"
               />
               <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -160,54 +157,62 @@ export function AdminDataTable<T extends { id?: string | number }>({
       {/* Table Container (Scrollable) */}
       <div className="flex-initial min-h-0 overflow-auto isolate">
         <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
+          <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-sm">
             <tr>
               {selectable && (
-                <th className="px-4 py-1.5 w-12 text-center bg-slate-50">
+                <th className="px-4 py-2 w-12 text-center bg-slate-50">
                   <input
                     type="checkbox"
                     checked={selectedRows.size === data.length && data.length > 0}
                     onChange={handleSelectAll}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    className="rounded border-slate-300 text-[#0B1F3A] focus:ring-[#0B1F3A] cursor-pointer"
                   />
                 </th>
               )}
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-1.5 font-semibold text-slate-600 text-sm tracking-wider bg-slate-50 ${
-                    column.sortable ? 'cursor-pointer hover:bg-slate-100' : ''
+                  className={`px-4 py-2 font-semibold text-slate-700 text-xs tracking-wider uppercase bg-slate-50 select-none ${
+                    column.sortable ? 'cursor-pointer hover:bg-slate-100/80 transition-colors' : ''
                   } ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}`}
                   onClick={() => column.sortable && handleSort(column.key)}
                   style={{ width: column.width }}
                 >
-                  <div className={`flex items-center space-x-1 ${column.align === 'center' ? 'justify-center' : column.align === 'right' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex items-center space-x-1.5 ${column.align === 'center' ? 'justify-center' : column.align === 'right' ? 'justify-end' : 'justify-start'}`}>
                     <span>{column.header}</span>
-                    {column.sortable && sortConfig?.key === column.key && (
+                    {column.sortable && (
                       <span className="text-slate-400">
-                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        {sortConfig?.key === column.key ? (
+                          sortConfig.direction === 'asc' ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-[#0B1F3A]" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-[#0B1F3A]" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300 opacity-60 hover:opacity-100" />
+                        )}
                       </span>
                     )}
                   </div>
                 </th>
               ))}
               {rowActions && rowActions.length > 0 && (
-                <th className="px-4 py-1.5 font-semibold text-slate-600 text-sm text-right w-24 bg-slate-50">
+                <th className="px-4 py-2 font-semibold text-slate-700 text-xs uppercase tracking-wider text-right w-28 bg-slate-50">
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {sortedData.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)}
-                  className="px-6 py-12 text-center text-slate-500"
+                  className="px-6 py-14 text-center text-slate-500"
                 >
                   <div className="flex flex-col items-center">
                     <svg
-                      className="w-12 h-12 text-slate-300 mb-4"
+                      className="w-10 h-10 text-slate-300 mb-3"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -219,8 +224,8 @@ export function AdminDataTable<T extends { id?: string | number }>({
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                       />
                     </svg>
-                    <p className="text-base font-medium text-slate-700 mb-1">No results found</p>
-                    <p className="text-sm text-slate-400">{emptyMessage}</p>
+                    <p className="text-sm font-semibold text-slate-800 mb-1">No results found</p>
+                    <p className="text-xs text-slate-500">{emptyMessage}</p>
                   </div>
                 </td>
               </tr>
@@ -228,24 +233,24 @@ export function AdminDataTable<T extends { id?: string | number }>({
               sortedData.map((row, index) => (
                 <tr
                   key={row.id || index}
-                  className={`h-[25px] border-b border-slate-100 hover:bg-slate-50 transition-colors ${
-                    selectedRows.has(row.id!) ? 'bg-blue-50/50' : ''
-                  }`}
+                  className={`min-h-[2.125rem] hover:bg-slate-50/80 transition-colors ${
+                    index % 2 === 1 ? 'bg-[#fafbfc]' : 'bg-white'
+                  } ${selectedRows.has(row.id!) ? '!bg-blue-50/60' : ''}`}
                 >
                   {selectable && (
-                    <td className="px-4 py-0.5 text-center">
+                    <td className="px-4 py-2 text-center">
                       <input
                         type="checkbox"
                         checked={selectedRows.has(row.id!)}
                         onChange={() => handleRowSelect(row)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        className="rounded border-slate-300 text-[#0B1F3A] focus:ring-[#0B1F3A] cursor-pointer"
                       />
                     </td>
                   )}
                   {columns.map((column) => (
                     <td 
                       key={column.key} 
-                      className={`px-4 py-0.5 text-sm text-slate-800 ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}`}
+                      className={`px-4 py-2 text-xs text-slate-700 ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}`}
                     >
                       {column.render ? (
                         column.render(row[column.key as keyof T], row)
@@ -262,8 +267,8 @@ export function AdminDataTable<T extends { id?: string | number }>({
                     </td>
                   ))}
                   {rowActions && rowActions.length > 0 && (
-                    <td className="px-4 py-0.5 text-sm font-medium text-right">
-                      <div className="flex space-x-2 justify-end">
+                    <td className="px-4 py-2 text-xs font-medium text-right">
+                      <div className="flex space-x-1.5 justify-end">
                         {rowActions.map((action, actionIndex) => {
                           const isDisabled = action.disabled ? action.disabled(row) : false;
                           return (
@@ -271,14 +276,14 @@ export function AdminDataTable<T extends { id?: string | number }>({
                               key={actionIndex}
                               onClick={() => !isDisabled && action.onClick(row)}
                               disabled={isDisabled}
-                              className={`px-2 py-0.5 rounded text-xs leading-4 font-medium transition-all ${
+                              className={`px-2.5 py-1 rounded text-xs leading-4 font-semibold transition-all ${
                                 isDisabled 
                                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                   : action.variant === 'danger'
-                                  ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-100'
+                                  ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
                                   : action.variant === 'secondary'
-                                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100'
+                                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                                  : 'bg-[#0B1F3A]/10 text-[#0B1F3A] hover:bg-[#0B1F3A]/20 border border-[#0B1F3A]/20'
                               }`}
                             >
                               {typeof action.label === 'function' ? action.label(row) : action.label}
@@ -297,20 +302,19 @@ export function AdminDataTable<T extends { id?: string | number }>({
 
       {/* Pagination Container (Fixed at Bottom) */}
       {pagination && (
-        <div className="px-4 py-1.5 border-t border-slate-200 bg-white flex-shrink-0 flex items-center justify-between gap-3">
+        <div className="px-4 py-2 border-t border-slate-200 bg-white flex-shrink-0 flex items-center justify-between gap-3">
           <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
             Showing <span className="text-slate-800 font-semibold">{Math.min((pagination.currentPage - 1) * pagination.pageSize + 1, pagination.totalItems)}</span> to <span className="text-slate-800 font-semibold">{Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems)}</span> of <span className="text-slate-800 font-semibold">{pagination.totalItems}</span> entries
           </div>
-          <div className="flex space-x-1">
+          <div className="flex space-x-1 items-center">
             <button
               onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
               disabled={pagination.currentPage === 1}
-              className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
             
-            {/* Show up to 5 page numbers */}
             {(() => {
               const pages = [];
               const maxPages = 5;
@@ -327,10 +331,10 @@ export function AdminDataTable<T extends { id?: string | number }>({
                   <button
                     key={i}
                     onClick={() => pagination.onPageChange(i)}
-                    className={`min-w-[28px] px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                    className={`min-w-[28px] px-2 py-1 text-xs font-semibold rounded-md transition-colors ${
                       i === pagination.currentPage
-                        ? 'bg-[#001F54] text-white border border-[#001F54]'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                        ? 'bg-[#0B1F3A] text-white border border-[#0B1F3A] shadow-sm'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
                     {i}
@@ -343,7 +347,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
             <button
               onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
               disabled={pagination.currentPage === pagination.totalPages}
-              className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>

@@ -119,7 +119,7 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
     >
       <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[90vh] print:max-w-none print:shadow-none print:border-0 print:rounded-none">
         {/* Modal Header */}
-        <div className="bg-[#0F2D52] text-white px-6 py-4 flex items-center justify-between border-b border-white/10 shrink-0">
+        <div className="bg-[#0B1F3A] text-white px-6 py-4 flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-white/10 text-white">
               {isApplication ? <FileText className="w-5 h-5" /> : <Award className="w-5 h-5 text-[#B8860B]" />}
@@ -182,7 +182,7 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
                 onClick={() => setActiveTab(tab.key as any)}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-[#0F2D52] text-white shadow-xs'
+                    ? 'bg-[#0B1F3A] text-white shadow-xs'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
                 }`}
               >
@@ -197,7 +197,7 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
           {loading ? (
             <div className="py-16 text-center text-gray-500 space-y-3">
-              <RefreshCw className="w-8 h-8 text-[#0F2D52] animate-spin mx-auto" />
+              <RefreshCw className="w-8 h-8 text-[#0B1F3A] animate-spin mx-auto" />
               <p className="font-semibold text-sm">Loading Verified Record...</p>
             </div>
           ) : (
@@ -219,7 +219,7 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
                     </div>
                     <div>
                       <span className="block text-[10px] uppercase font-bold text-gray-400">Application / UIN ID</span>
-                      <span className="text-sm font-mono font-bold text-[#0F2D52]">
+                      <span className="text-sm font-mono font-bold text-[#0B1F3A]">
                         {detailData?.almsLicenseId || detailData?.acknowledgementNo || `ID #${target.id}`}
                       </span>
                     </div>
@@ -230,7 +230,7 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
                     {/* Present Address */}
                     <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-2">
                       <div className="flex items-center gap-1.5 font-bold text-gray-900 border-b border-gray-100 pb-2">
-                        <MapPin className="w-4 h-4 text-[#0F2D52]" />
+                        <MapPin className="w-4 h-4 text-[#0B1F3A]" />
                         <span>Present Residential Address</span>
                       </div>
                       <div className="space-y-1 text-gray-700">
@@ -269,7 +269,7 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
                 <div className="space-y-4">
                   <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
                     <h4 className="font-bold text-gray-900 flex items-center gap-2">
-                      <Target className="w-4 h-4 text-[#0F2D52]" />
+                      <Target className="w-4 h-4 text-[#0B1F3A]" />
                       Requested Arms Category &amp; Calibers
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -305,9 +305,9 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
                       <Clock className="w-4 h-4 text-purple-600" />
                       Multi-Tier Statutory Workflow Pipeline
                     </h4>
-                    <div className="space-y-2 border-l-2 border-[#0F2D52] pl-4 ml-2">
+                    <div className="space-y-2 border-l-2 border-[#0B1F3A] pl-4 ml-2">
                       <div className="relative">
-                        <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#0F2D52]"></div>
+                        <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#0B1F3A]"></div>
                         <div className="font-bold text-gray-900">Application Submitted &amp; Registered</div>
                         <div className="text-gray-500 text-[11px]">Initial verification completed with Aadhaar Authentication</div>
                       </div>
@@ -370,7 +370,7 @@ export const RecordInspectionModal: React.FC<RecordInspectionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0F2D52] text-white hover:bg-[#1E3A8A] transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0B1F3A] text-white hover:bg-[#1E3A8A] transition-colors"
           >
             Close Record View
           </button>

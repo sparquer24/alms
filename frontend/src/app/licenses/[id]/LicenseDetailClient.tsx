@@ -367,8 +367,8 @@ function LicenseDetailContent({
       />
       
       <main
-        className='flex-1 ml-0 h-full overflow-y-auto flex flex-col pt-[72px] md:pt-[86px]'
-        style={headerHeight != null ? { paddingTop: headerHeight + 20 } : undefined}
+        className='flex-1 w-full min-w-0 h-full overflow-y-auto flex flex-col pt-[56px] md:pt-[58px]'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <div className='flex-grow w-full mx-auto mb-16'>
           
@@ -577,15 +577,13 @@ function LicenseDetailContent({
                 </div>
                 
                 {/* 3. Documents — always from the most recently approved application */}
-                <SectionCard
-                  title="Uploaded Documents"
-                  icon={FileText}
-                  iconColorClass="text-indigo-600 bg-indigo-50 border-indigo-100"
-                >
-                  <div className="w-full">
-                    <DocumentTable documents={license.documents ?? license.fileUploads ?? []} />
-                  </div>
-                </SectionCard>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                  <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-6">
+                    <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+                    Uploaded Documents
+                  </h3>
+                  <DocumentTable documents={license.documents ?? license.fileUploads ?? []} />
+                </div>
               </div>
             )}
 
@@ -770,13 +768,13 @@ function LicenseDetailContent({
                             </div>
                           )}
                           <div className="space-y-6 px-5 pb-5">
-                            <SectionCard
-                              title="Uploaded Documents"
-                              icon={FileText}
-                              iconColorClass="text-indigo-600 bg-indigo-50 border-indigo-100"
-                            >
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-6">
+                                <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+                                Uploaded Documents
+                              </h3>
                               <DocumentTable documents={cancel.fileUploads || []} />
-                            </SectionCard>
+                            </div>
                             <ApplicationHistoryCards workflowHistory={cancel.cancelWorkflowHistories || []} />
                           </div>
                         </div>

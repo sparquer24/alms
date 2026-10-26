@@ -30,7 +30,7 @@ export default function ProcessingPerformanceSection({ data, loading }: Processi
       label: 'Avg Processing',
       value: data ? `${data.avgDays}d` : '—',
       sub: 'Days to approval',
-      color: 'text-[#0F2D52]',
+      color: 'text-[#0B1F3A]',
       bg: 'bg-blue-50',
       icon: <TrendingUp className="w-4 h-4 text-blue-600" />,
     },
@@ -65,7 +65,7 @@ export default function ProcessingPerformanceSection({ data, loading }: Processi
       <div className="flex items-center justify-between pb-4 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#0F2D52]" />
+            <TrendingUp className="w-4 h-4 text-[#0B1F3A]" />
             Processing Performance
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">

@@ -194,7 +194,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight, sidebarCollapsed } = useLayout();
   const [application, setApplication] = useState<ApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
@@ -867,8 +867,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   return (
     <>
-      <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
-        <Sidebar />
+      <div className='flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white'>
       <Header
         showBackButton
         breadcrumbs={[
@@ -910,8 +909,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hidePrint={true}
       />
       <main
-        className='flex-1 ml-0 h-full overflow-y-auto flex flex-col pt-[72px] md:pt-[86px]'
-        style={headerHeight != null ? { paddingTop: headerHeight + 20 } : undefined}
+        className='flex-1 w-full min-w-0 h-full overflow-y-auto flex flex-col transition-all duration-300 pt-[56px] md:pt-[58px]'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <div className='flex-grow w-full mx-auto '>
         {isRenewalView && application && (

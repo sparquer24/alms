@@ -34,7 +34,7 @@ function FreshFormContent() {
 
   const { isAuthenticated, userRole, isLoading: authLoading, initialized } = useAuth();
   const canCreate = canCreateApplications(userRole);
-  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight, sidebarCollapsed } = useLayout();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -124,7 +124,7 @@ function FreshFormContent() {
   }
 
   return (
-    <div className="flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white">
+    <div className="flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white">
       {/* Always render sidebar and header */}
       <Sidebar />
       <Header
@@ -134,7 +134,7 @@ function FreshFormContent() {
 
       {/* Main Content */}
       <main
-        className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]"
+        className={`flex-1 ml-0 ${sidebarCollapsed ? 'md:ml-22' : 'md:ml-66'} min-w-0 overflow-auto flex flex-col transition-all duration-300 pt-[54px] md:pt-[58px]`}
         style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <PageSubHeader

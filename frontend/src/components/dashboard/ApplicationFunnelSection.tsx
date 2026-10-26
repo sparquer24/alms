@@ -34,7 +34,7 @@ export default function ApplicationFunnelSection({ stages, loading }: Applicatio
       <div className="flex items-center justify-between pb-4 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <TrendingDown className="w-4 h-4 text-[#0F2D52]" />
+            <TrendingDown className="w-4 h-4 text-[#0B1F3A]" />
             Application Funnel
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">Stage-by-stage lifecycle progression</p>

@@ -86,7 +86,7 @@ import {
 
 // Color definitions matching the ALMS government palette
 const COLORS = {
-  navy: '#0F2D52',
+  navy: '#0B1F3A',
   navyDark: '#0A1C33',
   navyLight: '#1E3A8A',
   gold: '#B8860B',
@@ -100,7 +100,7 @@ const COLORS = {
 };
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EF4444'];
-const WEAPON_COLORS = ['#0F2D52', '#2563EB', '#0D9488', '#D97706', '#DC2626'];
+const WEAPON_COLORS = ['#0B1F3A', '#2563EB', '#0D9488', '#D97706', '#DC2626'];
 
 // Roles allowed to view the universal dashboard. Backend scopes the data
 // server-side: ZS/DCP by zone, JTCP/CP by district, AS/ARMS_SUPDT/ADMIN by state.
@@ -118,11 +118,11 @@ const DASHBOARD_ROLE_LABELS: Record<string, string> = {
 };
 
 function DashboardMain({ children }: { children: React.ReactNode }) {
-  const { headerHeight } = useLayout();
+  const { headerHeight, sidebarCollapsed } = useLayout();
 
   return (
     <main
-      className="isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-hidden flex flex-col pt-[64px] md:pt-[78px]"
+      className={`isolate flex-1 ml-0 ${sidebarCollapsed ? 'md:ml-22' : 'md:ml-66'} min-w-0 overflow-hidden flex flex-col transition-all duration-300 pt-[54px] md:pt-[58px]`}
       style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
     >
       {children}
@@ -437,7 +437,7 @@ export default function UniversalDashboard() {
   if (authLoading || !authChecked || !authInitialized) {
     return (
       <LayoutProvider>
-        <div className="flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white">
+        <div className="flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white">
           <DashboardSidebarSkeleton />
           <Header
             breadcrumbs={[{ label: 'Admin' }, { label: 'Dashboard' }]}
@@ -473,7 +473,7 @@ export default function UniversalDashboard() {
 
   return (
     <LayoutProvider>
-      <div className="flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white">
+      <div className="flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white">
         {/* Standard ALMS Sidebar */}
         <Sidebar />
 
@@ -560,7 +560,7 @@ export default function UniversalDashboard() {
                   key={action.key}
                   type="button"
                   onClick={() => router.push(action.href)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0F2D52]/5 text-[#0F2D52] hover:bg-[#0F2D52] hover:text-white border border-[#0F2D52]/10 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0B1F3A]/5 text-[#0B1F3A] hover:bg-[#0B1F3A] hover:text-white border border-[#0B1F3A]/10 transition-colors"
                 >
                   {action.icon}
                   {action.label}
@@ -577,15 +577,15 @@ export default function UniversalDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#0F2D52]" />
+                <Layers className="w-5 h-5 text-[#0B1F3A]" />
                 Core Application &amp; Licensing Metrics
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
                 Click any metric card below to inspect its detailed records table and live data
               </p>
             </div>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#0F2D52] border border-blue-100">
-              <MousePointerClick className="w-3.5 h-3.5 text-[#0F2D52]" />
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#0B1F3A] border border-blue-100">
+              <MousePointerClick className="w-3.5 h-3.5 text-[#0B1F3A]" />
               <span>Interactive Data Cards</span>
             </span>
           </div>
@@ -606,14 +606,14 @@ export default function UniversalDashboard() {
                   subtitle: 'All application lifecycles across Fresh, Renewal, and Cancellation requests',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0F2D52]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0B1F3A]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Total Applications
                     </span>
-                    <div className="p-2 rounded-lg bg-blue-50 text-blue-700 group-hover:bg-[#0F2D52] group-hover:text-white transition-colors">
+                    <div className="p-2 rounded-lg bg-blue-50 text-blue-700 group-hover:bg-[#0B1F3A] group-hover:text-white transition-colors">
                       <FileText className="w-4 h-4" />
                     </div>
                   </div>
@@ -637,7 +637,7 @@ export default function UniversalDashboard() {
                         badge: `${summary?.freshApplications.toLocaleString()} Fresh`,
                       });
                     }}
-                    className="hover:text-[#0F2D52] hover:underline"
+                    className="hover:text-[#0B1F3A] hover:underline"
                   >
                     Fresh: <strong>{summary?.freshApplications.toLocaleString()}</strong>
                   </button>
@@ -652,11 +652,11 @@ export default function UniversalDashboard() {
                         badge: `${summary?.renewalApplications.toLocaleString()} Renewal`,
                       });
                     }}
-                    className="hover:text-[#0F2D52] hover:underline"
+                    className="hover:text-[#0B1F3A] hover:underline"
                   >
                     Renewal: <strong>{summary?.renewalApplications.toLocaleString()}</strong>
                   </button>
-                  <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-[#0F2D52] transition-colors" />
+                  <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-[#0B1F3A] transition-colors" />
                 </div>
               </div>
 
@@ -930,7 +930,7 @@ export default function UniversalDashboard() {
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between pb-4 border-b border-gray-100 gap-3">
                   <div>
                     <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-[#0F2D52]" />
+                      <TrendingUp className="w-4 h-4 text-[#0B1F3A]" />
                       Application Inflow &amp; Processing Trends
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -947,7 +947,7 @@ export default function UniversalDashboard() {
                         title="Spline Area Chart"
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                           chartType === 'area'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -960,7 +960,7 @@ export default function UniversalDashboard() {
                         title="Categorical Bar Chart"
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                           chartType === 'bar'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -973,7 +973,7 @@ export default function UniversalDashboard() {
                         title="Velocity Line Chart"
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                           chartType === 'line'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -986,7 +986,7 @@ export default function UniversalDashboard() {
                         title="Composite Intake & Disposal Velocity"
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                           chartType === 'combo'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1002,7 +1002,7 @@ export default function UniversalDashboard() {
                         onClick={() => setActiveChartTab('trend')}
                         className={`px-2.5 py-1 rounded-md transition-all ${
                           activeChartTab === 'trend'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1013,7 +1013,7 @@ export default function UniversalDashboard() {
                         onClick={() => setActiveChartTab('family')}
                         className={`px-2.5 py-1 rounded-md transition-all ${
                           activeChartTab === 'family'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1024,7 +1024,7 @@ export default function UniversalDashboard() {
                         onClick={() => setActiveChartTab('status')}
                         className={`px-2.5 py-1 rounded-md transition-all ${
                           activeChartTab === 'status'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1081,7 +1081,7 @@ export default function UniversalDashboard() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F2D52',
+                              backgroundColor: '#0B1F3A',
                               borderColor: '#1E3A8A',
                               borderRadius: '8px',
                               color: '#fff',
@@ -1189,7 +1189,7 @@ export default function UniversalDashboard() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F2D52',
+                              backgroundColor: '#0B1F3A',
                               borderColor: '#1E3A8A',
                               borderRadius: '8px',
                               color: '#fff',
@@ -1276,7 +1276,7 @@ export default function UniversalDashboard() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F2D52',
+                              backgroundColor: '#0B1F3A',
                               borderColor: '#1E3A8A',
                               borderRadius: '8px',
                               color: '#fff',
@@ -1382,7 +1382,7 @@ export default function UniversalDashboard() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F2D52',
+                              backgroundColor: '#0B1F3A',
                               borderColor: '#1E3A8A',
                               borderRadius: '8px',
                               color: '#fff',
@@ -1494,7 +1494,7 @@ export default function UniversalDashboard() {
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: '#0F2D52',
+                            backgroundColor: '#0B1F3A',
                             borderColor: '#1E3A8A',
                             borderRadius: '8px',
                             color: '#fff',
@@ -1570,7 +1570,7 @@ export default function UniversalDashboard() {
           <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-[#0F2D52]" />
+                <BarChart2 className="w-4 h-4 text-[#0B1F3A]" />
                 Applications by Type
               </h3>
               <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
@@ -1613,7 +1613,7 @@ export default function UniversalDashboard() {
           <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#0F2D52]" />
+                <Target className="w-4 h-4 text-[#0B1F3A]" />
                 Weapon Category Breakdown
               </h3>
               <span className="text-xs text-gray-500 font-medium">Authorized Calibers</span>
@@ -1668,13 +1668,13 @@ export default function UniversalDashboard() {
               {data?.purposeBreakdown?.map((item) => (
                 <div
                   key={item.purpose}
-                  className="p-4 rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white hover:border-[#0F2D52]/30 transition-all shadow-xs"
+                  className="p-4 rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white hover:border-[#0B1F3A]/30 transition-all shadow-xs"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-700 line-clamp-1">
                       {item.purpose}
                     </span>
-                    <span className="text-xs font-bold text-[#0F2D52] bg-[#0F2D52]/10 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-bold text-[#0B1F3A] bg-[#0B1F3A]/10 px-2 py-0.5 rounded-full">
                       {item.percentage}%
                     </span>
                   </div>
@@ -1743,7 +1743,7 @@ export default function UniversalDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 animate-in fade-in zoom-in duration-200">
             {/* Modal Header */}
-            <div className="bg-[#0F2D52] text-white p-5 flex items-center justify-between">
+            <div className="bg-[#0B1F3A] text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Search className="w-5 h-5 text-[#B8860B]" />
                 <h3 className="font-bold text-base">Track Application Status</h3>
@@ -1772,13 +1772,13 @@ export default function UniversalDashboard() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="e.g. ALMS-2024-001429 or 104"
-                    className="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#0F2D52] focus:border-transparent outline-none"
+                    className="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#0B1F3A] focus:border-transparent outline-none"
                     autoFocus
                   />
                   <button
                     type="submit"
                     disabled={lookupLoading || !searchQuery.trim()}
-                    className="absolute right-2 top-2 p-1.5 rounded-lg bg-[#0F2D52] text-white hover:bg-[#1A365D] disabled:opacity-50 transition-colors"
+                    className="absolute right-2 top-2 p-1.5 rounded-lg bg-[#0B1F3A] text-white hover:bg-[#1A365D] disabled:opacity-50 transition-colors"
                   >
                     {lookupLoading ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1818,7 +1818,7 @@ export default function UniversalDashboard() {
                     </div>
                     {lookupResult.applicationType && (
                       <div>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0F2D52]/10 text-[#0F2D52]">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0B1F3A]/10 text-[#0B1F3A]">
                           {lookupResult.applicationType}
                         </span>
                       </div>
@@ -1859,7 +1859,7 @@ export default function UniversalDashboard() {
                           router.push(`/application/${lookupResult.applicationId}?type=${typeParam}`);
                         }
                       }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#0F2D52] text-white hover:bg-[#1A365D] transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#0B1F3A] text-white hover:bg-[#1A365D] transition-colors"
                     >
                       View Full Details
                       <ArrowRight className="w-3.5 h-3.5" />

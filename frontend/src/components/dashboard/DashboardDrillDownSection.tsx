@@ -104,10 +104,10 @@ export const DashboardDrillDownSection: React.FC<DashboardDrillDownSectionProps>
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <Layers className="w-5 h-5 text-[#0F2D52]" />
+              <Layers className="w-5 h-5 text-[#0B1F3A]" />
               {tabInfo.title}
             </h3>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-[#0F2D52]/10 text-[#0F2D52]">
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-[#0B1F3A]/10 text-[#0B1F3A]">
               Live Records Table
             </span>
           </div>
@@ -119,7 +119,7 @@ export const DashboardDrillDownSection: React.FC<DashboardDrillDownSectionProps>
           <button
             type="button"
             onClick={onOpenDrawer}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-[#0F2D52] hover:text-white transition-all shadow-xs self-start lg:self-auto"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-[#0B1F3A] hover:text-white transition-all shadow-xs self-start lg:self-auto"
           >
             <Maximize2 className="w-3.5 h-3.5" />
             <span>Open in Fullscreen Drawer</span>
@@ -149,7 +149,7 @@ export const DashboardDrillDownSection: React.FC<DashboardDrillDownSectionProps>
               onClick={() => onTabChange(tab.key as DrillDownTab)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all ${
                 isActive
-                  ? 'bg-[#0F2D52] text-white shadow-xs'
+                  ? 'bg-[#0B1F3A] text-white shadow-xs'
                   : 'text-gray-600 bg-gray-50 hover:bg-gray-100 hover:text-gray-900 border border-gray-200/60'
               }`}
             >

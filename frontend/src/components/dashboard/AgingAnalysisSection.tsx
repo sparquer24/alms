@@ -21,7 +21,7 @@ const BUCKET_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#7C3AED'];
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#0F2D52] text-white px-3 py-2 rounded-lg text-xs shadow-xl">
+      <div className="bg-[#0B1F3A] text-white px-3 py-2 rounded-lg text-xs shadow-xl">
         <div className="font-bold">{label}</div>
         <div className="text-blue-200 mt-0.5">{payload[0].value.toLocaleString()} pending applications</div>
       </div>

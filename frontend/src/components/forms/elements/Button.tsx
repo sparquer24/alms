@@ -5,7 +5,7 @@ interface ButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
   type?: 'button' | 'submit' | 'reset';
-  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'gold' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   className?: string;
@@ -22,20 +22,22 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   icon,
 }) => {
-  const baseClasses = 'font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center';
+  const baseClasses = 'font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 flex items-center justify-center';
   
   const variantClasses = {
-    primary: 'bg-[#6366F1] text-white hover:bg-[#4F46E5] focus:ring-[#6366F1]',
-    secondary: 'bg-gray-500 text-white hover:bg-gray-600 focus:ring-gray-500',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-600',
-    success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-600',
-    warning: 'bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-500'
+    primary: 'bg-[#0B1F3A] text-white hover:bg-[#15325B] focus-visible:ring-[#D4AF37] shadow-xs',
+    gold: 'bg-[#D4AF37] text-[#0B1F3A] hover:bg-[#B89628] font-bold focus-visible:ring-[#0B1F3A] shadow-xs',
+    secondary: 'bg-slate-600 text-white hover:bg-slate-700 focus-visible:ring-slate-500',
+    danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600',
+    success: 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-600',
+    warning: 'bg-amber-500 text-white hover:bg-amber-600 focus-visible:ring-amber-500',
+    outline: 'border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus-visible:ring-[#0B1F3A]'
   };
 
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base'
+    sm: 'px-3 py-1.5 text-xs',
+    md: 'px-4 py-2 text-xs sm:text-sm',
+    lg: 'px-5 py-2.5 text-sm sm:text-base'
   };
 
   const disabledClasses = 'opacity-50 cursor-not-allowed';
@@ -58,4 +60,3 @@ export const Button: React.FC<ButtonProps> = ({
     </button>
   );
 };
-

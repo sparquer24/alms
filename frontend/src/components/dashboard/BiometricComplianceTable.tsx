@@ -65,7 +65,7 @@ export const BiometricComplianceTable: React.FC<BiometricComplianceTableProps> =
   return (
     <div className={`w-full bg-white ${embedded ? '' : 'rounded-2xl border border-gray-200/80 shadow-sm p-5 sm:p-6'}`}>
       {/* Compliance Overview Banner */}
-      <div className="p-4 rounded-xl bg-gradient-to-r from-[#0F2D52] to-[#1E3A8A] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 shadow-xs">
+      <div className="p-4 rounded-xl bg-gradient-to-r from-[#0B1F3A] to-[#1E3A8A] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-lg bg-white/10 text-white backdrop-blur-xs">
             <Fingerprint className="w-6 h-6 text-emerald-400" />
@@ -98,7 +98,7 @@ export const BiometricComplianceTable: React.FC<BiometricComplianceTableProps> =
               onClick={() => setBioFilter(tab.key as any)}
               className={`px-3 py-1.5 rounded-md transition-all ${
                 bioFilter === tab.key
-                  ? 'bg-[#0F2D52] text-white shadow-xs'
+                  ? 'bg-[#0B1F3A] text-white shadow-xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
@@ -115,7 +115,7 @@ export const BiometricComplianceTable: React.FC<BiometricComplianceTableProps> =
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search Applicant or Ack No..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F2D52]/20 focus:border-[#0F2D52]"
+              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0B1F3A]/20 focus:border-[#0B1F3A]"
             />
           </div>
 
@@ -123,7 +123,7 @@ export const BiometricComplianceTable: React.FC<BiometricComplianceTableProps> =
             type="button"
             onClick={fetchBiometricData}
             disabled={loading}
-            className="p-2 text-gray-600 hover:text-[#0F2D52] bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="p-2 text-gray-600 hover:text-[#0B1F3A] bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -214,7 +214,7 @@ export const BiometricComplianceTable: React.FC<BiometricComplianceTableProps> =
                           appType: row.applicationType,
                           initialData: row,
                         })}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0F2D52] text-white hover:bg-[#1E3A8A] transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0B1F3A] text-white hover:bg-[#1E3A8A] transition-colors cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Inspect</span>

@@ -25,7 +25,7 @@ interface MonthlyComparisonSectionProps {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#0F2D52] text-white px-3 py-2.5 rounded-lg text-xs shadow-xl">
+      <div className="bg-[#0B1F3A] text-white px-3 py-2.5 rounded-lg text-xs shadow-xl">
         <div className="font-bold mb-1">{label}</div>
         {payload.map((p: any) => (
           <div key={p.name} className="flex items-center gap-2">
@@ -85,13 +85,13 @@ export default function MonthlyComparisonSection({ data, loading }: MonthlyCompa
       <div className="flex items-center justify-between pb-4 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <BarChart2 className="w-4 h-4 text-[#0F2D52]" />
+            <BarChart2 className="w-4 h-4 text-[#0B1F3A]" />
             Monthly Comparison
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">{thisMonthLabel} vs {lastMonthLabel}</p>
         </div>
         <div className="flex items-center gap-3 text-[11px]">
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#0F2D52]" />This month</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#0B1F3A]" />This month</span>
           <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gray-300" />Last month</span>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function MonthlyComparisonSection({ data, loading }: MonthlyCompa
                 <XAxis dataKey="metric" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#6B7280' }} />
                 <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="This Month" fill="#0F2D52" radius={[3, 3, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="This Month" fill="#0B1F3A" radius={[3, 3, 0, 0]} maxBarSize={36} />
                 <Bar dataKey="Last Month" fill="#D1D5DB" radius={[3, 3, 0, 0]} maxBarSize={36} />
               </BarChart>
             </ResponsiveContainer>

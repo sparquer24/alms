@@ -1,20 +1,34 @@
 /**
  * Admin Dashboard Unified Design System
  * Defines consistent colors, spacing, typography, and layout constants
+ * Matching the ALMS official identity: Deep Navy (#0B1F3A), White, Light Gray (#F3F5F8), Government Gold (#D4AF37)
  */
 
-// Color Palette
+// Official ALMS Government Brand Palette
+export const ALMSBrandColors = {
+    navy: '#0B1F3A',
+    navyDark: '#071526',
+    navyLight: '#15325B',
+    gold: '#D4AF37',
+    goldDark: '#B89628',
+    goldLight: '#E6C65C',
+    surface: '#F3F5F8',
+    white: '#FFFFFF',
+    border: '#E2E8F0',
+};
+
+// Theme Color Palette
 export const AdminColors = {
     // Light Mode
     light: {
         background: '#ffffff',
-        surface: '#f8f9fa',
-        border: '#e0e0e0',
+        surface: '#F3F5F8',
+        border: '#e2e8f0',
         text: {
-            primary: '#1a1a1a',
-            secondary: '#666666',
-            tertiary: '#999999',
-            muted: '#cccccc',
+            primary: '#0B1F3A',
+            secondary: '#475569',
+            tertiary: '#94a3b8',
+            muted: '#cbd5e1',
         },
         status: {
             success: '#10b981',
@@ -22,21 +36,21 @@ export const AdminColors = {
             warning: '#f59e0b',
             info: '#3b82f6',
         },
-        hover: '#f3f4f6',
-        active: '#e5e7eb',
+        hover: '#f1f5f9',
+        active: '#e2e8f0',
         disabled: '#d1d5db',
     },
 
     // Dark Mode
     dark: {
-        background: '#1a1a1a',
-        surface: '#2d2d2d',
-        border: '#404040',
+        background: '#0B1F3A',
+        surface: '#15325B',
+        border: '#1e3a8a',
         text: {
             primary: '#ffffff',
-            secondary: '#b3b3b3',
-            tertiary: '#808080',
-            muted: '#595959',
+            secondary: '#cbd5e1',
+            tertiary: '#94a3b8',
+            muted: '#64748b',
         },
         status: {
             success: '#34d399',
@@ -44,16 +58,16 @@ export const AdminColors = {
             warning: '#fbbf24',
             info: '#60a5fa',
         },
-        hover: '#3d3d3d',
-        active: '#4d4d4d',
-        disabled: '#525252',
+        hover: '#1e3a8a',
+        active: '#2563eb',
+        disabled: '#475569',
     },
 };
 
 // Spacing System (based on 4px grid)
 export const AdminSpacing = {
     xs: '4px',
-    sm: '16px',
+    sm: '8px',
     md: '12px',
     lg: '16px',
     xl: '20px',
@@ -89,28 +103,28 @@ export const AdminComponentSizes = {
         sm: {
             height: '32px',
             padding: '6px 12px',
-            fontSize: '14px',
+            fontSize: '13px',
         },
         md: {
-            height: '40px',
-            padding: '10px 16px',
+            height: '38px',
+            padding: '8px 16px',
             fontSize: '14px',
         },
         lg: {
-            height: '48px',
-            padding: '12px 20px',
-            fontSize: '16px',
+            height: '44px',
+            padding: '10px 20px',
+            fontSize: '15px',
         },
     },
     input: {
-        height: '40px',
-        padding: '10px 12px',
+        height: '38px',
+        padding: '8px 12px',
         fontSize: '14px',
     },
     table: {
-        rowHeight: '48px',
-        headerHeight: '48px',
-        cellPadding: '12px 16px',
+        rowHeight: '40px',
+        headerHeight: '44px',
+        cellPadding: '8px 12px',
     },
 };
 
@@ -130,34 +144,34 @@ export const AdminZIndex = {
 export const AdminLayout = {
     // Header Toolbar
     header: {
-        height: '64px',
+        height: '56px',
         padding: AdminSpacing.lg,
         gap: AdminSpacing.md,
     },
 
     // Sidebar
     sidebar: {
-        width: '280px',
-        collapsedWidth: '80px',
+        width: '240px',
+        collapsedWidth: '64px',
     },
 
     // Main Content
     content: {
         maxWidth: '1920px',
-        padding: AdminSpacing['3xl'],
-        gap: AdminSpacing['2xl'],
+        padding: AdminSpacing['2xl'],
+        gap: AdminSpacing.xl,
     },
 
     // Cards
     card: {
-        padding: AdminSpacing.xl,
-        borderRadius: AdminBorderRadius.lg,
+        padding: AdminSpacing.lg,
+        borderRadius: AdminBorderRadius.xl,
         gap: AdminSpacing.md,
     },
 
     // Modals
     modal: {
-        borderRadius: AdminBorderRadius.lg,
+        borderRadius: AdminBorderRadius.xl,
         maxWidth: '600px',
         padding: AdminSpacing['2xl'],
     },
@@ -165,15 +179,14 @@ export const AdminLayout = {
     // Tables
     table: {
         borderRadius: AdminBorderRadius.lg,
-        padding: AdminSpacing.lg,
+        padding: AdminSpacing.md,
     },
 };
 
 // Filter/Search
 export const AdminFilters = {
-    containerPadding: AdminSpacing.lg,
+    containerPadding: AdminSpacing.md,
     containerGap: AdminSpacing.md,
-    inputHeight: '40px',
+    inputHeight: '38px',
     borderRadius: AdminBorderRadius.md,
 };
-

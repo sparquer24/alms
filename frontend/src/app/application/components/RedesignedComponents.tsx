@@ -4,6 +4,7 @@ import React from 'react';
 import { getStatusStyle } from '../../../utils/statusColors';
 import { formatStatusLabel, formatPhone, humanize, formatDisplayDate } from '../../../utils/formatters';
 import { openAttachment } from '../../../utils/attachmentViewer';
+import { resolveFileHref } from '../../../services/fileHandler';
 import { UserRound, FileText, Eye, EyeOff, Download, FolderOpen } from 'lucide-react';
 
 /**
@@ -328,8 +329,9 @@ export function DocumentTable({ documents }: { documents: any[] }) {
                       </button>
                       <button
                         onClick={() => {
+                          const raw = doc.url || doc.fileUrl || doc.path || doc.downloadUrl || '';
                           const a = document.createElement('a');
-                          a.href = doc.url || doc.fileUrl || doc.path || doc.downloadUrl || '';
+                          a.href = resolveFileHref(raw) || raw;
                           a.download = doc.name || doc.fileName || 'download';
                           a.rel = 'noopener';
                           document.body.appendChild(a);
