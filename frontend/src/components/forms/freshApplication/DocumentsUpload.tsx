@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FormSkeleton } from '../elements/FormSkeleton';
-import { Input, TextArea } from '../elements/Input';
 import FormFooter from '../elements/footer';
 import { FileUploadService } from '../../../api/fileUploadService';
 import { getFileTypeFromDisplayName, validateFileForDocumentType, DOCUMENT_TYPE_MAPPING } from '../../../config/documentTypes';
@@ -28,8 +27,6 @@ const DocumentsUpload = () => {
    
    // Use the application form hook for proper state management and navigation
    const {
-       form,
-       setForm,
        applicantId,
 		almsLicenseId,
        isSubmitting,
@@ -78,11 +75,9 @@ const DocumentsUpload = () => {
 			 if (!applicationId) return;
 			 try {
 				 const serverFiles = await FileUploadService.getFiles(applicationId);
-				 console.debug('[DocumentsUpload] loaded server files:', serverFiles);
 				 const grouped: { [key: string]: UploadedFile[] } = {};
 				 (serverFiles || []).forEach((f: any) => {
 					 const displayName = fileTypeToDisplay[f.fileType] || f.fileType || 'Other';
-					 console.debug('[DocumentsUpload] mapping server file', f.id, 'type:', f.fileType, '->', displayName);
 					 // create a lightweight File for UI display (empty blob)
 					 const blob = new Blob([], { type: f.contentType || 'application/octet-stream' });
 					 const fileObj = new File([blob], f.fileName || `file-${f.id}`, { type: f.contentType || 'application/octet-stream' });
@@ -98,7 +93,7 @@ const DocumentsUpload = () => {
 
 				 // Merge server-side files with any local (unsaved) files; local wins
 				 setFiles(prev => ({ ...grouped, ...prev }));
-			 } catch (err) {
+			 } catch {
 				 // swallow errors for now - could set a file loading error state
 			 }
 		 };
@@ -106,10 +101,6 @@ const DocumentsUpload = () => {
 		 loadUploadedFiles();
 	 }, [applicationId]);
 
-   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-	   const { name, value } = e.target;
-	   setForm((prev: any) => ({ ...prev, [name]: value }));
-   };
 
    // Generate preview URL using FileReader API
    const generatePreviewUrl = (file: File): Promise<string> => {
@@ -247,7 +238,7 @@ const DocumentsUpload = () => {
 			   if (!isNaN(parsedId)) {
 				   await FileUploadService.deleteFile(parsedId);
 			   }
-		   } catch (error) {
+		   } catch {
 			   // Continue with local removal even if server deletion fails
 		   }
 	   }
@@ -285,7 +276,6 @@ const DocumentsUpload = () => {
 
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.PREVIEW, savedApplicantId);
-		} else {
 		}
 	};
 

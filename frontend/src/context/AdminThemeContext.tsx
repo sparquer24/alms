@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AdminColors, AdminThemeDefaults } from '../styles/admin-design-system';
+import { AdminColors } from '../styles/admin-design-system';
 
 type ThemeMode = 'light' | 'dark';
 

@@ -8,25 +8,6 @@
 // ROLE CODES
 // ============================================
 
-/**
- * Role codes used in the application
- */
-export const ROLE_CODES = {
-  ZS: 'ZS',                    // Zonal Superintendent
-  SHO: 'SHO',                  // Station House Officer
-  ACP: 'ACP',                  // Assistant Commissioner of Police
-  DCP: 'DCP',                  // Deputy Commissioner of Police
-  RANGE: 'RANGE',              // Range Officer
-  AS: 'AS',                    // Arms Superintendent
-  ADO: 'ADO',                  // Administrative Officer
-  CADO: 'CADO',                // Chief Administrative Officer
-  JTCP: 'JTCP',                // Joint Commissioner of Police
-  CP: 'CP',                    // Commissioner of Police
-  APPLICANT: 'APPLICANT',      // Citizen Applicant
-  ADMIN: 'ADMIN',              // System Administrator
-  SUPER_ADMIN: 'SUPER_ADMIN'   // Super Administrator
-} as const;
-
 // ============================================
 // ACTION CATEGORIES
 // ============================================
@@ -47,17 +28,6 @@ export const TERMINAL_ACTIONS = [
  */
 export const FORWARD_ACTIONS = [
   'FORWARD'
-];
-
-/**
- * In-Place Actions - Keep with current user
- */
-export const IN_PLACE_ACTIONS = [
-  'RE_ENQUIRY',
-  'GROUND_REPORT',
-  'RECOMMEND',
-  'INITIATE',
-  'RED_FLAG'
 ];
 
 // ============================================
@@ -122,13 +92,6 @@ export function isForwardAction(actionCode: string): boolean {
 }
 
 /**
- * Check if action keeps current user
- */
-export function isInPlaceAction(actionCode: string): boolean {
-  return IN_PLACE_ACTIONS.includes(actionCode.toUpperCase());
-}
-
-/**
  * Check if action is approval
  */
 export function isApprovalAction(actionCode: string): boolean {
@@ -161,4 +124,35 @@ export function isRecommendAction(actionCode: string): boolean {
 */
 export function isNotRecommendAction(actionCode: string): boolean {
   return actionCode.toUpperCase() === ACTION_CODES.NOT_RECOMMEND;
+}
+
+// ============================================
+// LEGACY CANCELLATION HISTORY ROWS
+// ============================================
+
+/**
+ * Cancellation actions used to also be logged on the cancelled license's
+ * fresh/renewal application, with system remarks starting "Cancel request ...".
+ * They belong only to the cancel request's own history (CancelWorkflowHistories).
+ * Spread this into a fresh/renewal history `where` to leave those rows out.
+ */
+export const EXCLUDE_CANCEL_MIRROR_HISTORY = {
+  OR: [{ remarks: null }, { NOT: { remarks: { startsWith: 'Cancel request ' } } }],
+};
+
+/**
+ * Older cancellation history rows prefixed the officer's remarks with a system
+ * sentence ("Cancel request forwarded. <remarks>"). Split such a row into the
+ * officer's own remarks and that system note so the two can be shown apart.
+ */
+export function splitCancelHistoryRemarks<T extends { remarks?: string | null }>(
+  row: T,
+): T & { systemNote: string | null } {
+  const remarks = row.remarks ?? '';
+  if (/^Cancel request (?:approved|initiated)\. [\s\S]*Reason: /.test(remarks)) {
+    return { ...row, remarks: '', systemNote: remarks };
+  }
+  const other = remarks.match(/^(Cancel request (?:forwarded|rejected)\.)\s*([\s\S]*)$/);
+  if (other) return { ...row, remarks: other[2], systemNote: other[1] };
+  return { ...row, systemNote: null };
 }

@@ -1,32 +1,13 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import toast from 'react-hot-toast';
 import { ApplicationService } from '../../../api/applicationService';
-import { locationAPI } from '../../../api/locationApi';
 import { WeaponsService, Weapon } from '../../../services/weapons';
 import { openDocumentFile } from '../../../services/fileHandler';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import FormFooter from '../elements/footer';
 
-interface SectionConfig {
-  title: string;
-  route: string;
-  dataKey?: string;
-}
 
-const sections: SectionConfig[] = [
-  { title: 'Personal Information', route: FORM_ROUTES.PERSONAL_INFO, dataKey: 'personalDetails' },
-  { title: 'Address Details', route: FORM_ROUTES.ADDRESS_DETAILS, dataKey: 'addresses' },
-  {
-    title: 'Occupation & Business',
-    route: FORM_ROUTES.OCCUPATION_DETAILS,
-    dataKey: 'occupationAndBusiness',
-  },
-  { title: 'Criminal History', route: FORM_ROUTES.CRIMINAL_HISTORY, dataKey: 'criminalHistories' },
-  { title: 'License History', route: FORM_ROUTES.LICENSE_HISTORY, dataKey: 'licenseHistories' },
-  { title: 'License Details', route: FORM_ROUTES.LICENSE_DETAILS, dataKey: 'licenseDetails' },
-];
 
 const Preview = () => {
   const router = useRouter();
@@ -145,7 +126,7 @@ const Preview = () => {
       try {
         const weaponsList = await WeaponsService.getAll();
         setWeapons(weaponsList || []);
-      } catch (error) {
+      } catch {
         // Fallback weapons if API fails
         setWeapons([
           { id: 1, name: 'Revolver' },
@@ -182,17 +163,6 @@ const Preview = () => {
     return date.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  // Helper function to get weapon names from IDs
-  const getWeaponNames = (weaponIds: number[]) => {
-    if (!weaponIds || weaponIds.length === 0) return 'Not Provided';
-
-    const weaponNames = weaponIds.map(id => {
-      const weapon = weapons.find(w => w.id === id);
-      return weapon ? weapon.name : `Unknown Weapon (ID: ${id})`;
-    });
-
-    return weaponNames.join(', ');
-  };
 
 
   // Render field with label and value - Enhanced design with compact width
@@ -1077,7 +1047,7 @@ const Preview = () => {
                         <dd className='text-sm text-gray-800 font-medium'>
                           {requestedWeaponIds && requestedWeaponIds.length > 0 ? (
                             <div className='flex flex-wrap gap-1.5'>
-                              {requestedWeaponIds.map((weaponId: number, idx: number) => {
+                              {requestedWeaponIds.map((weaponId: number) => {
                                 let weapon = weapons.find(w => w.id === weaponId);
                                 if (!weapon && detail.requestedWeapons) {
                                   weapon = detail.requestedWeapons.find(

@@ -49,7 +49,7 @@ export class AuthController {
           // 24 hours
           res.cookie('role', normalized, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000, path: '/', sameSite: 'lax' });
         }
-      } catch (cookieErr) {
+      } catch {
         // Best-effort: don't fail login if cookie setting fails
       }
 

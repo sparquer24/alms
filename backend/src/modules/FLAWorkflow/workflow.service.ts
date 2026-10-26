@@ -1,8 +1,7 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { LicenseStatus, RoleFlowApplicationType } from '@prisma/client';
-import { ForwardDto } from './dto/forward.dto';
-import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
+import { ACTION_CODES, EXCLUDE_CANCEL_MIRROR_HISTORY, splitCancelHistoryRemarks, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
 import { normalizeApplicationType } from '../../constants/flow-mapping';
 import { CancelWorkflowHandler } from './handlers/cancel-workflow.handler';
 import {
@@ -13,6 +12,7 @@ import {
 } from '../approvalRules/approval-rules.resolver';
 import {
   LOCKED_IDENTITY_FIELDS,
+  NON_RENEWABLE_STATUSES,
   computeRenewedValidTill,
   pickLockedIdentity,
   statusAfterRenewal,
@@ -74,73 +74,6 @@ export class WorkflowService {
         }
       });
     } 
-    // else if (
-    //   applicationType === 'CancelFormRequest' ||
-    //   applicationType === 'CancelApplication' ||
-    //   applicationType === 'CancelForm' ||
-    //   applicationType === 'cancel'
-    // ) {
-    //   const cancelRequests = await prisma.cancelFormRequests.findMany({
-    //     select: {
-    //       id: true,
-    //       licenseId: true,
-    //       applicationType: true,
-    //       cancellationReason: true,
-    //       remarks: true,
-    //       workFlowStatusId: true,
-    //       workflowStatus: {
-    //         select: {
-    //           code: true,
-    //         },
-    //       },
-    //       currentUserId: true,
-    //       previousUserId: true,
-    //       requestedBy: true,
-    //       actionedBy: true,
-    //       requestedDate: true,
-    //       actionedDate: true,
-    //       createdAt: true,
-    //       updatedAt: true,
-    //       Licenses: {
-    //         select: {
-    //           id: true,
-    //           firstName: true,
-    //           middleName: true,
-    //           lastName: true,
-    //         },
-    //       },
-    //     }
-    //   });
-    //   return cancelRequests.map(r => {
-    //     const applicantName = r.Licenses
-    //       ? [r.Licenses.firstName, r.Licenses.middleName, r.Licenses.lastName]
-    //           .filter(Boolean)
-    //           .join(' ') || 'Applicant'
-    //       : 'Applicant';
-
-    //     return {
-    //       id: r.id,
-    //       freshLicenseId: r.licenseId,
-    //       applicationType: r.applicationType,
-    //       cancellationReason: r.cancellationReason,
-    //       remarks: r.remarks,
-    //       applicantName,
-    //       requestedDate: r.requestedDate,
-    //       actionedDate: r.actionedDate,
-    //       workflowStatusId: r.workFlowStatusId,
-    //       currentUserId: r.currentUserId || r.actionedBy || r.requestedBy,
-    //       previousUserId: r.previousUserId || r.requestedBy,
-    //       isApproved: isApprovalAction(r.workflowStatus?.code || ''),
-    //       isRejected: isRejectionAction(r.workflowStatus?.code || ''),
-    //       isRecommended: false,
-    //       isNotRecommended: false,
-    //       isPending: !isTerminalAction(r.workflowStatus?.code || ''),
-    //       isReEnquiry: false,
-    //       createdAt: r.createdAt,
-    //       updatedAt: r.updatedAt,
-    //     };
-    //   });
-    // } 
     else {
       throw new Error(`Invalid applicationType: ${applicationType}`);
     }
@@ -149,7 +82,7 @@ export class WorkflowService {
   async getWorkflowHistory(applicationId: number, applicationType: string = 'fresh'): Promise<any[]> {
     if (applicationType.toLowerCase().includes('renew')) {
       const history = await prisma.renewalApplicationsFormWorkflowHistories.findMany({
-        where: { applicationId },
+        where: { applicationId, ...EXCLUDE_CANCEL_MIRROR_HISTORY },
         include: {
           actiones: true,
           previousUser: { select: { id: true, username: true } },
@@ -195,10 +128,10 @@ export class WorkflowService {
         }
       }
 
-      return history;
+      return history.map(splitCancelHistoryRemarks);
     } else {
       const history = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-        where: { applicationId },
+        where: { applicationId, ...EXCLUDE_CANCEL_MIRROR_HISTORY },
         include: {
           actiones: true,
           previousUser: { select: { id: true, username: true } },
@@ -581,7 +514,7 @@ export class WorkflowService {
     const validTill = new Date();
     validTill.setFullYear(validTill.getFullYear() + 2);
 
-    const license = await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx: any) => {
       const created = await tx.licenses.create({
         data: {
           licenseNumber,
@@ -680,6 +613,19 @@ export class WorkflowService {
     });
     if (!application) {
       throw new NotFoundException('Application not found');
+    }
+
+    // A renewal whose license has since been cancelled or revoked cannot move on.
+    if (application.licenseId) {
+      const license = await prisma.licenses.findUnique({
+        where: { id: application.licenseId },
+        select: { status: true },
+      });
+      if (license && NON_RENEWABLE_STATUSES.has(license.status)) {
+        throw new BadRequestException(
+          `This license is ${license.status.toLowerCase()}. No further action can be taken on its renewal application.`,
+        );
+      }
     }
     
     let newStatusId = status ? status.id : application.workflowStatusId;
@@ -847,7 +793,7 @@ export class WorkflowService {
     // none recorded takes the weapons from the renewal.
     const licenseHasWeapons = existingLicense.endorsedWeapons.length > 0;
 
-    const updated = await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx: any) => {
       const updatedLicense = await tx.licenses.update({
         where: { id: existingLicense.id },
         data: {
@@ -1175,6 +1121,12 @@ export class WorkflowService {
     const isApprovedAction = isTerminalAction(actionCode) && isApprovalAction(actionCode);
     const isRejectedAction = isTerminalAction(actionCode) && isRejectionAction(actionCode);
 
+    // Record who decided the request and when, as the direct approve/reject path does.
+    if (isApprovedAction || isRejectedAction) {
+      cancelUpdateData.actionedBy = payload.currentUserId;
+      cancelUpdateData.actionedDate = new Date();
+    }
+
     if (payload.remarks) {
       const originalRemarks = cancelRequest.remarks || '';
       cancelUpdateData.remarks = originalRemarks
@@ -1231,52 +1183,16 @@ export class WorkflowService {
         actionTaken = ACTION_CODES.REJECT;
       }
 
-      // Build remarks for history entries
-      const historyRemarks = isApprovedAction
-        ? `Cancel request approved. Application cancelled. Reason: ${cancelRequest.cancellationReason}`
-        : isRejectedAction
-          ? `Cancel request rejected. ${payload.remarks || ''}`
-          : `Cancel request forwarded. ${payload.remarks || ''}`;
-
-      // Create workflow history on the original application (only if we found it)
-      if (application && sourceAppId) {
-        if (isRenewal) {
-          await tx.renewalApplicationsFormWorkflowHistories.create({
-            data: {
-              applicationId: sourceAppId,
-              previousUserId: application.currentUserId || payload.currentUserId,
-              nextUserId: nextUserId || payload.currentUserId,
-              actionTaken: actionTaken,
-              remarks: historyRemarks,
-              previousRoleId: currentRoleId,
-              nextRoleId: nextUserRoleId?.roleId || null,
-              actionesId: payload.actionId,
-            },
-          });
-        } else {
-          await tx.freshLicenseApplicationsFormWorkflowHistories.create({
-            data: {
-              applicationId: sourceAppId,
-              previousUserId: application.currentUserId || payload.currentUserId,
-              nextUserId: nextUserId || payload.currentUserId,
-              actionTaken: actionTaken,
-              remarks: historyRemarks,
-              previousRoleId: currentRoleId,
-              nextRoleId: nextUserRoleId?.roleId || null,
-              actionesId: payload.actionId,
-            },
-          });
-        }
-      }
-
-      // Create CancelWorkflowHistories entry for the cancel request itself
+      // The cancellation is logged only in its own history, never on the fresh/renewal
+      // application's, and the entry keeps the officer's own remarks; the action
+      // itself already says what happened.
       await tx.cancelWorkflowHistories.create({
         data: {
           applicationId: payload.applicationId,
-          previousUserId: cancelRequest.currentUserId || payload.currentUserId,
+          previousUserId: payload.currentUserId,
           nextUserId: nextUserId || payload.currentUserId,
           actionTaken: actionTaken,
-          remarks: historyRemarks,
+          remarks: payload.remarks || '',
           previousRoleId: currentRoleId,
           nextRoleId: nextUserRoleId?.roleId || null,
           actionesId: payload.actionId,

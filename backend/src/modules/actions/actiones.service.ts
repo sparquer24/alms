@@ -151,38 +151,34 @@ export class ActionesService {
    * Uniqueness is enforced on (roleId, actionId, applicationType).
    */
   async createAction(data: RolesActionsMapping, allowedById?: number): Promise<RolesActionsMapping | { error: boolean; message: string }> {
-    try {
-      const appType: RoleFlowApplicationType = normalizeApplicationType(data.applicationType ?? 'ALL');
+    const appType: RoleFlowApplicationType = normalizeApplicationType(data.applicationType ?? 'ALL');
 
-      // Check for existing mapping with the same (roleId, actionId, applicationType)
-      const existing = await prisma.rolesActionsMapping.findFirst({
-        where: {
-          roleId: data.roleId,
-          actionId: data.actionId,
-          applicationType: appType,
-        }
-      });
-
-      if (existing) {
-        return {
-          error: true,
-          message: `Mapping with this roleId, actionId, and applicationType (${appType}) already exists`
-        };
+    // Check for existing mapping with the same (roleId, actionId, applicationType)
+    const existing = await prisma.rolesActionsMapping.findFirst({
+      where: {
+        roleId: data.roleId,
+        actionId: data.actionId,
+        applicationType: appType,
       }
+    });
 
-      return await prisma.rolesActionsMapping.create({
-        data: {
-          roleId: data.roleId,
-          actionId: data.actionId,
-          applicationType: appType,
-          isActive: data.isActive,
-          allowedById: allowedById ?? null,
-          createdAt: data.createdAt,
-        }
-      });
-    } catch (error) {
-      throw error;
+    if (existing) {
+      return {
+        error: true,
+        message: `Mapping with this roleId, actionId, and applicationType (${appType}) already exists`
+      };
     }
+
+    return await prisma.rolesActionsMapping.create({
+      data: {
+        roleId: data.roleId,
+        actionId: data.actionId,
+        applicationType: appType,
+        isActive: data.isActive,
+        allowedById: allowedById ?? null,
+        createdAt: data.createdAt,
+      }
+    });
   }
 
   /**

@@ -1,11 +1,9 @@
 'use client';
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { IoMdHome } from 'react-icons/io';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { ApplicationService } from '../../../api/applicationService';
 import { StepHeader } from '../../../components/forms/elements/StepHeader';
 
-const IoMdHomeFixed = IoMdHome as any;
 
 const steps = [
   'Personal Information',
@@ -140,7 +138,7 @@ function FreshApplicationLayoutContent({
           setAllowedToEdit(false);
           router.push('/');
         }
-      } catch (err) {
+      } catch {
         setAllowedToEdit(true);
       }
     };
@@ -204,7 +202,7 @@ function FreshApplicationLayoutContent({
             isNavigatingRef.current = false;
             return;
           }
-        } catch (err) {
+        } catch {
           setValidationError('Failed to validate application data. Please try again.');
           isNavigatingRef.current = false;
           return;
@@ -324,7 +322,7 @@ function FreshApplicationLayoutContent({
                 onClick={() => setValidationError(null)}
                 className='px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors'
               >
-                OK, I'll complete them
+                OK, I&apos;ll complete them
               </button>
             </div>
           </div>

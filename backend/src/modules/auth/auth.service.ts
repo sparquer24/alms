@@ -66,73 +66,69 @@ export class AuthService {
   }
 
   private async validateUser(username: string, password: string): Promise<any> {
-    try {
-      const user = await (prisma as any).users.findFirst({
-        where: { username },
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          password: true,
-          stateId: true,
-          districtId: true,
-          zoneId: true,
-          role: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              is_active: true,
-              created_at: true,
-              updated_at: true,
-              dashboard_title: true,
-              menu_items: true,
-              permissions: true,
-              can_access_settings: true,
-              can_forward: true,
-              can_re_enquiry: true,
-              can_generate_ground_report: true,
-              can_FLAF: true,
-              can_create_freshLicence: true,
-            }
-          },
-          state: { select: { id: true, name: true } },
-          district: { select: { id: true, name: true } },
-          zone: { select: { id: true, name: true } },
-          RangeOffices: { select: { id: true, name: true } }
-        }
-      } as any);
-
-      if (!user) {
-        return null;
+    const user = await (prisma as any).users.findFirst({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        password: true,
+        stateId: true,
+        districtId: true,
+        zoneId: true,
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            is_active: true,
+            created_at: true,
+            updated_at: true,
+            dashboard_title: true,
+            menu_items: true,
+            permissions: true,
+            can_access_settings: true,
+            can_forward: true,
+            can_re_enquiry: true,
+            can_generate_ground_report: true,
+            can_FLAF: true,
+            can_create_freshLicence: true,
+          }
+        },
+        state: { select: { id: true, name: true } },
+        district: { select: { id: true, name: true } },
+        zone: { select: { id: true, name: true } },
+        RangeOffices: { select: { id: true, name: true } }
       }
+    } as any);
 
-      const isPasswordValid = await this.verifyPassword(password, user.password);
-
-      if (!isPasswordValid) {
-        return null;
-      }
-
-      const stateId = user.state?.id || user.stateId;
-      const districtId = user.district?.id || user.districtId;
-      const zoneId = user.zone?.id || user.zoneId;
-      const rangeOfficeId = user.RangeOffices?.id || user.rangeOfficeId;
-
-      const userData = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        stateId: stateId ? Number(stateId) : undefined,
-        districtId: districtId ? Number(districtId) : undefined,
-        zoneId: zoneId ? Number(zoneId) : undefined,
-        rangeOfficeId: rangeOfficeId ? Number(rangeOfficeId) : undefined
-      };
-
-      return userData;
-    } catch (error) {
-      throw error;
+    if (!user) {
+      return null;
     }
+
+    const isPasswordValid = await this.verifyPassword(password, user.password);
+
+    if (!isPasswordValid) {
+      return null;
+    }
+
+    const stateId = user.state?.id || user.stateId;
+    const districtId = user.district?.id || user.districtId;
+    const zoneId = user.zone?.id || user.zoneId;
+    const rangeOfficeId = user.RangeOffices?.id || user.rangeOfficeId;
+
+    const userData = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      stateId: stateId ? Number(stateId) : undefined,
+      districtId: districtId ? Number(districtId) : undefined,
+      zoneId: zoneId ? Number(zoneId) : undefined,
+      rangeOfficeId: rangeOfficeId ? Number(rangeOfficeId) : undefined
+    };
+
+    return userData;
   }
 
   private generateToken(user: any): string {
@@ -161,7 +157,7 @@ export class AuthService {
   verifyToken(token: string): any {
     try {
       return jwt.verify(token, this.jwtSecret!);
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException(ERROR_MESSAGES.INVALID_TOKEN);
     }
   }

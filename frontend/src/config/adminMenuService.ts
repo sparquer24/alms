@@ -93,27 +93,6 @@ export function getAdminMenuItems(): AdminMenuItem[] {
 }
 
 /**
- * Get admin menu item by key
- */
-export function getAdminMenuItem(key: AdminMenuItemKey): AdminMenuItem | undefined {
-    return ADMIN_MENU_ITEMS[key];
-}
-
-/**
- * Get admin menu item path by key
- */
-export function getAdminMenuPath(key: AdminMenuItemKey): string | undefined {
-    return ADMIN_MENU_ITEMS[key]?.path;
-}
-
-/**
- * Check if a path is an admin menu path
- */
-export function isAdminMenuPath(pathname: string): boolean {
-    return Object.values(ADMIN_MENU_ITEMS).some(item => pathname === item.path || pathname.startsWith(item.path));
-}
-
-/**
  * Extract admin menu key from pathname
  */
 export function getAdminMenuKeyFromPath(pathname: string): AdminMenuItemKey | null {

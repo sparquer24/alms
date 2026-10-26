@@ -115,7 +115,7 @@ export default function ReportsPage() {
     staleTime: 60_000,
   });
 
-  const applications: any[] = applicationsQuery.data ?? [];
+  const applications: any[] = useMemo(() => applicationsQuery.data ?? [], [applicationsQuery.data]);
   const isLoading = applicationsQuery.isLoading;
 
   const stats = useMemo(() => {

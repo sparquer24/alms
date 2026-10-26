@@ -15,11 +15,6 @@ const categoryIcons: Record<string, string> = {
 };
 
 export default function SecuritySection({ title, description, features }: SecuritySectionProps) {
-  const grouped = features.reduce<Record<string, SecurityFeature[]>>((acc, f) => {
-    if (!acc[f.category]) acc[f.category] = [];
-    acc[f.category].push(f);
-    return acc;
-  }, {});
 
   return (
     <section className="py-20 bg-[#0F2D52]">

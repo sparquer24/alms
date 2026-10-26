@@ -9,23 +9,20 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Ban,
   Download,
   Eye,
   FileDown,
   History,
   Printer,
   RefreshCw,
-  Search,
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/hooks/useAuth';
 import LicenseService from '@/services/licenseService';
-import { LicenseData, LicenseStatistics } from '@/types';
+import { LicenseData } from '@/types';
 import { normalizeRole } from '@/utils/roleUtils';
-import { getRoleBasedRedirectPath } from '@/config/roleRedirections';
 import { LayoutProvider, useLayout } from '@/config/layoutContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -161,13 +158,6 @@ const getLicenseSource = (license: LicenseData): { label: string; badge: string 
   }
 };
 
-/**
- * Prefer the name resolved by the API, then a raw name field, and only fall back
- * to the stored id so a stale id (e.g. a district that no longer exists) is at
- * least visible rather than silently blank.
- */
-const locationValue = (name?: string | null, id?: number | null, label = 'Record') =>
-  name || (id != null ? `${label} #${id}` : undefined);
 
 const getExpiryState = (license: LicenseData) => {
   if (!license.validTill) return { };
@@ -238,7 +228,9 @@ function useDebouncedUrlValue(urlValue: string, commit: (value: string) => void,
   const [draft, setDraft] = useState(urlValue);
   const lastCommitted = useRef(urlValue);
   const commitRef = useRef(commit);
-  commitRef.current = commit;
+  useEffect(() => {
+    commitRef.current = commit;
+  });
 
   useEffect(() => {
     if (urlValue !== lastCommitted.current) setDraft(urlValue);
@@ -379,7 +371,7 @@ function LicenseManagementContent() {
     staleTime: 30_000,
   });
 
-  const licenses = licensesQuery.data?.data ?? [];
+  const licenses = useMemo(() => licensesQuery.data?.data ?? [], [licensesQuery.data]);
   const total = licensesQuery.data?.total ?? 0;
   const loading = licensesQuery.isLoading;
   const error = licensesQuery.error
@@ -417,7 +409,7 @@ function LicenseManagementContent() {
     staleTime: 30_000,
   });
 
-  const auditLogRows = auditQuery.data?.data ?? [];
+  const auditLogRows = useMemo(() => auditQuery.data?.data ?? [], [auditQuery.data]);
   const auditLogTotal = auditQuery.data?.total ?? 0;
   const auditLogLoading = auditQuery.isLoading;
   const auditLogError = auditQuery.error
@@ -951,7 +943,7 @@ function LicenseManagementContent() {
                       <th className='sticky left-0 z-20 border-b border-[#001F54] bg-[#001F54] px-3 py-1.5 font-semibold w-[60px] min-w-[60px]'>
                         S.No
                       </th>
-                      {columns.map((col, idx) => {
+                      {columns.map(col => {
                         const isStickyColumn = ['License Number', 'License Holder Name', 'License Status', 'Created From'].includes(col);
                         const stickyLeftValues: Record<string, string> = {
                           'License Number': 'left-[60px]',
@@ -1042,7 +1034,7 @@ function LicenseManagementContent() {
                             <td className='sticky left-0 z-10 border-b border-gray-100 bg-inherit px-3 py-0.5 align-middle text-gray-700 font-semibold w-[60px] min-w-[60px]'>
                               {(page - 1) * limit + licenses.indexOf(license) + 1}
                             </td>
-                            {columns.map((col, idx) => {
+                            {columns.map(col => {
                               const isStickyColumn = ['License Number', 'License Holder Name', 'License Status', 'Created From'].includes(col);
                               const stickyLeftValues: Record<string, string> = {
                                 'License Number': 'left-[60px]',

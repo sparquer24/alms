@@ -1,12 +1,11 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
-import { Checkbox } from '../elements/Checkbox';
 import { Select } from '../elements/Select';
 import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
-import { FileUploadService, FileUploadResponse } from '../../../api/fileUploadService';
+import { FileUploadService } from '../../../api/fileUploadService';
 import { getFileSizeError, MB } from '../../../utils/fileValidation';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
@@ -164,10 +163,6 @@ const LicenseDetails = () => {
     return form.licenseDetails?.[0] || {};
   };
 
-  useEffect(() => {
-    // Debug: Log initial form state
-  }, []);
-
   // Upload pending files when applicationId becomes available
   useEffect(() => {
     if (applicantId) {
@@ -183,7 +178,7 @@ const LicenseDetails = () => {
         const list = await WeaponsService.getAll();
         const items = (list || []).map(w => ({ id: w.id, name: w.name })) as Weapon[];
         setWeapons(items);
-      } catch (e) {
+      } catch {
         // Fallback weapons if API fails
         setWeapons([
           { id: 1, name: 'Revolver' },
@@ -394,12 +389,10 @@ const LicenseDetails = () => {
 
   // Remove specific file (local or uploaded)
   const removeFile = async (indexToRemove: number, isUploaded: boolean = false) => {
-    console.debug('[LicenseDetails] removeFile called:', { indexToRemove, isUploaded });
     if (isUploaded) {
       const currentDetail = getLicenseDetail();
       const currentUploadedFiles = currentDetail.uploadedFiles || [];
       const fileToRemove = currentUploadedFiles[indexToRemove];
-      console.debug('[LicenseDetails] file to remove:', fileToRemove);
       
       const rawId = fileToRemove?.id || fileToRemove?.uploadId;
       const fileId = rawId ? parseInt(String(rawId), 10) : null;
@@ -407,7 +400,6 @@ const LicenseDetails = () => {
       if (fileId && !isNaN(fileId)) {
         try {
           await FileUploadService.deleteFile(fileId);
-          console.debug('[LicenseDetails] file deleted from server successfully:', fileId);
         } catch (error: any) {
           console.error('[LicenseDetails] failed to delete file:', error);
           setEvidenceError(`Could not remove the file. ${error?.message || 'Please try again.'}`);
@@ -502,21 +494,11 @@ const LicenseDetails = () => {
   };
 
   const handleSaveToDraft = async () => {
-    // Debug: Log the current form data before saving
-    const detail = getLicenseDetail();
-    Object.keys(detail).forEach(key => {});
-
-    // Enhanced debugging for requestedWeaponIds specifically
     // The form data is already in the correct format (licenseDetails array)
     await saveFormData();
   };
 
   const handleNext = async () => {
-    // Debug: Log the current form data before save
-    const detail = getLicenseDetail();
-    Object.keys(detail).forEach(key => {});
-
-    // Enhanced debugging for requestedWeaponIds specifically
     // The form data is already in the correct format (licenseDetails array)
     const savedApplicantId = await saveFormData(undefined, undefined, true);
 

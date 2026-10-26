@@ -93,10 +93,6 @@ export default function WorkflowsPage() {
     setStatusFilter(status);
   };
 
-  const handleReset = () => {
-    setSearchQuery('');
-    setStatusFilter('all');
-  };
 
   // Filter workflows based on search and status
   const filteredWorkflows = mockWorkflows.filter(workflow => {
@@ -194,7 +190,7 @@ export default function WorkflowsPage() {
           {searchQuery && (
             <div className='mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg'>
               <h3 className='font-semibold text-blue-700'>Search Results:</h3>
-              <p className='text-sm text-gray-700 mt-1'>Searching for: "{searchQuery}"</p>
+              <p className='text-sm text-gray-700 mt-1'>Searching for: &quot;{searchQuery}&quot;</p>
             </div>
           )}
 

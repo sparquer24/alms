@@ -1,6 +1,14 @@
 'use client';
 
 import React from 'react';
+import { Ban, FilePlus2, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react';
+
+const TAB_ICONS: Record<string, LucideIcon> = {
+  'License Details': ShieldCheck,
+  'Fresh Application': FilePlus2,
+  Renewals: RefreshCw,
+  Cancellations: Ban,
+};
 
 interface Props {
   licenseNumber?: string;
@@ -48,18 +56,20 @@ export default function LicenseDetailsHeader({
           {tabs.map(t => {
             const active = t === activeTab;
             const count = tabCounts?.[t];
+            const Icon = TAB_ICONS[t];
             return (
               <button
                 key={t}
                 type='button'
                 onClick={() => onTabChange?.(t)}
                 aria-current={active ? 'page' : undefined}
-                className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                className={`-mb-px flex items-center gap-2 whitespace-nowrap px-4 py-3 transition-colors ${
                   active
-                    ? 'border-[#071933] text-[#071933]'
-                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
+                    ? 'border-b-[3px] border-[#071933] text-base font-bold text-[#071933]'
+                    : 'border-b-2 border-transparent text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-800'
                 }`}
               >
+                {Icon && <Icon className={`flex-shrink-0 ${active ? 'h-5 w-5' : 'h-4 w-4'}`} aria-hidden='true' />}
                 {t}
                 {count != null && count > 0 && (
                   <span

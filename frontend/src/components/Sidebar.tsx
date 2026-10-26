@@ -6,7 +6,6 @@ import React, {
   useMemo,
   useState,
   useEffect,
-  startTransition,
   useRef,
 } from 'react';
 import Image from 'next/image';
@@ -14,12 +13,11 @@ const ImageFixed = Image as any;
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
-import { CornerUpRight, Undo2, Flag, FolderCheck, RefreshCcw, List, ChevronDown, ChevronRight } from 'lucide-react';
+import { CornerUpRight, Undo2, Flag, RefreshCcw, List, ChevronDown } from 'lucide-react';
 
 const CornerUpRightFixed = CornerUpRight as any;
 const Undo2Fixed = Undo2 as any;
 const FlagFixed = Flag as any;
-const FolderCheckFixed = FolderCheck as any;
 const RefreshCcwFixed = RefreshCcw as any;
 const ListFixed = List as any;
 
@@ -57,7 +55,7 @@ interface MenuItemProps {
   onClick?: () => void;
   onActivate?: () => void;
 }
-const MenuItem = memo(({ icon, label, count, active, loading, onClick, onActivate }: MenuItemProps) => (
+const MenuItem = memo(({ icon, label, count, active, onClick, onActivate }: MenuItemProps) => (
   <li>
     <button
       type='button'
@@ -65,7 +63,6 @@ const MenuItem = memo(({ icon, label, count, active, loading, onClick, onActivat
       onClick={onClick}
       className={`flex items-center w-full px-0 py-2 rounded-md text-left text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001F54] focus-visible:ring-offset-2
         ${active ? 'bg-[#001F54] text-white font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
-      aria-pressed={active}
       aria-current={active ? 'page' : undefined}
       role='menuitem'
       onKeyDown={e => {
@@ -91,6 +88,7 @@ const MenuItem = memo(({ icon, label, count, active, loading, onClick, onActivat
     </button>
   </li>
 ));
+MenuItem.displayName = 'MenuItem';
 
 const InboxSubMenuItem = memo(
   ({
@@ -99,7 +97,6 @@ const InboxSubMenuItem = memo(
     icon,
     count,
     active,
-    loading,
     onClick,
     onActivate,
   }: {
@@ -163,6 +160,7 @@ const InboxSubMenuItem = memo(
     );
   }
 );
+InboxSubMenuItem.displayName = 'InboxSubMenuItem';
 
 /* ----------------------------
   Sidebar main component
@@ -177,7 +175,7 @@ interface SidebarProps {
 // pass; later mounts can paint immediately instead of blinking out for a frame.
 let sidebarHasHydrated = false;
 
-export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {}) => {
+export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
   const { showSidebar } = useLayout();
   const [visible, setVisible] = useState(showSidebar);
   const dispatch = useDispatch();
@@ -197,7 +195,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     setHydrated(true);
   }, []);
 
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
   const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
@@ -292,7 +289,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       if (skip && typeof window !== 'undefined' && window.sessionStorage) {
         window.sessionStorage.removeItem('skipOpenInbox');
       }
-    } catch (e) {}
+    } catch {}
 
     const topLevelInboxLike = new Set(['sent', 'closed', 'drafts', 'cancelform', 'freshform', 'applications']);
     try {
@@ -310,7 +307,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       void loadType(rawType, false).catch(() => {});
       if (onTableReload) onTableReload(rawType);
       if (rawType === 'forwarded') scheduleInboxForwardedRefresh();
-    } catch (e) {
+    } catch {
       /* swallow */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -328,7 +325,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       if (isLoginRedirect) {
         try {
           sessionStorage.removeItem('loginRedirectApplied');
-        } catch (e) {}
+        } catch {}
         return;
       }
       const stored = window.localStorage?.getItem('activeNavItem') ?? '';
@@ -340,7 +337,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         if (alt && alt.startsWith('inbox-')) key = alt;
       }
       setActiveItem(prev => (prev ? prev : key));
-    } catch (e) {
+    } catch {
       /* ignore */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -360,7 +357,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     try {
       const toStore = key.startsWith('inbox-') ? key.slice('inbox-'.length) : key;
       localStorage.setItem('activeNavItem', toStore);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
   }, []);
@@ -376,8 +373,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   );
   const {
     applicationCounts: rawCounts,
-    loading: loadingCounts,
-    refreshCounts,
   } = useSidebarCounts(shouldFetchCounts);
 
   // stabilized counts object to avoid re-renders
@@ -444,7 +439,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         if (roleObj.code) return String(roleObj.code).toUpperCase();
         if (roleObj.name) return String(roleObj.name).toUpperCase();
       }
-    } catch (err) {
+    } catch {
       // ignore
     }
     return undefined;
@@ -453,14 +448,14 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   /* ----------------------------
      scheduleInboxForwardedRefresh (kept but guarded)
   -----------------------------*/
-  const scheduleInboxForwardedRefresh = useCallback((targetUrl?: string) => {
+  const scheduleInboxForwardedRefresh = useCallback(() => {
     // Previously this scheduled a forced window reload for forwarded inbox.
     // That behavior caused an unexpected sidebar refresh after clicking.
     // We disable the auto-reload to keep navigation smooth and client-side.
     if (refreshTimerRef.current) {
       try {
         clearTimeout(refreshTimerRef.current);
-      } catch (e) {}
+      } catch {}
       refreshTimerRef.current = null;
     }
     return;
@@ -528,7 +523,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     if (r) setCookieRole(r);
     try {
       sessionStorage?.removeItem('loginRedirectApplied');
-    } catch (e) {}
+    } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -544,7 +539,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         const firstAdminKey = normalizeNavKey(adminItems[0].name);
         setActiveItem(prev => (prev ? prev : firstAdminKey));
       }
-    } catch (e) {}
+    } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeState.activeKey, cookieRole, userRole]);
 
@@ -557,7 +552,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       if (activeItem) {
         persistActiveNavToLocal(activeItem);
       }
-    } catch (e) {
+    } catch {
       /* ignore */
     }
   }, [activeItem]);
@@ -569,16 +564,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     const effectiveInput = cookieRole ?? user ?? userRole ?? 'SHO';
     const cfg = getRoleConfig(effectiveInput);
     setRoleConfig(cfg);
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.debug(
-          '[Sidebar] effective role input:',
-          effectiveInput,
-          'roleConfig menuItems:',
-          cfg?.menuItems
-        );
-      } catch (e) {}
-    }
   }, [cookieRole, userRole, user]);
 
   /* ----------------------------
@@ -680,7 +665,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           if (desiredOpen !== 'false') {
             dispatch(openInbox());
           }
-        } catch (e) {
+        } catch {
           dispatch(openInbox());
         }
 
@@ -696,18 +681,18 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               const cur = activeStatusIds;
               const different = !cur || JSON.stringify(cur) !== JSON.stringify(restoredStatusIds);
               if (restoredStatusIds && different) setActiveStatusIds(restoredStatusIds);
-            } catch (e) {
+            } catch {
               if (restoredStatusIds) setActiveStatusIds(restoredStatusIds);
             }
           }
-        } catch (e) {}
+        } catch {}
 
         // call loadType with restored or current activeStatusIds (prefer restored)
         const toPass = restoredStatusIds ?? activeStatusIds ?? undefined;
         void loadType(String(t).toLowerCase(), false, toPass).catch(() => {});
         if (onTableReload) onTableReload(String(t));
       }
-    } catch (e) {
+    } catch {
       /* ignore */
     }
   }, [activeItem, dispatch, loadType, onTableReload]);
@@ -721,14 +706,12 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
       // Prevent repeated clicks on the same menu item while its action is in progress
       if (isActionInProgress(actionId) || isInboxLoading) {
-        console.debug('[Sidebar] Menu click blocked - action in progress:', actionId);
         return;
       }
       // Only block navigation if same actionId is in progress
       // (canNavigateTo now accepts actionId)
       // Start the action to block duplicate clicks for this menu item
       if (!startAction(actionId)) {
-        console.debug('[Sidebar] Menu click blocked - could not start action:', actionId);
         return;
       }
 
@@ -738,8 +721,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
 
         if (item.childs?.length) {
-          const k = normalizeNavKey(item.name as string) || item.name;
-          setExpandedMenus(prev => ({ ...prev, [k]: !prev[k] }));
           return;
         }
 
@@ -771,7 +752,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
             // Check if we can navigate to this path
             if (!canNavigateTo(adminPath)) {
-              console.debug('[Sidebar] Navigation blocked by global action:', adminPath);
               return;
             }
 
@@ -800,8 +780,8 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               if (typeof window !== 'undefined' && window.localStorage) {
                 window.localStorage.setItem('inboxDesiredOpen', 'false');
               }
-            } catch (e) {}
-          } catch (e) {}
+            } catch {}
+          } catch {}
           setActiveItem(key);
           persistActiveNavToLocal(key);
           // For 'sent', trigger navigation to inbox with type=sent and load data
@@ -824,12 +804,12 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           setActiveStatusIds(item.statusIds);
           try {
             localStorage.setItem('activeStatusIds', JSON.stringify(item.statusIds));
-          } catch (e) {}
+          } catch {}
         } else {
           setActiveStatusIds(undefined);
           try {
             localStorage.removeItem('activeStatusIds');
-          } catch (e) {}
+          } catch {}
         }
 
         if (item.name.toLowerCase().includes('dashboard')) {
@@ -888,7 +868,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
             if (typeof window !== 'undefined' && window.sessionStorage) {
               window.sessionStorage.setItem('skipOpenInbox', 'true');
             }
-          } catch (e) {}
+          } catch {}
           // Always pre-load data into InboxContext (force=true when already on same page)
           void loadType(type, isSamePath, item.statusIds).catch(() => {});
           if (isSamePath) {
@@ -896,7 +876,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           } else {
             router.push(target);
             endAction(actionId);
-            scheduleInboxForwardedRefresh(target);
+            scheduleInboxForwardedRefresh();
             if (onTableReload) onTableReload(key);
           }
         } else {
@@ -906,14 +886,14 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               setActiveItem(inboxKey);
               persistActiveNavToLocal(inboxKey);
             }
-          } catch (e) {}
+          } catch {}
           if (isSamePath) {
             // If already on this page, force reload data
             await loadType(type, true, item.statusIds).catch(() => {});
           } else {
             router.push(target);
             endAction(actionId);
-            scheduleInboxForwardedRefresh(target);
+            scheduleInboxForwardedRefresh();
           }
         }
       } finally {
@@ -957,10 +937,10 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem('inboxDesiredOpen', newState ? 'true' : 'false');
       }
-    } catch (e) {
+    } catch {
       try {
         dispatch(toggleInbox());
-      } catch (err) {}
+      } catch {}
     }
   }, [dispatch, isInboxOpen, normalizeNavKey, persistActiveNavToLocal, setActiveItem, router]);
 
@@ -970,13 +950,11 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
       // Prevent repeated clicks on the same sub-item while its action is in progress
       if (isActionInProgress(actionId) || isInboxLoading) {
-        console.debug('[Sidebar] Inbox sub-item click blocked - action in progress:', actionId);
         return;
       }
       // Only block navigation if same actionId is in progress
       // (canNavigateTo now accepts actionId)
       if (!startAction(actionId)) {
-        console.debug('[Sidebar] Inbox sub-item click blocked - could not start action:', actionId);
         return;
       }
 
@@ -1001,7 +979,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           if (desiredOpen !== 'false') {
             if (!isInboxOpen) dispatch(openInbox());
           }
-        } catch (e) {
+        } catch {
           if (!isInboxOpen) dispatch(openInbox());
         }
 
@@ -1037,11 +1015,11 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               if (normalized === 'reenquiry') {
                 customStatusIds = [5];
               }
-            } catch (e) {
+            } catch {
               /* ignore */
             }
           }
-        } catch (e) {
+        } catch {
           /* ignore */
         }
 
@@ -1062,12 +1040,12 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         if (isOnInboxBase) {
           try {
             window.history.replaceState(null, '', targetUrl);
-          } catch (e) {}
+          } catch {}
           if (onTableReload) onTableReload(subItem);
         } else {
           if (canNavigateTo(targetUrl)) {
             router.push(targetUrl);
-            scheduleInboxForwardedRefresh(targetUrl);
+            scheduleInboxForwardedRefresh();
           }
         }
       } finally {
@@ -1092,7 +1070,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       startAction,
       endAction,
       canNavigateTo,
-      setActiveNavigationPath,
       selectedType,
       persistActiveNavToLocal,
     ]
@@ -1139,7 +1116,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         if (k.startsWith('inbox-') && k !== 'inbox-all') {
           set.add(k.replace('inbox-', ''));
         }
-      } catch (e) {}
+      } catch {}
     });
     const fallbacks = ['all', 'forwarded', 'returned', 'redflagged', 'reenquiry'];
     if (set.size === 0) fallbacks.forEach(f => set.add(f));
@@ -1333,7 +1310,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                               const activeItemKey = normalizeNavKey(`inbox-${name}`);
                               setActiveItem(activeItemKey);
                               persistActiveNavToLocal(activeItemKey);
-                            } catch (e) {}
+                            } catch {}
                           }}
                         />
                       );
@@ -1386,7 +1363,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                       }
                     }
                   }
-                } catch (e) {
+                } catch {
                   // ignore any errors during active determination
                 }
 
@@ -1414,7 +1391,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                       try {
                         setActiveItem(normalizedKey);
                         persistActiveNavToLocal(normalizedKey);
-                      } catch (e) {}
+                      } catch {}
                     }}
                   />
                 );
@@ -1456,3 +1433,4 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     </>
   );
 });
+Sidebar.displayName = 'Sidebar';

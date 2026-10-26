@@ -66,7 +66,7 @@ export default function ChangePassword() {
       } else {
         setError(data.message || 'Failed to change password. Please try again.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);

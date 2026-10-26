@@ -81,32 +81,6 @@ export const TableSkeleton: React.FC<{ rows?: number; columns?: number }> = ({
   </div>
 );
 
-// Application Card Skeleton
-export const ApplicationCardSkeleton: React.FC = () => (
-  <div className="bg-white rounded-lg shadow p-6">
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-5 w-16" />
-      </div>
-      
-      {/* Content Lines */}
-      <div className="space-y-3">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-      </div>
-      
-      {/* Footer */}
-      <div className="flex justify-between items-center pt-4">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-8 w-20" />
-      </div>
-    </div>
-  </div>
-);
-
 // Application Detail Skeleton (Matches redesigned UI layout)
 export const ApplicationDetailSkeleton: React.FC = () => (
   <div className="flex-1 mt-[120px] p-6 pb-12 w-full">
@@ -286,14 +260,6 @@ export const DashboardStatsSkeleton: React.FC = () => (
         </div>
       </div>
     ))}
-  </div>
-);
-
-// Message Skeleton
-export const MessageSkeleton: React.FC = () => (
-  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
-    <Skeleton className="h-4 w-32 mb-2" />
-    <Skeleton className="h-4 w-48" />
   </div>
 );
 

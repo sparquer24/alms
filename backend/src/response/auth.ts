@@ -105,13 +105,3 @@ export class UserProfileResponse {
   };
 }
 
-export class ErrorResponse {
-  @ApiProperty({ description: 'Error status', example: false })
-  success!: false;
-
-  @ApiProperty({ description: 'Error message', example: 'Invalid credentials' })
-  message!: string;
-
-  @ApiProperty({ description: 'Detailed error information', required: false })
-  error?: string;
-}

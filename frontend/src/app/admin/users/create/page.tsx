@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { locationAPI, toSelectOptions } from '@/api/locationApi';
 import { AdminFormSkeleton } from '@/components/admin';
 
 const roles = ['Admin', 'User', 'Manager'];
@@ -13,16 +11,15 @@ const CreateUserPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState(roles[0]);
-  const [policeStationId, setPoliceStationId] = useState('');
-  const [stateId, setStateId] = useState('');
-  const [districtId, setDistrictId] = useState('');
-  const [zoneId, setZoneId] = useState('');
-  const [divisionId, setDivisionId] = useState('');
+  const [policeStationId] = useState('');
+  const [stateId] = useState('');
+  const [districtId] = useState('');
+  const [zoneId] = useState('');
+  const [divisionId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
     // Simulate initial page load

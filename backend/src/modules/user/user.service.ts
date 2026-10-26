@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import prisma from '../../db/prismaClient';
 import { ROLE_CODES } from '../../constants/auth';
 import { LocationsService } from '../locations/locations.service';
+import { invalidateAuthUser } from '../../middleware/auth.middleware';
 
 export interface CreateUserInput {
   username?: string;
@@ -243,31 +244,6 @@ export class UserService {
   }
 
   /**
-   * Update user password with proper hashing
-   * @param userId - User ID
-   * @param newPassword - New plain text password
-   * @returns Updated user
-   */
-  async updatePassword(userId: string, newPassword: string) {
-    if (!newPassword || typeof newPassword !== 'string') {
-      throw new Error('Password is required and must be a string.');
-    }
-
-    const hashedPassword = await this.hashPassword(newPassword);
-    
-    return await prisma.users.update({
-      where: { id: Number(userId) },
-      data: { password: hashedPassword },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        updatedAt: true,
-      },
-    });
-  }
-
-  /**
    * Update user fields including optional password change and locations
    */
   async updateUser(userId: string | number, data: Partial<CreateUserInput>) {
@@ -318,7 +294,7 @@ export class UserService {
     if (Object.keys(updateData).length === 0) {
       throw new Error('No valid fields provided for update');
     }
-    return await prisma.users.update({
+    const updated = await prisma.users.update({
       where: { id: Number(userId) },
       data: updateData,
       select: { id: true, username: true, email: true, phoneNo: true, role: {
@@ -341,6 +317,9 @@ export class UserService {
         }
       } }
     });
+    // Role and location are cached by the auth guard.
+    await invalidateAuthUser(Number(userId));
+    return updated;
   }
 
   /**
@@ -356,6 +335,7 @@ export class UserService {
     });
 
     await prisma.users.delete({ where: { id } });
+    await invalidateAuthUser(id);
 
     // Audit: Log user deletion
     try {

@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useEffect, useState } from 'react';
+import React, { forwardRef, useCallback, useImperativeHandle, useEffect, useRef, useState } from 'react';
 import { Input, TextArea } from '../../elements/Input';
 import { Select } from '../../elements/Select';
 import { FileUpload } from '../../elements/FileUpload';
@@ -90,7 +90,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     },
   }));
 
-  const loadWeapons = async () => {
+  const loadWeapons = useCallback(async () => {
     if (weapons.length > 0 || loadingWeapons) return;
     try {
       setLoadingWeapons(true);
@@ -106,18 +106,20 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     } finally {
       setLoadingWeapons(false);
     }
-  };
+  }, [weapons.length, loadingWeapons]);
 
   const selectedWeaponIds: number[] = Array.isArray(formData.requestedWeaponIds)
     ? formData.requestedWeaponIds
     : formData.weaponId
       ? [Number(formData.weaponId)].filter(id => !Number.isNaN(id))
       : [];
+  const weaponsRequested = useRef(false);
   useEffect(() => {
-    if (selectedWeaponIds.length > 0 && weapons.length === 0) {
+    if (selectedWeaponIds.length > 0 && weapons.length === 0 && !weaponsRequested.current) {
+      weaponsRequested.current = true;
       loadWeapons();
     }
-  }, [selectedWeaponIds, weapons.length, loadWeapons]);
+  }, [selectedWeaponIds.length, weapons.length, loadWeapons]);
   const specialEvidenceFiles: any[] = Array.isArray(formData.specialEvidenceFiles)
     ? formData.specialEvidenceFiles
     : formData.specialEvidenceUploaded

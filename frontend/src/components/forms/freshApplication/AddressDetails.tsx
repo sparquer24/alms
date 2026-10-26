@@ -96,7 +96,6 @@ const AddressDetails: React.FC = () => {
 		submitError,
 		submitSuccess,
 		isLoading,
-		handleChange: baseHandleChange,
 		saveFormData,
 		navigateToNext,
 		loadExistingData,

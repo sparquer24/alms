@@ -14,13 +14,11 @@ import {
   CreditCard,
   Fingerprint,
   FileCheck,
-  UserCog,
   BadgeCheck,
   Clock3,
   Shield,
   Target,
   ShieldCheck,
-  Crosshair,
   MapPin,
   LocateFixed,
   Package,
@@ -29,20 +27,16 @@ import {
   ClipboardCheck,
   Building2,
   ShieldAlert,
-  AlertTriangle,
   Users,
   TriangleAlert,
   FileWarning,
-  Calendar,
   Ban,
   Scale,
-  FileSearch,
   Building,
   Landmark,
   BriefcaseBusiness,
 } from 'lucide-react';
-import { formatGender, formatStatusLabel, formatApplicationType, formatDisplayDate, formatDisplayDateTime } from '@/utils/formatters';
-import { LazySection } from '@/components/LazySection';
+import { formatGender, formatApplicationType, formatDisplayDate, formatDisplayDateTime } from '@/utils/formatters';
 import { ApplicationHistoryCards } from './ApplicationHistoryCards';
 
 export function ApplicationDetailsView({ application, hideLicenseDetails }: { application: any, hideLicenseDetails?: boolean }) {

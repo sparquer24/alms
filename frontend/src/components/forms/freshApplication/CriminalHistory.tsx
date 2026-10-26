@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '../elements/Input';
 import FormFooter from '../elements/footer';
 import { FormSkeleton } from '../elements/FormSkeleton';
@@ -291,11 +291,8 @@ const CriminalHistory = () => {
 	};
 
 	// Compute form validity from transformed data using centralized validation
-	const isFormValid = useMemo(() => {
-		const transformed = { criminalHistories: getTransformedHistory() };
-		const errs = validateCriminalHistory(transformed);
-		return Object.keys(errs).length === 0;
-	}, [convicted, provisions, bond, bondDetails, prohibited, prohibitedDetails]);
+	const isFormValid =
+		Object.keys(validateCriminalHistory({ criminalHistories: getTransformedHistory() })).length === 0;
 
 	const handleSaveToDraft = async () => {
 		const criminalHistories = getTransformedHistory();

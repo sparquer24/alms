@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Shield,
   CheckCircle2,
-  AlertCircle,
   Search,
   RefreshCw,
   ChevronLeft,
@@ -14,7 +12,6 @@ import {
   Lock,
   Eye,
 } from 'lucide-react';
-import { format } from 'date-fns';
 import { analyticsService, ApplicationRecord } from '@/services/analyticsService';
 import { RecordInspectionModal, InspectionTarget } from './RecordInspectionModal';
 
@@ -26,7 +23,7 @@ export const BiometricComplianceTable: React.FC<BiometricComplianceTableProps> =
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [bioFilter, setBioFilter] = useState<'ALL' | 'VERIFIED' | 'PENDING'>('ALL');
   const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(10);
+  const [limit] = useState<number>(10);
   const [selectedRecord, setSelectedRecord] = useState<InspectionTarget | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<ApplicationRecord[]>([]);

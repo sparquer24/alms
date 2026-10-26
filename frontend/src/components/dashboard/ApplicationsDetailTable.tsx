@@ -136,25 +136,6 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
     analyticsService.exportToCSV(exportData, `Applications_Data_${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
-  const handleExportExcel = async () => {
-    if (!data || data.length === 0) return;
-    const exportData = data.map((item, idx) => ({
-      'S.No': (page - 1) * limit + (idx + 1),
-      'Application ID': item.applicationId,
-      'License / Ack Number': item.licenseId || `APP-${item.applicationId}`,
-      'Applicant Name': item.applicantName || 'N/A',
-      'Application Type': item.applicationType || 'FRESH',
-      'Workflow Status': item.status || 'PENDING',
-      'Reviewing Officer': item.currentUser?.name || 'In Queue',
-      'Days in Review': item.daysTillToday ?? 0,
-      'Last Updated': item.actionTakenAt ? format(new Date(item.actionTakenAt), 'yyyy-MM-dd HH:mm') : 'N/A',
-    }));
-    try {
-      await analyticsService.exportToExcel(exportData, `Applications_Data_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    } catch (err) {
-      handleExportCSV();
-    }
-  };
 
   return (
     <div className={`w-full bg-white ${embedded ? '' : 'rounded-2xl border border-gray-200/80 shadow-sm p-5 sm:p-6'}`}>

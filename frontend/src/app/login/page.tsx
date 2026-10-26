@@ -231,7 +231,6 @@ export const dynamic = 'force-dynamic';
 function LoginContent() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isNavigating, setIsNavigating] = useState(false);
 
   const isAuthLoading = useSelector(selectAuthLoading);
@@ -304,7 +303,7 @@ function LoginContent() {
           const redirectPath = getRoleBasedRedirectPath(normalizedRole);
           try {
             sessionStorage.setItem('loginRedirectApplied', 'true');
-          } catch (e) {}
+          } catch {}
           // For admin/superAdmin routes, use a full navigation so the Next.js middleware
           // can verify the JWT in the edge runtime.
           if (redirectPath.startsWith('/admin') || redirectPath.startsWith('/superAdmin')) {

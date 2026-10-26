@@ -44,24 +44,17 @@ export default function SettingsPage() {
     try {
       const u = getUserFromCookie();
       setCookieUser(u);
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[SettingsPage] cookieUser loaded:', u);
-      }
-    } catch (e) {
+    } catch {
       setCookieUser(null);
     }
   }, []);
 
-  if (process.env.NODE_ENV === 'development') {
-    console.debug('[SettingsPage] authLoading:', authLoading, 'isAuthenticated:', isAuthenticated);
-  }
 
   const { user } = useAuth();
   const currentUser = useMemo(() => user ?? cookieUser, [user, cookieUser]);
   const roleData = useMemo(() => currentUser?.role ?? {}, [currentUser]);
   const location = useMemo(() => currentUser?.location ?? currentUser?.state ?? {}, [currentUser]);
 
-  console.log({ currentUser, roleData, location });
 
   // Pretty helpers
   const toTitleCase = (txt: string) =>

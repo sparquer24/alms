@@ -20,8 +20,7 @@ interface ConfirmationDialogProps {
 }
 
 const getTypeStyles = (
-  type: string,
-  colors: any
+  type: string
 ): {
   backgroundColor: string;
   iconColor: string;
@@ -65,13 +64,13 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
   if (!isOpen || !config) return null;
 
-  const typeStyles = getTypeStyles(config.type, colors);
+  const typeStyles = getTypeStyles(config.type);
 
   const handleConfirm = async () => {
     try {
       await config.onConfirm();
       onClose();
-    } catch (error) {
+    } catch {
       // Error handling in parent component
     }
   };

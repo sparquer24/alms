@@ -88,7 +88,6 @@ export default function SubmitCancelForm() {
   const [loading, setLoading] = useState(false);
   // Set once the request exists, so a retry only re-uploads documents that failed.
   const [createdRequestId, setCreatedRequestId] = useState<number | null>(null);
-  const [isVerified, setIsVerified] = useState(false);
   const [verificationChecking, setVerificationChecking] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'>('ENTER_APP_ID');
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -108,12 +107,10 @@ export default function SubmitCancelForm() {
   // Mantra fingerprint capture states
   const [mantraSDKReady, setMantraSDKReady] = useState(false);
   const [deviceConnected, setDeviceConnected] = useState(false);
-  const [deviceChecking, setDeviceChecking] = useState(false);
   const [fingerprintCapturing, setFingerprintCapturing] = useState(false);
   const [showFingerprintPreviewModal, setShowFingerprintPreviewModal] = useState(false);
   const [pendingCaptureResult, setPendingCaptureResult] = useState<any | null>(null);
   const [fingerprintPreviewImage, setFingerprintPreviewImage] = useState<string | null>(null);
-  const [capturingStep, setCapturingStep] = useState<string>('');
 
   const [formData, setFormData] = useState({
     licenseId: urlLicenseId,
@@ -261,7 +258,6 @@ export default function SubmitCancelForm() {
 
   const checkDeviceConnection = async () => {
     try {
-      setDeviceChecking(true);
       const initialized = await MantraSDKService.initialize();
       setMantraSDKReady(initialized);
       if (initialized) {
@@ -272,8 +268,6 @@ export default function SubmitCancelForm() {
       }
     } catch {
       setDeviceConnected(false);
-    } finally {
-      setDeviceChecking(false);
     }
   };
 
@@ -366,7 +360,6 @@ export default function SubmitCancelForm() {
         setVerificationStatus('VERIFYING_BIOMETRICS');
         checkDeviceConnection();
       } else {
-        setIsVerified(true);
         setVerificationStatus('VERIFIED');
       }
     } catch (err: any) {
@@ -390,7 +383,6 @@ export default function SubmitCancelForm() {
         return;
       }
 
-      setCapturingStep('Place your thumb on the scanner...');
       const captureResult = await MantraSDKService.captureFinger(60, 10000);
       if (!captureResult.success) {
         setVerificationError(`Fingerprint capture failed: ${captureResult.errorMessage}`);
@@ -398,7 +390,6 @@ export default function SubmitCancelForm() {
         return;
       }
 
-      setCapturingStep('Processing fingerprint...');
       try {
         let previewImage: string | null = captureResult.bitmapData || null;
         if (!previewImage) {
@@ -411,7 +402,7 @@ export default function SubmitCancelForm() {
           setFingerprintPreviewImage(null);
         }
         setShowFingerprintPreviewModal(true);
-      } catch (imageError) {
+      } catch {
         setPendingCaptureResult(captureResult);
         setFingerprintPreviewImage(null);
         setShowFingerprintPreviewModal(true);
@@ -420,7 +411,6 @@ export default function SubmitCancelForm() {
       setVerificationError(err?.message || 'Biometric verification failed.');
     } finally {
       setFingerprintCapturing(false);
-      setCapturingStep('');
     }
   };
 
@@ -439,7 +429,7 @@ export default function SubmitCancelForm() {
 
       for (const storedFp of enrolledTemplates) {
         try {
-          const matchResult = await MantraSDKService.verifyTemplate(storedFp.template, liveTemplate, 65);
+          const matchResult = await MantraSDKService.verifyTemplate(storedFp.template, liveTemplate);
           if (matchResult.isMatch || matchResult.score >= 65) {
             matchFound = true;
             break;
@@ -455,7 +445,6 @@ export default function SubmitCancelForm() {
 
       if (matchFound) {
         toast.success('Biometric verification successful!');
-        setIsVerified(true);
         setVerificationStatus('VERIFIED');
       } else {
         setVerificationError('Verification failed: Scanned fingerprint does not match. Please try again.');

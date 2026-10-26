@@ -72,7 +72,7 @@ export default function PermissionDetailPage() {
                 ))}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                To change which roles have this permission, use Role Management's permission matrix for that role.
+                To change which roles have this permission, use Role Management&apos;s permission matrix for that role.
               </p>
             </div>
           </div>

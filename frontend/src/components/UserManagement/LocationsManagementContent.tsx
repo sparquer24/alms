@@ -13,11 +13,8 @@ import {
 } from '@/components/common/PageSubHeader';
 import {
   AdminCard,
-  AdminTable,
-  AdminToolbar,
   AdminTableSkeleton,
   AdminErrorAlert,
-  AdminSectionSkeleton,
 } from '@/components/admin';
 import { AdminDataTable } from '@/components/tables/AdminDataTable';
 import { useAdminTheme } from '@/context/AdminThemeContext';
@@ -35,7 +32,7 @@ interface Location {
   updatedAt: string;
 }
 
-interface State extends Location {}
+type State = Location;
 interface District extends Location {
   stateId: number;
 }
@@ -393,7 +390,6 @@ export default function LocationsManagementContent() {
     data: allItems = [],
     isLoading,
     error,
-    refetch,
   } = useQuery<LocationEntity[]>({
     queryKey: [`locations-${currentLevel}`, parentId, userStateId],
     queryFn: async () => {
@@ -551,14 +547,6 @@ export default function LocationsManagementContent() {
     setShowModal(true);
   };
 
-  // Handle delete
-  const handleDelete = (id: number) => {
-    if (
-      window.confirm(`Are you sure you want to delete this ${levelConfig.singular.toLowerCase()}?`)
-    ) {
-      deleteMutation.mutate(id);
-    }
-  };
 
   // Handle navigation to child level
   const handleNavigateToChild = (item: LocationEntity) => {
@@ -760,9 +748,9 @@ export default function LocationsManagementContent() {
           </h3>
           {(searchQuery || items.length > 0) && (
             <span style={{ fontSize: '12px', color: colors.text.secondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-              {searchQuery && items.length > 0 && <span>Found {items.length} result{items.length !== 1 ? 's' : ''} for "{searchQuery}" • </span>}
+              {searchQuery && items.length > 0 && <span>Found {items.length} result{items.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot; • </span>}
               {items.length > 0 && <span>Showing {Math.min((currentPage - 1) * itemsPerPage + 1, items.length)} - {Math.min(currentPage * itemsPerPage, items.length)} of {items.length}</span>}
-              {searchQuery && items.length === 0 && <span>No results found for "{searchQuery}"</span>}
+              {searchQuery && items.length === 0 && <span>No results found for &quot;{searchQuery}&quot;</span>}
             </span>
           )}
         </div>

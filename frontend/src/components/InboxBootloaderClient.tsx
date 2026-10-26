@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { useDispatch } from 'react-redux';
 import { useInbox } from '../context/InboxContext';
@@ -28,7 +28,7 @@ export default function InboxBootloaderClient({
         void loadType(normalized).catch(() => {});
         if (onTableReload) onTableReload(normalized);
       }
-    } catch (err) {
+    } catch {
       // ignore
     }
     // intentionally only run on mount/url change

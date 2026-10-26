@@ -59,7 +59,7 @@ const fetchRenewalApplications = async (submittedOnly: boolean): Promise<Applica
         submittedOnly ? application?.isSubmit === true : application?.isSubmit === false
       )
       .map((application: any) => normalizeRenewalApplication(application, submittedOnly));
-  } catch (error) {
+  } catch {
     return [];
   }
 };

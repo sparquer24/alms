@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, MessageSquare, Paperclip, ArrowRight, User, Clock } from 'lucide-react';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
+import { openAttachment } from '@/utils/attachmentViewer';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,9 @@ const HistoryCard: React.FC<{ item: any }> = ({ item }) => {
     item.remarks !== 'No remarks provided.';
   const hasAttachments =
     Array.isArray(item.attachments) && item.attachments.length > 0;
-  const canExpand = hasRemarks || hasAttachments;
+  // System-generated text, kept apart from the officer's own remarks.
+  const systemNote = typeof item.systemNote === 'string' ? item.systemNote.trim() : '';
+  const canExpand = hasRemarks || hasAttachments || !!systemNote;
 
   return (
     <div className="relative flex gap-4 z-10">
@@ -178,12 +181,18 @@ const HistoryCard: React.FC<{ item: any }> = ({ item }) => {
             {/* Expanded panel: remarks + attachments */}
             {expanded && canExpand && (
               <div className="mt-3 space-y-3">
+                {systemNote && (
+                  <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                    <span className="font-semibold uppercase tracking-wide">System</span> · {systemNote}
+                  </p>
+                )}
+
                 {/* Remarks (may be TipTap HTML) */}
                 {hasRemarks && (
                   <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
                     <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-sm mb-2">
                       <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Remarks</span>
+                      <span>Officer remarks{actorRole ? ` (${actorRole})` : ''}</span>
                     </div>
                     <div className="text-slate-700 text-sm leading-relaxed">
                       <RichTextDisplay content={item.remarks} />
@@ -201,11 +210,11 @@ const HistoryCard: React.FC<{ item: any }> = ({ item }) => {
                     <ul className="space-y-1.5">
                       {item.attachments.map((att: any, i: number) => (
                         <li key={i}>
-                          <a
-                            href={att.url || att.fileUrl || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          {/* Stored as data: URLs or auth-protected paths, which a plain link opens blank. */}
+                          <button
+                            type="button"
+                            onClick={() => openAttachment(att)}
+                            className="flex w-full items-center gap-2 text-left text-sm text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             <Paperclip className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">
@@ -214,7 +223,7 @@ const HistoryCard: React.FC<{ item: any }> = ({ item }) => {
                             {att.type && (
                               <span className="text-xs text-slate-400 uppercase">{att.type}</span>
                             )}
-                          </a>
+                          </button>
                         </li>
                       ))}
                     </ul>

@@ -37,7 +37,7 @@ const Declaration = () => {
         const data = resp?.data || resp;
         const licenseId = data?.almsLicenseId ?? data?.alms_license_id ?? data?.licenseId ?? null;
         if (licenseId) setAlmsLicenseId(licenseId);
-      } catch (err) {
+      } catch {
         // ignore
       }
     };
@@ -86,7 +86,7 @@ const Declaration = () => {
         isAwareOfLegalConsequences: form.declareFalseInfo,
         isTermsAccepted: form.declareTerms,
       };
-      const response = await patchData(
+      await patchData(
         `/application-form?applicationId=${applicantId}&isSubmit=true`,
         payload
       );

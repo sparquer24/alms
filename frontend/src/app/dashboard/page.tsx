@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
 import {
   Shield,
   FileText,
@@ -13,12 +12,9 @@ import {
   TrendingUp,
   RefreshCw,
   Search,
-  Users,
   Target,
-  Trees,
   Activity,
   Layers,
-  Printer,
   X,
   ArrowRight,
   MousePointerClick,
@@ -67,8 +63,6 @@ import {
 } from '@/components/common/PageSubHeader';
 import {
   publicDashboardService,
-  PublicDashboardData,
-  SummaryKPIs,
 } from '@/services/publicDashboardService';
 import { analyticsService } from '@/services/analyticsService';
 
@@ -76,7 +70,6 @@ import {
   DashboardCardDetailModal,
   CardModalConfig,
   CardCategoryType,
-  DashboardDrillDownSection,
   DrillDownTab,
   DashboardFullSkeleton,
   DashboardSidebarSkeleton,
@@ -138,15 +131,15 @@ function DashboardMain({ children }: { children: React.ReactNode }) {
 }
 
 export default function UniversalDashboard() {
-  const { user, userRole, userName, token, isLoading: authLoading, initialized: authInitialized } = useAuth();
+  const { userRole, token, isLoading: authLoading, initialized: authInitialized } = useAuth();
   const router = useRouter();
 
 
   const [mounted, setMounted] = useState<boolean>(false);
   const [authCheckedState, setAuthChecked] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [timeRange, setTimeRange] = useState<string>('all');
-  const [appTypeFilter, setAppTypeFilter] = useState<string>('all');
+  const [timeRange] = useState<string>('all');
+  const [appTypeFilter] = useState<string>('all');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
 
   // Search & Lookup State
@@ -171,7 +164,6 @@ export default function UniversalDashboard() {
   });
 
   // Active in-page drill-down tab
-  const [activeDrillTab, setActiveDrillTab] = useState<DrillDownTab>('applications_all');
 
   // ── Enhancement section data — cached via React Query, fetched once per
   // authChecked session and served from cache on revisits within staleTime ──
@@ -190,7 +182,6 @@ export default function UniversalDashboard() {
     }
   ) => {
     if (opts?.drillTab) {
-      setActiveDrillTab(opts.drillTab);
       if (typeof window !== 'undefined') {
         const el = document.getElementById('dashboard-drilldown-section');
         if (el) {
@@ -425,18 +416,13 @@ export default function UniversalDashboard() {
       } else {
         setLookupError('No matching application found. Please verify the Application ID or Acknowledgement Number.');
       }
-    } catch (err) {
+    } catch {
       setLookupError('Unable to fetch status. Please try again.');
     } finally {
       setLookupLoading(false);
     }
   };
 
-  const handlePrint = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
-  };
 
   const trendDiff = useMemo(() => {
     if (!data?.trend || data.trend.length < 2) return null;

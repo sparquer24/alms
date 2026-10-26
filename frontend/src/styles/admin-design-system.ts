@@ -63,77 +63,6 @@ export const AdminSpacing = {
     '5xl': '48px',
 };
 
-// Typography
-export const AdminTypography = {
-    // Headings
-    h1: {
-        fontSize: '28px',
-        fontWeight: 700,
-        lineHeight: '36px',
-        letterSpacing: '-0.5px',
-    },
-    h2: {
-        fontSize: '24px',
-        fontWeight: 700,
-        lineHeight: '32px',
-        letterSpacing: '-0.25px',
-    },
-    h3: {
-        fontSize: '20px',
-        fontWeight: 600,
-        lineHeight: '28px',
-        letterSpacing: '0px',
-    },
-    h4: {
-        fontSize: '16px',
-        fontWeight: 600,
-        lineHeight: '24px',
-        letterSpacing: '0px',
-    },
-
-    // Body
-    body: {
-        lg: {
-            fontSize: '16px',
-            fontWeight: 400,
-            lineHeight: '24px',
-            letterSpacing: '0px',
-        },
-        md: {
-            fontSize: '14px',
-            fontWeight: 400,
-            lineHeight: '20px',
-            letterSpacing: '0px',
-        },
-        sm: {
-            fontSize: '12px',
-            fontWeight: 400,
-            lineHeight: '16px',
-            letterSpacing: '0px',
-        },
-        xs: {
-            fontSize: '11px',
-            fontWeight: 400,
-            lineHeight: '14px',
-            letterSpacing: '0.5px',
-        },
-    },
-
-    // Labels & Captions
-    label: {
-        fontSize: '14px',
-        fontWeight: 500,
-        lineHeight: '20px',
-        letterSpacing: '0px',
-    },
-    caption: {
-        fontSize: '12px',
-        fontWeight: 500,
-        lineHeight: '16px',
-        letterSpacing: '0px',
-    },
-};
-
 // Border Radius
 export const AdminBorderRadius = {
     none: '0px',
@@ -183,23 +112,6 @@ export const AdminComponentSizes = {
         headerHeight: '48px',
         cellPadding: '12px 16px',
     },
-};
-
-// Breakpoints
-export const AdminBreakpoints = {
-    xs: '320px',
-    sm: '640px',
-    md: '768px',
-    lg: '1024px',
-    xl: '1280px',
-    '2xl': '1536px',
-};
-
-// Transition/Animation
-export const AdminTransitions = {
-    fast: '150ms cubic-bezier(0.4, 0, 0.2, 1)',
-    base: '250ms cubic-bezier(0.4, 0, 0.2, 1)',
-    slow: '350ms cubic-bezier(0.4, 0, 0.2, 1)',
 };
 
 // Z-Index Scale
@@ -265,8 +177,3 @@ export const AdminFilters = {
     borderRadius: AdminBorderRadius.md,
 };
 
-// Default Theme (Light)
-export const AdminThemeDefaults = {
-    mode: 'light' as const,
-    colors: AdminColors.light,
-};

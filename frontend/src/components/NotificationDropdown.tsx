@@ -33,6 +33,7 @@ const NotificationItem = memo(({ notification, onOpen, formatDate }: { notificat
     </div>
   </li>
 ));
+NotificationItem.displayName = 'NotificationItem';
 
 const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => {
   const { notifications, markAsRead, markAllAsRead } = useNotifications();

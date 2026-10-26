@@ -88,14 +88,6 @@ export const getDocumentTypeConfig = (displayName: string): DocumentTypeMapping 
 };
 
 /**
- * Get all document types as array
- * @returns Array of all document type configurations
- */
-export const getAllDocumentTypes = (): DocumentTypeMapping[] => {
-  return Object.values(DOCUMENT_TYPE_MAPPING);
-};
-
-/**
  * Validate file against document type constraints
  * @param file - The file to validate
  * @param displayName - The document type display name

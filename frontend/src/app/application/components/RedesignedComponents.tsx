@@ -143,12 +143,20 @@ export function SummaryCard({
       application?.renewalFileUploads ||
       application?.uploads ||
       [];
-    const photoFile = files.find(
-      (f: any) => String(f?.fileType || f?.type || '').toUpperCase() === 'PHOTOGRAPH'
-    );
-    if (photoFile) {
-      displayPhotoUrl = photoFile.fileUrl || photoFile.url || photoFile.path;
-    }
+    // Same fallbacks the fresh/renewal detail pages normalise the photo with.
+    const urlOf = (f: any) => f?.fileUrl || f?.url || f?.path;
+    const photoFile =
+      files.find((f: any) => String(f?.fileType || f?.type || '').toUpperCase().includes('PHOTOGRAPH') && urlOf(f)) ||
+      files.find((f: any) => {
+        const name = String(f?.fileName || f?.name || '');
+        // Name-only match must still be an image, so a scanned passport.pdf is never shown as the photo.
+        return /(photo|photograph|passport)/i.test(name) && /\.(png|jpe?g|gif|webp)$/i.test(name) && urlOf(f);
+      });
+    const bio = application?.biometricData?.biometricData || application?.biometricData;
+    displayPhotoUrl =
+      (photoFile && urlOf(photoFile)) ||
+      application?.photograph ||
+      (typeof bio?.photo?.url === 'string' ? bio.photo.url : undefined);
   }
 
   return (

@@ -52,22 +52,18 @@ export class CancelFormController {
     @Body() dto: CreateCancelRequestDto,
     @Request() req: any,
   ) {
-    try {
-      const userId = req.user?.sub || req.user?.userId || req.user?.id;
-      if (!userId) {
-        throw new ForbiddenException('User not authenticated.');
-      }
-      const roleId = req.user?.roleId || req.user?.role?.id || null;
-
-      const result = await this.cancelFormService.createCancelRequest(dto, userId, roleId);
-      return {
-        success: true,
-        message: 'Cancel request submitted successfully',
-        data: result,
-      };
-    } catch (error: any) {
-      throw error;
+    const userId = req.user?.sub || req.user?.userId || req.user?.id;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated.');
     }
+    const roleId = req.user?.roleId || req.user?.role?.id || null;
+
+    const result = await this.cancelFormService.createCancelRequest(dto, userId, roleId);
+    return {
+      success: true,
+      message: 'Cancel request submitted successfully',
+      data: result,
+    };
   }
 
   /**
@@ -126,35 +122,31 @@ export class CancelFormController {
     @Query('licenseId') licenseId?: number,
     @Request() req?: any,
   ) {
-    try {
-      const user = req?.user;
-      const stateId = user?.stateId ? Number(user.stateId) : (user?.state_id ? Number(user.state_id) : undefined);
-      const roleCode = user?.roleCode || (typeof user?.role === 'string' ? user.role : user?.role?.code);
+    const user = req?.user;
+    const stateId = user?.stateId ? Number(user.stateId) : (user?.state_id ? Number(user.state_id) : undefined);
+    const roleCode = user?.roleCode || (typeof user?.role === 'string' ? user.role : user?.role?.code);
 
-      const result = await this.cancelFormService.getCancelRequests({
-        page: page ? Number(page) : undefined,
-        limit: limit ? Number(limit) : undefined,
-        requestedBy: requestedBy ? Number(requestedBy) : undefined,
-        licenseId: licenseId ? Number(licenseId) : undefined,
-        status: status || undefined,
-        stateId,
-        roleCode,
-      });
+    const result = await this.cancelFormService.getCancelRequests({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      requestedBy: requestedBy ? Number(requestedBy) : undefined,
+      licenseId: licenseId ? Number(licenseId) : undefined,
+      status: status || undefined,
+      stateId,
+      roleCode,
+    });
 
-      return {
-        success: true,
-        message: 'Cancel requests retrieved successfully',
-        data: result.data,
-        pagination: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-          totalPages: Math.ceil(result.total / result.limit),
-        },
-      };
-    } catch (error: any) {
-      throw error;
-    }
+    return {
+      success: true,
+      message: 'Cancel requests retrieved successfully',
+      data: result.data,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+    };
   }
 
   /**
@@ -195,16 +187,12 @@ export class CancelFormController {
   @ApiResponse({ status: 404, description: 'Cancel request not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async getCancelRequestById(@Param('id', ParseIntPipe) id: number) {
-    try {
-      const result = await this.cancelFormService.getCancelRequestById(id);
-      return {
-        success: true,
-        message: 'Cancel request retrieved successfully',
-        data: result,
-      };
-    } catch (error: any) {
-      throw error;
-    }
+    const result = await this.cancelFormService.getCancelRequestById(id);
+    return {
+      success: true,
+      message: 'Cancel request retrieved successfully',
+      data: result,
+    };
   }
 
   /**

@@ -14,6 +14,7 @@ import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
 
 import { ApplicationData } from '../types';
+import { isRoleIn } from '../utils/roleUtils';
 
 // Approval rule for the application (GET /approval-rules/application): who
 // makes the final decision here, and whether they approve or only recommend.
@@ -196,20 +197,16 @@ export default function ProceedingsForm({
   const [actionsLoading, setActionsLoading] = useState<boolean>(true);
   const [actionsError, setActionsError] = useState<string | null>(null);
   const [selectedAction, setSelectedAction] = useState<ActionOption | null>(null);
-  // Legacy derived string (for conditional UI messages)
-  const actionType = selectedAction?.code?.toLowerCase() || '';
 
   const [nextUser, setNextUser] = useState<UserOption | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [remarks, setRemarks] = useState('');
-  const [remarksVisible, setRemarksVisible] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftLetter, setDraftLetter] = useState('');
-  const [showProceedingsForm, setShowProceedingsForm] = useState(true);
   const [showGroundReportEditor, setShowGroundReportEditor] = useState(false);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
@@ -227,7 +224,6 @@ export default function ProceedingsForm({
   const remarksRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useRef<HTMLDivElement | null>(null);
   const nextUserRef = useRef<HTMLDivElement | null>(null);
-  const formContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Track missing fields to show inline messages
   const [missingFields, setMissingFields] = useState<Record<string, string>>({});
@@ -279,6 +275,8 @@ export default function ProceedingsForm({
   }, [applicationId, workflowApplicationType]);
 
   const currentRole = roleFromCookie || userRole;
+  // Only the deciding ranks see who makes the final decision on this application.
+  const showApprovalRule = isRoleIn(currentRole, ['CP', 'DCP']);
 
   const currentZSUserOption = useMemo(() => {
     try {
@@ -292,7 +290,7 @@ export default function ProceedingsForm({
           };
         }
       }
-    } catch (e) {}
+    } catch {}
     return null;
   }, [currentRole]);
 
@@ -323,14 +321,7 @@ export default function ProceedingsForm({
         try {
           const cookieAuth = getCookie('auth');
           if (cookieAuth) setAuthToken(cookieAuth);
-          if (process.env.NODE_ENV !== 'production') {
-            try {
-              const t = String(cookieAuth || '');
-              const masked = t.length > 8 ? `${t.slice(0, 4)}...${t.slice(-4)}` : t;
-               
-            } catch (e) {}
-          }
-        } catch (e) {}
+        } catch {}
 
         // Build query params: always include applicationType for role-scoped action filtering
         const actionParams = new URLSearchParams();
@@ -400,7 +391,7 @@ export default function ProceedingsForm({
       const cookieVal = getCookie('role') as any;
       const str = cookieVal == null ? null : String(cookieVal).trim().toUpperCase();
       setRoleFromCookie(str);
-    } catch (e) {
+    } catch {
       // ignore cookie read errors; role remains null
     }
   }, []);
@@ -522,7 +513,7 @@ export default function ProceedingsForm({
           url: `data:application/pdf;base64,${base64Pdf}`,
         });
         payload.isGroundReportGenerated = true;
-      } catch (err) {
+      } catch {
         // Fallback: send as HTML if DOC generation fails
         const base64Html = btoa(unescape(encodeURIComponent(draftLetter.trim())));
         payload.attachments.push({
@@ -560,7 +551,7 @@ export default function ProceedingsForm({
             url: dataUrl,
           });
         });
-      } catch (err) {
+      } catch {
         setError(
           'Could not read one of the selected attachments. Remove it and select the file again, then submit.'
         );
@@ -673,7 +664,7 @@ export default function ProceedingsForm({
       window.open(url, '_blank', 'noopener');
       // Revoke after a short delay to allow the new tab to load
       setTimeout(() => URL.revokeObjectURL(url), 10000);
-    } catch (e) {
+    } catch {
       setError('Unable to open file preview.');
     }
   };
@@ -720,29 +711,7 @@ export default function ProceedingsForm({
     return text;
   };
 
-  const formatContentForExport = (content: string) => {
-    // Check if content is already HTML (contains HTML tags)
-    const isHtml = /<[^>]*>/.test(content);
-
-    if (isHtml) {
-      // Already HTML from Tiptap - convert to plain text then re-format for display
-      const plainText = htmlToPlainText(content);
-      return plainText
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/__(.*)__/g, '<u>$1</u>')
-        .replace(/\n/g, '<br/>');
-    } else {
-      // Markdown-style content - convert to HTML
-      return content
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/__(.*)__/g, '<u>$1</u>')
-        .replace(/\n/g, '<br/>');
-    }
-  };
-
-  const downloadAsPDF = async (content: string, filename: string) => {
+  const downloadAsPDF = async (content: string) => {
     try {
       // Create a new window for printing
       const printWindow = window.open('', '_blank');
@@ -890,30 +859,14 @@ export default function ProceedingsForm({
       };
 
       setSuccess('PDF download initiated - please check your downloads folder');
-    } catch (error) {
+    } catch {
       setError('Failed to generate PDF. Please try again.');
     }
   };
 
   const downloadAsWord = (content: string, filename: string) => {
     try {
-      // Create proper Office Open XML format for Word
-      const htmlContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
-            xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
-            xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
-            xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing">
-<w:body>
-<w:sectPr>
-<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
-<w:pgSz w:w="12240" w:h="15840"/>
-</w:sectPr>
-</w:body>
-</w:document>`;
-
-      // Alternative: Use a simpler, more compatible HTML format
+      // A simple HTML document, which Word opens as a .doc
       const simpleHtmlContent = `<!DOCTYPE html>
 <html>
 <head>
@@ -1021,7 +974,7 @@ ${content}
       a.click();
       URL.revokeObjectURL(url);
       setSuccess('Word document downloaded successfully!');
-    } catch (error) {
+    } catch {
       setError('Failed to generate Word document. Please try again.');
     }
   };
@@ -1111,13 +1064,11 @@ ${content}
 
     switch (format) {
       case 'pdf':
-        downloadAsPDF(draftLetter, baseFilename);
+        downloadAsPDF(draftLetter);
         break;
       case 'word':
         downloadAsWord(draftLetter, baseFilename);
         break;
-      case 'txt':
-        // Strip all formatting and HTML tags for plain text
       default:
         setError('Unsupported download format');
     }
@@ -1281,7 +1232,7 @@ ${content}
                     }}
                   />
                 </div>
-                {approvalRule && (
+                {approvalRule && showApprovalRule && (
                   <p
                     className={`mt-1 rounded-md border px-2 py-1 text-xs ${
                       approvalRule.decision === 'RECOMMEND'

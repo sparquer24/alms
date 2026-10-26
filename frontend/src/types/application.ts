@@ -1,10 +1,3 @@
-export interface ApplicationQueryParams {
-  statusIds?: string[];
-  page?: number;
-  limit?: number;
-  search?: string;
-  isSent?: boolean;
-}
 
 export interface Application {
   id: string;

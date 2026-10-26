@@ -59,11 +59,4 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       return false;
     }
   }
-
-  // Clean up connections on errors
-  async enableShutdownHooks() {
-    process.on('beforeExit', async () => {
-      await this.$disconnect();
-    });
-  }
 }

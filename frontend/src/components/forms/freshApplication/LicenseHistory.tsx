@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Input, TextArea } from '../elements/Input';
-import { Checkbox } from '../elements/Checkbox';
 import { Select } from '../elements/Select';
 import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
@@ -103,7 +102,6 @@ const LicenseHistory = () => {
 		saveFormData,
 		navigateToNext,
 		loadExistingData,
-		setSubmitError,
 		setSubmitSuccess,
 		fieldErrors,
 		setFieldErrors,
@@ -216,7 +214,7 @@ const LicenseHistory = () => {
 				const list = await WeaponsService.getAll();
 				const items = (list || []).map(w => ({ id: w.id, name: w.name })) as Weapon[];
 				setWeapons(items);
-			} catch (e) {
+			} catch {
 				// Fallback weapons if API fails
 				setWeapons([
 					{ id: 1, name: 'Pistol' },
@@ -368,7 +366,7 @@ const LicenseHistory = () => {
 				setFileError(`Failed to upload ${failed.length} file(s). Please try again.`);
 			}
 
-		} catch (error) {
+		} catch {
 			setFileError('Failed to upload files. Please try again.');
 		} finally {
 			setUploading(false);
@@ -384,7 +382,7 @@ const LicenseHistory = () => {
 			if (uploadedFile?.id) {
 				try {
 					await FileUploadService.deleteFile(uploadedFile.id);
-				} catch (error) {
+				} catch {
 					setFileError('Failed to delete file from server. Please try again.');
 					return;
 				}

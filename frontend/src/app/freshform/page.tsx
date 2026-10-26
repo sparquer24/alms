@@ -7,7 +7,7 @@ import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useLayout } from '../../config/layoutContext';
 import { useAuth } from '@/hooks/useAuth';
-import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { filterApplications, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
 import { PageSubHeader, SubHeaderSearch, SubHeaderButton } from '@/components/common/PageSubHeader';
@@ -25,8 +25,8 @@ export const dynamic = 'force-dynamic';
 // Component that uses useSearchParams - needs to be wrapped in Suspense
 function FreshFormContent() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate] = useState('');
+  const [endDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -64,7 +64,7 @@ function FreshFormContent() {
         // Fetch freshform applications using the utility function
         const fetchedApplications = await fetchApplicationsByStatusKey('freshform');
         setApplications(fetchedApplications);
-      } catch (error) {
+      } catch {
         setApplications([]);
       } finally {
         setIsLoading(false);
@@ -90,20 +90,8 @@ function FreshFormContent() {
     setShowSidebar(true);
   }, [setShowHeader, setShowSidebar]);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
 
-  const handleDateFilter = (start: string, end: string) => {
-    setStartDate(start);
-    setEndDate(end);
-  };
 
-  const handleReset = () => {
-    setSearchQuery('');
-    setStartDate('');
-    setEndDate('');
-  };
   // Filter applications based on freshform and search/date filters
   const filteredApplications = filterApplications(
     applications,

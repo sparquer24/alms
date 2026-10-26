@@ -7,11 +7,9 @@ import Link from 'next/link';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import Footer from '../../../components/Footer';
-import { PageSubHeader, SubHeaderButton } from '@/components/common/PageSubHeader';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 import { useLayout } from '../../../config/layoutContext';
-import { ApplicationApi } from '../../../config/APIClient';
 import { apiClient } from '../../../config/authenticatedApiClient';
 
 import { ApplicationData, LicenseData } from '../../../types';
@@ -19,11 +17,7 @@ import LicenseService from '../../../services/licenseService';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
-import {
-  PageLayoutSkeleton,
-  ApplicationCardSkeleton,
-  ApplicationDetailSkeleton,
-} from '../../../components/Skeleton';
+import { ApplicationDetailSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
 import { LazySection } from '../../../components/LazySection';
 import { RichTextDisplay } from '../../../components/RichTextDisplay';
@@ -79,16 +73,14 @@ import {
   Landmark,
   BriefcaseBusiness,
   MapPinned,
-  FolderOpen,
   Eye,
   Download,
   Printer,
 } from 'lucide-react';
 
-import { humanize, formatGender, formatStatusLabel, formatApplicationType, formatPhone, formatDisplayDate, formatDisplayDateTime } from '../../../utils/formatters';
+import { formatGender, formatStatusLabel, formatApplicationType, formatDisplayDate, formatDisplayDateTime } from '../../../utils/formatters';
 import { normalizeRenewalApplication } from '../../../utils/applicationFormatters';
 import { openAttachment } from '../../../utils/attachmentViewer';
-import { generateApplicationPrintHtml } from '../../../utils/printGenerators';
 import { getStatusStyle } from '../../../utils/statusColors';
 import RenewalApplicationDetailsHeader from '../../../components/renewal/renewalapplicationdetailsheader';
 import RenewalChangesCard from '../../../components/renewal/RenewalChangesCard';
@@ -154,7 +146,9 @@ const toOriginType = (value: unknown): OriginApp['type'] | null => {
 /**
  * The application the viewed renewal was raised against. The License API's source
  * application is the license's *last* modifying application, which becomes this
- * renewal once it is approved, so in that case step back to the previous one.
+ * renewal once it is approved, so in that case step back to the previous one. A
+ * cancellation holds no applicant data, so it also steps back to the application
+ * the license held before it was cancelled.
  * Note: the License API's `id` is the license PK, not an application id.
  */
 const resolveOriginApp = (license: any, renewalId: string | number | null): OriginApp | null => {
@@ -169,11 +163,18 @@ const resolveOriginApp = (license: any, renewalId: string | number | null): Orig
         : null) ??
     license.sourceApplicationId;
 
-  if (lastType === 'RENEWAL' && renewalId != null && String(lastId) === String(renewalId)) {
+  if (
+    lastType === 'CANCELLATION' ||
+    (lastType === 'RENEWAL' && renewalId != null && String(lastId) === String(renewalId))
+  ) {
     const prevType =
       toOriginType(license.previousModifiedAppType) ?? (license.freshApplicationId ? 'FRESH' : null);
     const prevId =
       license.previousModifiedAppId ?? (prevType === 'FRESH' ? license.freshApplicationId : null);
+    // The viewed renewal itself was the last change before the cancellation.
+    if (prevType === 'RENEWAL' && renewalId != null && String(prevId) === String(renewalId)) {
+      return license.freshApplicationId ? { id: Number(license.freshApplicationId), type: 'FRESH' } : null;
+    }
     return prevType && prevId ? { id: Number(prevId), type: prevType } : null;
   }
 
@@ -204,8 +205,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [isForwarding, setIsForwarding] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showTimeline, setShowTimeline] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<
+  const [selectedAction] = useState<
     | 'approve'
     | 'reject'
     | 'return'
@@ -217,7 +217,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   >('approve');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [workflowHistory, setWorkflowHistory] = useState<any[]>([]);
-  const [confirmationDetails, setConfirmationDetails] = useState({
+  const [confirmationDetails] = useState({
     title: '',
     message: '',
     actionButtonText: '',
@@ -226,13 +226,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   });
 
   const [showProceedingsModal, setShowProceedingsModal] = useState(false);
-  const [showProceedingsForm, setShowProceedingsForm] = useState(true);
-  const [showTimelineDetails, setShowTimelineDetails] = useState(false);
-  const [timelineDetails, setTimelineDetails] = useState({
-    user1: false,
-    user2: false,
-    user3: false,
-  });
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
@@ -288,34 +281,16 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
   const currentDisplayApp = useMemo(() => {
     if (isRenewalView && activeTab === 'original' && originalLicenseData) {
-      return originalLicenseData as unknown as ApplicationData;
+      // The License API carries its source application's createdAt but not the
+      // applicationDate the Renewal Info tab is normalised with.
+      const original = originalLicenseData as any;
+      return {
+        ...original,
+        applicationDate: original.applicationDate ?? original.createdAt,
+      } as unknown as ApplicationData;
     }
     return application;
   }, [isRenewalView, activeTab, originalLicenseData, application]);
-
-  // Who holds the file, since when, and whether the signed-in officer can act on it.
-  const assignment = useMemo(() => {
-    if (!application) return null;
-    const currentUserId = readCookieUserId() ?? (user?.id ? Number(user.id) : null);
-    const holder = application.currentUser ?? null;
-    const isFinal = isFinalWorkflowStatus(application);
-    const canAct = Boolean(
-      !isFinal && currentUserId && holder?.id && Number(holder.id) === currentUserId
-    );
-    const lastMovedAt = (workflowHistory || [])
-      .map((h: any) => new Date(h?.createdAt || h?.date || h?.timestamp || '').getTime())
-      .filter((t: number) => Number.isFinite(t))
-      .reduce((max: number, t: number) => Math.max(max, t), 0);
-    return {
-      holder,
-      isFinal,
-      canAct,
-      since: lastMovedAt ? new Date(lastMovedAt) : null,
-      statusLabel: formatStatusLabel(
-        application.workflowStatus || application.status || application.status_id
-      ),
-    };
-  }, [application, user, workflowHistory]);
 
   // Current license, to show what a pending renewal will change on it.
   const [licenseForComparison, setLicenseForComparison] = useState<any | null>(null);
@@ -330,6 +305,37 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       active = false;
     };
   }, [renewalLicenseId]);
+
+  // A renewal still undecided when its license was cancelled or revoked can never proceed.
+  const renewalLicenseClosed = Boolean(
+    isRenewalView &&
+      ['CANCELLED', 'REVOKED'].includes(String(licenseForComparison?.status || '').toUpperCase()) &&
+      String(application?.workflowStatus?.code || '').toUpperCase() !== 'APPROVED'
+  );
+
+  // Who holds the file, since when, and whether the signed-in officer can act on it.
+  const assignment = useMemo(() => {
+    if (!application) return null;
+    const currentUserId = readCookieUserId() ?? (user?.id ? Number(user.id) : null);
+    const holder = application.currentUser ?? null;
+    const isFinal = isFinalWorkflowStatus(application) || renewalLicenseClosed;
+    const canAct = Boolean(
+      !isFinal && currentUserId && holder?.id && Number(holder.id) === currentUserId
+    );
+    const lastMovedAt = (workflowHistory || [])
+      .map((h: any) => new Date(h?.createdAt || h?.date || h?.timestamp || '').getTime())
+      .filter((t: number) => Number.isFinite(t))
+      .reduce((max: number, t: number) => Math.max(max, t), 0);
+    return {
+      holder,
+      isFinal,
+      canAct,
+      since: lastMovedAt ? new Date(lastMovedAt) : null,
+      statusLabel: renewalLicenseClosed
+        ? `License ${String(licenseForComparison?.status).toLowerCase()}`
+        : formatStatusLabel(application.workflowStatus || application.status || application.status_id),
+    };
+  }, [application, user, workflowHistory, renewalLicenseClosed, licenseForComparison]);
 
   // Only while undecided: once approved, the license already holds the renewal's values.
   const showRenewalChanges = Boolean(
@@ -428,7 +434,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     const fetchApplication = async () => {
       setLoading(true);
       try {
-        let licenseAppFallback = null;
         if (isRenewalView) {
           const response = await RenewalService.getRenewalForm(applicationId!);
           const renewalData = (response as any)?.data ?? response;
@@ -441,7 +446,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         } else if (isLicenseView) {
           const license = await LicenseService.getLicenseById(Number(applicationId!));
           if (license) {
-            licenseAppFallback = license;
             // Licenses have no application type of their own; without this the
             // screen falls back to labelling the license "Fresh".
             setApplication({ ...license, applicationType: 'Issued License' } as unknown as ApplicationData);
@@ -485,8 +489,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 }
               }
             }
-          } catch (err) {
-            console.debug('[License fetch] No license found for this application');
+          } catch {
           } finally {
             setLicenseLoading(false);
           }
@@ -504,7 +507,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         } catch (err) {
           console.error('Failed to fetch workflow history', err);
         }
-      } catch (error) {
+      } catch {
         setApplication(null);
       } finally {
         setLoading(false);
@@ -629,20 +632,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     setErrorMessage(null);
   }, [errorMessage]);
 
-  const handleSearch = (query: string) => {
-    // Navigate back to main page with search query
-    router.push(`/?search=${encodeURIComponent(query)}`);
-  };
-
-  const handleDateFilter = (startDate: string, endDate: string) => {
-    // Navigate back to main page with date filters
-    router.push(`/?startDate=${startDate}&endDate=${endDate}`);
-  };
-  const handleReset = () => {
-    // Navigate back to main page with no filters
-    router.push('/');
-  };
-
   const handleProcessApplication = async (action: string, reason: string) => {
     if (!application) return;
 
@@ -706,7 +695,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         // Trigger an immediate sidebar counts refresh so the UI updates
         try {
           refreshCounts(true);
-        } catch (e) {
+        } catch {
           /* ignore */
         }
 
@@ -750,7 +739,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         // Trigger an immediate sidebar counts refresh so the UI updates
         try {
           refreshCounts(true);
-        } catch (e) {
+        } catch {
           /* ignore */
         }
 
@@ -780,7 +769,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       // TODO: Fix PDF generation with correct ApplicationData interface
       // await generateApplicationPDF(application);
       setSuccessMessage('PDF generation feature temporarily disabled');
-    } catch (error) {
+    } catch {
       setErrorMessage('Failed to generate PDF. Please try again.');
     } finally {
       setIsPrinting(false);
@@ -832,7 +821,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [isDragging]);
 
   const handleProceedingsSuccess = (message?: string) => {
-    setShowProceedingsForm(false);
     setSuccessMessage(message || 'Proceedings action completed successfully');
 
     // Reload the application data to get the latest workflow history. A renewal
@@ -856,7 +844,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     // Refresh sidebar counts as proceedings may change bucket counts
     try {
       refreshCounts(true);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
 
@@ -2117,6 +2105,20 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               );
                             }
 
+                            if (renewalLicenseClosed) {
+                              return (
+                                <div className='rounded-xl border border-red-200 bg-red-50 p-4'>
+                                  <p className='text-sm font-semibold text-red-900'>
+                                    This license has been{' '}
+                                    <span className='uppercase font-bold'>
+                                      {String(licenseForComparison?.status).toLowerCase()}
+                                    </span>
+                                    . Its renewal application can no longer proceed.
+                                  </p>
+                                </div>
+                              );
+                            }
+
                             const currentUserId =
                               readCookieUserId() ?? (user?.id ? Number(user.id) : null);
                             const applicationUserId = Number(displayApp?.currentUser?.id) || null;
@@ -2840,7 +2842,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           aside,
           nav,
           button,
-          .print\:hidden,
+          .print\\:hidden,
           .flex.h-screen,
           main,
           [data-printable='application-card'] {
@@ -2866,7 +2868,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             background: transparent !important;
           }
           /* Ensure print form container is visible starting immediately on page 1 */
-          .hidden.print\:block {
+          .hidden.print\\:block {
             display: block !important;
             position: relative !important;
             top: 0 !important;

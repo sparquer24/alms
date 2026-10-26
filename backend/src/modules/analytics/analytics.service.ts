@@ -7,7 +7,7 @@ import {
     AdminActivityDto,
     ApplicationRecordDto,
 } from './dto/analytics.dto';
-import { getISOWeek, getISOWeekYear, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
+import { getISOWeek, getISOWeekYear, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ROLE_CODES } from '../../constants/auth';
 import { STATUS_CODES } from '../../constants/workflow-actions';
 

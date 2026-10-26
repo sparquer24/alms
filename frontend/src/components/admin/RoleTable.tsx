@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AdminBorderRadius, AdminSpacing } from '@/styles/admin-design-system';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminDataTable } from '@/components/tables/AdminDataTable';
@@ -30,23 +30,10 @@ interface RoleTableProps {
   onPageChange?: (page: number) => void;
 }
 
-const SortIcon: React.FC<{ field: string; sortBy?: string; sortOrder?: 'asc' | 'desc' }> = ({
-  field,
-  sortBy,
-  sortOrder,
-}) => {
-  if (sortBy !== field) {
-    return <span style={{ opacity: 0.3, marginLeft: '4px' }}>↕</span>;
-  }
-  return <span style={{ marginLeft: '4px' }}>{sortOrder === 'asc' ? '↑' : '↓'}</span>;
-};
 
 export const RoleTable: React.FC<RoleTableProps> = ({
   roles,
   isLoading = false,
-  sortBy,
-  sortOrder,
-  onSort,
   onEdit,
   onDelete,
   onToggleStatus,
@@ -69,11 +56,6 @@ export const RoleTable: React.FC<RoleTableProps> = ({
     });
   };
 
-  const handleSort = (field: string) => {
-    if (onSort) {
-      onSort(field);
-    }
-  };
 
   if (isLoading) {
     return (

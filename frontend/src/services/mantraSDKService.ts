@@ -75,16 +75,9 @@ export class MantraSDKService {
 
             this.sdkReady = true;
             return true;
-        } catch (error: any) {
+        } catch {
             return false;
         }
-    }
-
-    /**
-     * Check if SDK is initialized and available
-     */
-    static isAvailable(): boolean {
-        return this.sdkReady && typeof window !== 'undefined';
     }
 
     /**
@@ -188,7 +181,6 @@ export class MantraSDKService {
 
             // Handle both ErrorCode (uppercase) and errorCode (lowercase) field names
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.errorCode;
-            const errorDesc = data.ErrorDescription !== undefined ? data.ErrorDescription : data.errorDescription;
 
             // Check for errorCode === "0" (string) or 0 (number)
             if (errorCode === "0" || errorCode === 0) {
@@ -215,7 +207,7 @@ export class MantraSDKService {
                             templateForMatching = templateData.ImgData || '';
                         }
                     }
-                } catch (templateError) {
+                } catch {
                     // Failed to get template, will use fallback
                 }
 
@@ -262,7 +254,8 @@ export class MantraSDKService {
     }
 
     /**
-     * Verify fingerprint template against stored template
+     * Verify fingerprint template against stored template. `isMatch` is the device's own
+     * verdict; callers that also accept a minimum score compare `score` themselves.
      * @param storedTemplate - Previously captured and stored template
      * @param liveTemplate - Currently captured template
      * @returns Promise<{isMatch: boolean; score: number}>
@@ -270,15 +263,9 @@ export class MantraSDKService {
     static async verifyTemplate(
         storedTemplate: string,
         liveTemplate: string,
-        threshold: number = 65
     ): Promise<{ isMatch: boolean; score: number; errorMessage?: string }> {
-        console.log('[verifyTemplate] START - Verifying fingerprint templates');
-        console.log('[verifyTemplate] Threshold:', threshold);
-        console.log('[verifyTemplate] Stored template length:', storedTemplate?.length || 0);
-        console.log('[verifyTemplate] Live template length:', liveTemplate?.length || 0);
 
         if (typeof window === 'undefined') {
-            console.log('[verifyTemplate] ERROR - Running on server-side');
             return {
                 isMatch: false,
                 score: 0,
@@ -293,8 +280,6 @@ export class MantraSDKService {
                 GalleryTemplate: storedTemplate,
                 TmpFormat: "1",
             };
-            console.log('[verifyTemplate] Request body prepared');
-            console.log('[verifyTemplate] Calling Mantra verify API:', `${this.MANTRA_SERVICE_URL}/verify`);
 
             const response: any = await fetch(`${this.MANTRA_SERVICE_URL}/verify`, {
                 method: 'POST',
@@ -302,29 +287,21 @@ export class MantraSDKService {
                 body: JSON.stringify(requestBody),
             });
 
-            console.log('[verifyTemplate] Response status:', response.status);
             const data = await response.json();
-            console.log('[verifyTemplate] Response data:', JSON.stringify(data, null, 2));
 
             // Handle ErrorCode check first
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.statusCode;
-            console.log('[verifyTemplate] Parsed errorCode:', errorCode);
 
             if (errorCode === "0" || errorCode === 0) {
                 // Check Status field: if Status is true -> matched, if Status is not present or false -> not matched
                 const isMatched = data.Status === true;
                 const score = parseInt(data.Score !== undefined ? data.Score : (data.nScore || '0'), 10);
-                console.log('[verifyTemplate] Status field:', data.Status);
-                console.log('[verifyTemplate] isMatched:', isMatched, 'score:', score);
-                console.log('[verifyTemplate] END - Verification completed');
                 return {
                     isMatch: isMatched,
                     score: score,
                 };
             } else {
                 const errorMsg = data.ErrorDescription || data.statusMessage || 'Verification failed';
-                console.log('[verifyTemplate] FAILED - errorCode:', errorCode, 'errorMsg:', errorMsg);
-                console.log('[verifyTemplate] END - Verification failed');
                 return {
                     isMatch: false,
                     score: 0,
@@ -332,8 +309,6 @@ export class MantraSDKService {
                 };
             }
         } catch (error: any) {
-            console.log('[verifyTemplate] EXCEPTION:', error?.message || error);
-            console.log('[verifyTemplate] END - Verification failed with exception');
             return {
                 isMatch: false,
                 score: 0,
@@ -377,7 +352,7 @@ export class MantraSDKService {
                 return imgData;
             }
             return null;
-        } catch (error) {
+        } catch {
             return null;
         }
     }
@@ -417,7 +392,7 @@ export class MantraSDKService {
                 return imgData;
             }
             return null;
-        } catch (error: any) {
+        } catch {
             return null;
         }
     }
@@ -471,69 +446,8 @@ export class MantraSDKService {
                 firmwareVersion: deviceInfo.SystemID,
                 modelName: `${deviceInfo.Make} ${deviceInfo.Model}`,
             };
-        } catch (error) {
+        } catch {
             return null;
-        }
-    }
-
-    /**
-     * Initialize device
-     * @returns Promise<boolean>
-     */
-    static async initDevice(): Promise<boolean> {
-        if (typeof window === 'undefined') {
-            return false;
-        }
-
-        try {
-            const response = await fetch(`${this.MANTRA_SERVICE_URL}/initdevice`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ConnectedDvc: 'MFS500',
-                    ClientKey: '',
-                }),
-            });
-
-            if (!response.ok) {
-                return false;
-            }
-
-            const data = await response.json();
-
-            const success = data.ErrorCode === "0" || data.ErrorCode === 0 || data.statusCode === 0;
-            return success;
-        } catch (error) {
-            return false;
-        }
-    }
-
-    /**
-     * Uninitialize device
-     * @returns Promise<boolean>
-     */
-    static async uninitDevice(): Promise<boolean> {
-        if (typeof window === 'undefined') {
-            return false;
-        }
-
-        try {
-            const response = await fetch(`${this.MANTRA_SERVICE_URL}/uninitdevice`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-            });
-
-            if (!response.ok) {
-                return false;
-            }
-
-            const data = await response.json();
-
-            const success = data.ErrorCode === "0" || data.ErrorCode === 0 || data.statusCode === 0;
-            return success;
-        } catch (error) {
-            return false;
         }
     }
 
@@ -559,7 +473,7 @@ export class MantraSDKService {
 
             const data = await response.json();
             return data;
-        } catch (error) {
+        } catch {
             return null;
         }
     }
@@ -586,7 +500,7 @@ export class MantraSDKService {
 
             const data = await response.json();
             return data;
-        } catch (error) {
+        } catch {
             return null;
         }
     }

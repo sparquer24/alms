@@ -13,7 +13,6 @@ import {
   FileText,
   Eye,
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
 import { analyticsService, ApplicationRecord } from '@/services/analyticsService';
 import { RecordInspectionModal, InspectionTarget } from './RecordInspectionModal';
 
@@ -25,7 +24,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [slaFilter, setSlaFilter] = useState<'ALL' | 'MET' | 'STANDARD' | 'DELAYED'>('ALL');
   const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(10);
+  const [limit] = useState<number>(10);
   const [selectedRecord, setSelectedRecord] = useState<InspectionTarget | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<ApplicationRecord[]>([]);
@@ -65,7 +64,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
   }, [fetchTurnaroundData]);
 
   // Compute SLA badge for a record
-  const getSlaInfo = (days: number, isApproved: boolean, isRejected: boolean) => {
+  const getSlaInfo = (days: number) => {
     if (days <= 14) {
       return {
         label: 'Fast-Track SLA (<15d)',
@@ -90,7 +89,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
   const filteredData = data.filter((row) => {
     if (slaFilter === 'ALL') return true;
     const days = row.daysTillToday ?? 0;
-    const info = getSlaInfo(days, row.status === 'APPROVED', row.status === 'REJECTED');
+    const info = getSlaInfo(days);
     return info.type === slaFilter;
   });
 
@@ -210,7 +209,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
             ) : filteredData.length > 0 ? (
               filteredData.map((row, idx) => {
                 const days = row.daysTillToday ?? 0;
-                const slaInfo = getSlaInfo(days, row.status === 'APPROVED', row.status === 'REJECTED');
+                const slaInfo = getSlaInfo(days);
                 const sNo = (page - 1) * limit + (idx + 1);
 
                 return (

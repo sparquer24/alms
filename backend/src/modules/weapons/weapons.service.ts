@@ -1,7 +1,6 @@
 import {Injectable } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { WeaponTypeMaster } from '@prisma/client';
-import { contains } from 'class-validator';
 
 @Injectable()
 export class WeaponsService{
@@ -10,12 +9,8 @@ export class WeaponsService{
     if (id) {
         where.id = Number(id);
     }
-    try{
-      return await prisma.weaponTypeMaster.findMany({
-          where,
-      });
-    } catch(error){
-      throw error;
-     }
+    return await prisma.weaponTypeMaster.findMany({
+        where,
+    });
  }
 }

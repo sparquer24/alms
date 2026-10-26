@@ -119,10 +119,3 @@ export const {
 
 export default adminUserSlice.reducer;
 
-// Selectors
-export const selectAdminUsers = (state: { adminUsers: AdminUserState }) => state.adminUsers.users;
-export const selectAdminUsersLoading = (state: { adminUsers: AdminUserState }) => state.adminUsers.loading;
-export const selectAdminUsersError = (state: { adminUsers: AdminUserState }) => state.adminUsers.error;
-export const selectAdminUsersFilters = (state: { adminUsers: AdminUserState }) => state.adminUsers.filters;
-export const selectAdminUsersPagination = (state: { adminUsers: AdminUserState }) => state.adminUsers.pagination;
-export const selectSelectedUsers = (state: { adminUsers: AdminUserState }) => state.adminUsers.selectedUsers; 

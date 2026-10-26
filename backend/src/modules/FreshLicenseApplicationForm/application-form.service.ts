@@ -1,124 +1,14 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import cache, { CacheKeys } from '../../cache/cache';
-import { Sex, FileType, LicensePurpose, Prisma, RoleFlowApplicationType } from '@prisma/client';
+import { Sex, Prisma, RoleFlowApplicationType } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
-import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
+import { STATUS_CODES, EXCLUDE_CANCEL_MIRROR_HISTORY } from '../../constants/workflow-actions';
 import { normalizeHierarchyApplicationType } from '../../constants/flow-mapping';
 import { AREA_OF_VALIDITY, normalizeAreaOfValidity } from '../../constants/area-of-validity';
 
-// Define the missing input type (adjust fields as per your requirements)
-export interface CreateFreshLicenseApplicationsFormsInput {
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  filledBy?: string;
-  parentOrSpouseName: string;
-  sex: Sex;
-  placeOfBirth: string;
-  dateOfBirth: Date | string;
-  panNumber?: string;
-  aadharNumber: string;
-  dobInWords?: string;
-  stateId: number;
-  districtId: number;
-  presentAddress: CreateAddressInput;
-  permanentAddress?: CreateAddressInput;
-  contactInfo: CreateContactInfoInput;
-  occupationInfo?: CreateOccupationInfoInput;
-  biometricData?: any;
-  criminalHistory?: CreateCriminalHistoryInput[];
-  licenseHistory?: CreateLicenseHistoryInput[];
-  licenseRequestDetails?: CreateLicenseRequestDetailsInput;
-  fileUploads?: CreateFileUploadInput[];
-  currentUserId?: number;
-  previousUserId?: number;
-  previousRoleId?: number;
-  statusId: number;
-  actionTaken?: string;
-  remarks?: string;
-}
-
-export interface CreateAddressInput {
-  addressLine: string;
-  stateId: number;
-  districtId: number;
-  policeStationId: number;
-  zoneId: number;
-  divisionId: number;
-  rangeOfficeId?: number;
-  sinceResiding: Date;
-}
-
-export interface CreateContactInfoInput {
-  telephoneOffice?: string;
-  telephoneResidence?: string;
-  mobileNumber: string;
-  officeMobileNumber?: string;
-  alternativeMobile?: string;
-}
-
-export interface CreateOccupationInfoInput {
-  occupation: string;
-  officeAddress: string;
-  stateId: number;
-  districtId: number;
-  cropLocation?: string;
-  areaUnderCultivation?: number;
-  employerName?: string;
-  businessDetails?: string;
-  annualIncome?: string;
-  workExperience?: string;
-  businessType?: string;
-}
-
-export interface CreateLicenseRequestDetailsInput {
-  needForLicense?: LicensePurpose;
-  requestedWeaponIds?: string[]; // Array of WeaponTypeMaster IDs
-  areaOfValidity?: string;
-}
-
-export interface CreateCriminalHistoryInput {
-  convicted: boolean;
-  convictionData?: any; // JSON object with FIR details
-  bondExecutionOrdered?: boolean;
-  bondDate?: Date;
-  periodOfBond?: string;
-  prohibitedUnderArmsAct?: boolean;
-  prohibitedDate?: Date;
-}
-
-export interface CreateLicenseHistoryInput {
-  hasAppliedBefore: boolean;
-  previousApplications?: any; // JSON array
-  hasOtherApplications: boolean;
-  otherApplications?: any; // JSON object
-  familyMemberHasArmsLicense: boolean;
-  familyMemberLicenses?: any; // JSON array
-  hasSafePlaceForArms: boolean;
-  safeStorageDetails?: string;
-  hasUndergoneTraining: boolean;
-  trainingDetails?: string;
-}
-
-export interface CreateFileUploadInput {
-  fileName: string;
-  fileSize: number;
-  fileType: FileType;
-  fileUrl: string;
-}
 @Injectable()
 export class ApplicationFormService {
-  // Helper method to get user information with role details
-  private async getUserWithRole(userId: number) {
-    return await prisma.users.findUnique({
-      where: { id: userId },
-      include: {
-        role: true,
-      },
-    });
-  }
-
   // Helper to extract acceptance flags from payload or personalDetails object
   private extractAcceptanceFlagsFromPayload(payload: any) {
     // payload may be either the whole DTO or the personalDetails object itself
@@ -128,23 +18,6 @@ export class ApplicationFormService {
     if (source?.isAwareOfLegalConsequences !== undefined) result.isAwareOfLegalConsequences = source.isAwareOfLegalConsequences;
     if (source?.isTermsAccepted !== undefined) result.isTermsAccepted = source.isTermsAccepted;
     return result;
-  }
-
-  // Helper method to determine initial status for new applications
-  private async getInitialStatus() {
-    // Get the initial status (e.g., "SUBMITTED" or "PENDING")
-    const initialStatus = await prisma.statuses.findFirst({
-      where: {
-        OR: [
-          { code: 'SUBMITTED' },
-          { code: 'PENDING' },
-          { code: 'INITIAL' }
-        ]
-      },
-      orderBy: { id: 'asc' } // Get the first available status
-    });
-
-    return initialStatus?.id || null;
   }
 
   // Helper methods to get valid IDs for testing
@@ -242,71 +115,6 @@ export class ApplicationFormService {
 
     return validation;
   }
-
-  private async validateReferencesExist(data: CreateFreshLicenseApplicationsFormsInput) {
-    // top-level state/district
-    const state = await prisma.states.findUnique({ where: { id: data.stateId } });
-    if (!state) throw new Error(`State with ID ${data.stateId} does not exist`);
-
-    const district = await prisma.districts.findUnique({ where: { id: data.districtId } });
-    if (!district) throw new Error(`District with ID ${data.districtId} does not exist`);
-
-    // present address state/district
-    const presentState = await prisma.states.findUnique({ where: { id: data.presentAddress.stateId } });
-    if (!presentState) throw new Error(`Present address state with ID ${data.presentAddress.stateId} does not exist`);
-    const presentDistrict = await prisma.districts.findUnique({ where: { id: data.presentAddress.districtId } });
-    if (!presentDistrict) throw new Error(`Present address district with ID ${data.presentAddress.districtId} does not exist`);
-
-    // permanent address
-    if (data.permanentAddress) {
-      const permState = await prisma.states.findUnique({ where: { id: data.permanentAddress.stateId } });
-      if (!permState) throw new Error(`Permanent address state with ID ${data.permanentAddress.stateId} does not exist`);
-      const permDistrict = await prisma.districts.findUnique({ where: { id: data.permanentAddress.districtId } });
-      if (!permDistrict) throw new Error(`Permanent address district with ID ${data.permanentAddress.districtId} does not exist`);
-    }
-
-    // occupation info
-    if (data.occupationInfo) {
-      const occState = await prisma.states.findUnique({ where: { id: data.occupationInfo.stateId } });
-      if (!occState) throw new Error(`Occupation state with ID ${data.occupationInfo.stateId} does not exist`);
-      const occDistrict = await prisma.districts.findUnique({ where: { id: data.occupationInfo.districtId } });
-      if (!occDistrict) throw new Error(`Occupation district with ID ${data.occupationInfo.districtId} does not exist`);
-    }
-
-    // licenseRequestDetails.requestedWeaponIds
-    if (data.licenseRequestDetails?.requestedWeaponIds?.length) {
-      // convert strings -> numbers
-      const weaponIds = data.licenseRequestDetails.requestedWeaponIds.map((id: any) => Number(id));
-      const found = await prisma.weaponTypeMaster.findMany({ where: { id: { in: weaponIds } }, select: { id: true } });
-      const foundIds = found.map((w: { id: number }) => w.id);
-      const missing = weaponIds.filter((id: number) => !foundIds.includes(id));
-      if (missing.length) throw new Error(`Requested weapons not found: ${missing.join(', ')}`);
-    }
-
-    // currentUser.roleId: ensure role exists if currentUser has a role
-    if (data.currentUserId) {
-      const user = await prisma.users.findUnique({ where: { id: data.currentUserId }, select: { id: true, roleId: true } });
-      if (!user) throw new Error(`User with ID ${data.currentUserId} not found`);
-      if (!user.roleId) throw new Error(`Current user (id:${data.currentUserId}) does not have a roleId set`);
-      const role = await prisma.roles.findUnique({ where: { id: user.roleId } });
-      if (!role) throw new Error(`Role with ID ${user.roleId} (user's roleId) does not exist`);
-    }
-  }
-
-
-  /**
-   * Creates a new fresh license application with proper user and role tracking.
-   * 
-   * This method ensures that:
-   * 1. currentUserId and currentRoleId are extracted from the authenticated user (token)
-   * 2. These fields are never left null or empty
-   * 3. previousUserId and previousRoleId are set to null for new applications
-   * 4. All required validations are performed before creation
-   * 
-   * @param data - Application data including user context from token
-   * @returns Created application with all relations
-   */
-
 
   /**
    * Create personal details in the dedicated personal details table and return applicationId
@@ -1122,7 +930,7 @@ export class ApplicationFormService {
 
       // Fetch workflow histories in parallel (after we know application exists)
       const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-        where: { applicationId: application.id },
+        where: { applicationId: application.id, ...EXCLUDE_CANCEL_MIRROR_HISTORY },
         orderBy: { createdAt: 'desc' },
         include: {
           previousRole: true,
@@ -1151,13 +959,6 @@ export class ApplicationFormService {
   }
 
 
-  // page: pageNum,
-  // limit: limitNum,
-  // searchField: parsedSearchField,
-  // search: parsedSearchValue,
-  // orderBy: parsedOrderBy,
-  // order: parsedOrder as 'asc' | 'desc',
-  // currentUserId: req.user?.sub, 
   /**
    * "Sent" inbox tab: the latest action this user took on each Fresh, Renewal and
    * Cancel application, sorted and paginated in the database. Applications are keyed
@@ -1271,19 +1072,6 @@ export class ApplicationFormService {
         const parsedUserId = Number(filter.currentUserId);
         if (!isNaN(parsedUserId)) {
           return [null, await this.getSentApplications(parsedUserId, { page, limit, orderBy: filter.orderBy, order: filter.order })];
-        }
-      }
-
-      // Role-based filtering: Get current user's role
-      let userRole = null;
-      if (filter.currentUserId) {
-        const parsedUserId = Number(filter.currentUserId);
-        if (!isNaN(parsedUserId)) {
-          const user = await prisma.users.findUnique({
-            where: { id: parsedUserId },
-            include: { role: true }
-          });
-          userRole = user?.role?.code;
         }
       }
 
@@ -1425,7 +1213,6 @@ export class ApplicationFormService {
       const fetchRenewal = !appType || appType === 'renewalform' || appType === 'renewal';
       const fetchCancel = !appType || appType === 'cancelform' || appType === 'cancel' || appType === 'cancelformrequest' || appType === 'cancelrequest';
 
-      let freshLicenseTotal = 0;
       let freshLicenseTransformed: any[] = [];
       let renewalByStatusId: Map<number, any[]> = new Map();
       let cancelFormResult: { total: number; data: any[] } = { total: 0, data: [] };
@@ -2066,80 +1853,6 @@ export class ApplicationFormService {
     }
   }
 
-  public async getUserApplications(userId: string) {
-    const userIdNum = parseInt(userId);
-    return await prisma.freshLicenseApplicationPersonalDetails.findMany({
-      where: {
-        currentUserId: userIdNum
-      },
-      include: {
-        // User and role tracking (role accessed through user.role)
-        currentUser: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: {
-              select: {
-                id: true,
-                code: true,
-                name: true
-              }
-            }
-          }
-        },
-        previousUser: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: {
-              select: {
-                id: true,
-                code: true,
-              }
-            }
-          }
-        },
-        // Address details
-        presentAddress: {
-          include: {
-            state: true,
-            district: true,
-            zone: true,
-            division: true,
-            policeStation: true,
-          }
-        },
-        permanentAddress: {
-          include: {
-            state: true,
-            district: true,
-            zone: true,
-            division: true,
-            policeStation: true,
-          }
-        },
-        // Other details
-        occupationAndBusiness: {
-          include: {
-            state: true,
-            district: true,
-          }
-        },
-        biometricData: true,
-        criminalHistories: true,
-        licenseHistories: true,
-        licenseDetails: {
-          include: {
-            requestedWeapons: true,
-          }
-        },
-        fileUploads: true,
-      },
-    });
-  }
-
   /**
    * Upload file for application
    * For certain file types (PHOTOGRAPH, SIGNATURE_THUMB, etc.), only keep the latest file
@@ -2225,25 +1938,6 @@ export class ApplicationFormService {
   }
 
   /**
-   * Get standard status IDs from Statuses table
-   * This ensures consistent status IDs across the application
-   */
-  async getStatusIds() {
-    const statusCodes = ['DRAFT', 'INITIATE', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
-    const statusMap: Record<string, number> = {};
-
-    for (const code of statusCodes) {
-      try {
-        statusMap[code] = await this.getStatusIdByCode(code);
-      } catch (error) {
-        // Don't throw error, just skip missing statuses
-      }
-    }
-
-    return statusMap;
-  }
-
-  /**
    * Fetch cancel form requests with filtering, pagination, and transform to unified format
    * Includes both pending CancelFormRequests and approved CancelLicenseHistory records.
    */
@@ -2260,10 +1954,6 @@ export class ApplicationFormService {
     isSent?: boolean;
     applicationType?: string;
   }): Promise<{ total: number; data: any[] }> {
-    const page = Math.max(Number(filter.page ?? 1), 1);
-    const limit = Math.max(Number(filter.limit ?? 10), 1);
-    const skip = (page - 1) * limit;
-
     // --- Fetch from CancelFormRequests (pending/active requests) ---
     const cancelFormWhere: any = {};
 
@@ -2412,31 +2102,5 @@ export class ApplicationFormService {
     }));
 
     return { total: cancelFormTotal, data: transformedCancelRequests };
-  }
-
-  /**
-   * Initialize default statuses if they don't exist
-   * Call this method to ensure required statuses are available
-   */
-  async initializeDefaultStatuses() {
-    const defaultStatuses = [
-      { code: 'DRAFT', name: 'Draft', description: 'Application is being filled out' },
-      { code: 'INITIATE', name: 'Initiate', description: 'Application has been submitted for review' },
-      { code: 'UNDER_REVIEW', name: 'Under Review', description: 'Application is being reviewed by officer' },
-      { code: 'APPROVED', name: 'Approved', description: 'Application has been approved' },
-      { code: 'REJECTED', name: 'Rejected', description: 'Application has been rejected' }
-    ];
-
-    for (const statusData of defaultStatuses) {
-      const existingStatus = await prisma.statuses.findFirst({
-        where: { code: statusData.code }
-      });
-
-      if (!existingStatus) {
-        await prisma.statuses.create({
-          data: statusData
-        });
-      }
-    }
   }
 }

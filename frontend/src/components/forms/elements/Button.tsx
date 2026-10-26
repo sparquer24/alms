@@ -59,15 +59,3 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-// Back Button Component
-export const BackButton: React.FC<{ onClick?: () => void }> = ({ onClick }) => {
-  return (
-    <Button
-      variant="secondary"
-      onClick={onClick || (() => window.history.back())}
-      className="mb-4"
-    >
-      ← Back
-    </Button>
-  );
-};

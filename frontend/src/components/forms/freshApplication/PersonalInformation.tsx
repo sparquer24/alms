@@ -205,13 +205,6 @@ const PersonalInformation: React.FC = () => {
     router.back();
   };
 
-  // ── Mandatory label helper ──
-  const requiredLabel = (text: string) => (
-    <>
-      {text}
-      <span className='text-red-500 ml-1'>*</span>
-    </>
-  );
 
   if (isMounted && isLoading) {
     return <FormSkeleton title='Personal Information' rows={5} />;

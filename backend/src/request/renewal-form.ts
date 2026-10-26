@@ -1,27 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-// Request interfaces for renewal form
-export interface CreateRenewalFormRequest {
-  licenseNumber: string;
-  userId: number;
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  parentOrSpouseName: string;
-  sex: 'MALE' | 'FEMALE' | 'OTHER';
-  dateOfBirth?: Date;
-  dobInWords?: string;
-  panNumber?: string;
-  aadharNumber?: string;
-  filledBy?: string;
-}
-
-export interface PatchRenewalFormRequest {
-  applicationId: number;
-  isSubmit?: boolean;
-  data: Record<string, any>;
-}
-
 export class RenewalFormResponse {
   @ApiProperty()
   id!: number;
@@ -136,12 +114,3 @@ export class RenewalFormResponse {
   workflowHistories?: any[];
 }
 
-export interface RenewalFiltersDto {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: string;
-  currentUserId?: number;
-  ordering?: 'ASC' | 'DESC';
-  orderBy?: string;
-}

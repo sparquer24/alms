@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
+import { invalidateAuthUser } from '../../middleware/auth.middleware';
 
 @Injectable()
 export class LocationsService {
@@ -880,6 +881,7 @@ export class LocationsService {
             policeStationId: null,
           },
         });
+        await invalidateAuthUser(u.id);
       }
 
       // 2. If a new user is assigned, set their location hierarchy
@@ -889,6 +891,7 @@ export class LocationsService {
           where: { id: assignedUserId },
           data: hierarchy,
         });
+        await invalidateAuthUser(assignedUserId);
       }
 
       return { success: true };

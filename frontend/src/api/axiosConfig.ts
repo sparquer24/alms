@@ -64,11 +64,11 @@ const getTokenFromCookie = (): string | null => {
     try {
       const parsed = JSON.parse(authCookie);
       return parsed.token || parsed.accessToken || parsed.authToken || authCookie;
-    } catch (e) {
+    } catch {
       // If parsing fails, treat as raw token string
       return authCookie;
     }
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -81,7 +81,7 @@ export const setAuthToken = (token: any) => {
     if (token && typeof token === 'object') {
       raw = token.token ?? token.accessToken ?? token.authToken ?? token;
     }
-  } catch (e) {
+  } catch {
     raw = token;
   }
 
@@ -99,7 +99,6 @@ const ensureAuthToken = () => {
     const token = getTokenFromCookie();
     if (token) {
       setAuthToken(token);
-    } else {
     }
   }
 };
@@ -110,7 +109,7 @@ try {
   if (token) {
     setAuthToken(token);
   }
-} catch (e) {
+} catch {
 }
 
 // Request interceptor to ensure token is always attached
@@ -146,7 +145,7 @@ axiosInstance.interceptors.response.use(
         jsCookie.remove('auth');
         jsCookie.remove('user');
         jsCookie.remove('role');
-      } catch (e) {
+      } catch {
         // ignore cookie cleanup errors
       }
       window.location.href = '/login';
@@ -172,7 +171,7 @@ export const fetchData = async (url: string, params = {}) => {
       try {
         // Clear potential invalid auth cookie and redirect
         jsCookie.remove('auth');
-      } catch (e) {
+      } catch {
         // ignore
       }
       window.location.href = '/login';
@@ -196,7 +195,7 @@ export const postData = async (url: string, data: any, options = {}) => {
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) { }
+      try { jsCookie.remove('auth'); } catch { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -217,7 +216,7 @@ export const putData = async (url: string, data: any, options = {}) => {
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) { }
+      try { jsCookie.remove('auth'); } catch { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -238,7 +237,7 @@ export const patchData = async (url: string, data: any, options = {}) => {
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) { }
+      try { jsCookie.remove('auth'); } catch { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -259,7 +258,7 @@ export const deleteData = async (url: string, options = {}) => {
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) { }
+      try { jsCookie.remove('auth'); } catch { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }

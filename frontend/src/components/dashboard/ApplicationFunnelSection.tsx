@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { TrendingDown, Loader2 } from 'lucide-react';
-import { ResponsiveContainer, FunnelChart, Funnel, Cell, Tooltip, LabelList } from 'recharts';
 
 interface FunnelStage {
   stage: string;
@@ -18,21 +17,6 @@ interface ApplicationFunnelSectionProps {
 
 const FUNNEL_COLORS = ['#1E3A8A', '#2563EB', '#0891B2', '#059669', '#D97706', '#10B981'];
 
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const entry = payload[0].payload;
-    return (
-      <div className="bg-[#0F2D52] text-white px-3 py-2 rounded-lg text-xs shadow-xl">
-        <div className="font-bold">{entry.stage}</div>
-        <div className="text-blue-200 mt-0.5">{entry.count.toLocaleString()} applications</div>
-        {entry.dropOff > 0 && (
-          <div className="text-rose-300 mt-0.5">↓ {entry.dropOff}% drop from prev</div>
-        )}
-      </div>
-    );
-  }
-  return null;
-};
 
 export default function ApplicationFunnelSection({ stages, loading }: ApplicationFunnelSectionProps) {
   // Sort by order and enrich with drop-off %

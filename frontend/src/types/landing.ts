@@ -31,11 +31,6 @@ export interface ServiceCard {
   icon: string;
 }
 
-export interface WorkflowStep {
-  step: string;
-  description: string;
-}
-
 export interface WorkflowGovernance {
   title: string;
   description: string;
@@ -83,15 +78,6 @@ export interface FooterData {
   links: { label: string; href: string }[];
   securityNotice: string;
   contact: string;
-}
-
-export interface Statistics {
-  applicationsProcessed: string;
-  pendingReviews: string;
-  licensesIssued: string;
-  renewalsProcessed: string;
-  districtCoverage: string;
-  approvalRate: string;
 }
 
 export interface LandingPageData {

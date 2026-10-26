@@ -76,12 +76,13 @@ async function bootstrap() {
   });
 
   // Enable CORS for frontend. Read from CORS_ORIGIN env (comma-separated) else fallback to sensible defaults.
-  const defaultOrigins = ['http://localhost:5000', 'http://localhost:5001', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5001', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000', "https://alms.sparquer.com"];
+  const defaultOrigins = ['http://localhost:5000', 'http://localhost:5001', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5001', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000', "https://alms.sparquer.com", "https://dev.alms.sparquer.com", "https://alms.sparquer.ai"];
   const corsEnv = process.env.CORS_ORIGIN;
   const origins = corsEnv ? corsEnv.split(',').map(s => s.trim()).filter(Boolean) : defaultOrigins;
 
   app.enableCors({
-    origin: "*",
+    // Only the listed origins; CORS_ORIGIN=* opts back in to allowing any site.
+    origin: origins.includes('*') ? '*' : origins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'authorization'],

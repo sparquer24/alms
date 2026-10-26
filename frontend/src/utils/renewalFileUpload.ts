@@ -171,19 +171,6 @@ function describeUploadError(fileName: string, err: any): string {
   return `Could not upload "${fileName}". ${reason}`;
 }
 
-export async function uploadRenewalDocument(
-  renewalId: string,
-  fieldName: string,
-  file: File,
-  existingFileId?: number,
-) {
-  if (existingFileId) {
-    await RenewalService.deleteRenewalFile(existingFileId);
-  }
-  const uploaded = await RenewalService.uploadDocument(renewalId, fieldName, file);
-  return toRenewalFileMeta(uploaded);
-}
-
 export async function deleteRenewalDocument(fileId: number) {
   await RenewalService.deleteRenewalFile(fileId);
 }

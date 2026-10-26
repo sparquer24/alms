@@ -143,7 +143,7 @@ const blobFromBase64 = (data: string, mime?: string) => {
   return new Blob([byteArray], { type: mime || 'application/octet-stream' });
 };
 
-const openPdfBlob = (blob: Blob, fileName?: string) => {
+const openPdfBlob = (blob: Blob) => {
   // Blob URLs are scoped to the window that creates them.
   // Using document.write() in a new window to embed the blob URL causes a blank page
   // because the new window cannot access the parent's blob URL.
@@ -153,7 +153,7 @@ const openPdfBlob = (blob: Blob, fileName?: string) => {
   setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
 };
 
-const openImageBlob = (blob: Blob, fileName?: string) => {
+const openImageBlob = (blob: Blob) => {
   // Blob URLs are scoped to the window that creates them.
   // Using document.write() in a new window to embed the blob URL causes a blank page
   // because the new window cannot access the parent's blob URL.
@@ -196,9 +196,9 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
           const blob = await response.blob();
           const mime = blob.type || guessMimeFromName(fileName);
           if (mime.includes('pdf')) {
-            openPdfBlob(blob, fileName);
+            openPdfBlob(blob);
           } else if (mime.startsWith('image/')) {
-            openImageBlob(blob, fileName);
+            openImageBlob(blob);
           } else {
             window.open(trimmed, '_blank', 'noopener,noreferrer');
           }
@@ -243,9 +243,9 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
         const blob = await response.blob();
         const mime = blob.type || guessMimeFromName(fileName);
         if (mime.includes('pdf')) {
-          openPdfBlob(blob, fileName);
+          openPdfBlob(blob);
         } else if (mime.startsWith('image/')) {
-          openImageBlob(blob, fileName);
+          openImageBlob(blob);
         } else {
           window.open(href, '_blank', 'noopener,noreferrer');
         }
@@ -262,9 +262,9 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
       const mime = guessMimeFromName(fileName);
       const blob = blobFromBase64(trimmed, mime);
       if (mime === 'application/pdf') {
-        openPdfBlob(blob, fileName);
+        openPdfBlob(blob);
       } else if (mime.startsWith('image/')) {
-        openImageBlob(blob, fileName);
+        openImageBlob(blob);
       } else {
         downloadBlob(blob, fileName);
       }
@@ -276,9 +276,9 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
       const mime = guessMimeFromName(fileName);
       const blob = blobFromBase64(trimmed, mime);
       if (mime === 'application/pdf') {
-        openPdfBlob(blob, fileName);
+        openPdfBlob(blob);
       } else if (mime.startsWith('image/')) {
-        openImageBlob(blob, fileName);
+        openImageBlob(blob);
       } else {
         downloadBlob(blob, fileName);
       }
@@ -312,9 +312,9 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
     const mime = blob.type || guessMimeFromName(fileName);
 
     if (mime.includes('pdf')) {
-      openPdfBlob(blob, fileName);
+      openPdfBlob(blob);
     } else if (mime.startsWith('image/')) {
-      openImageBlob(blob, fileName);
+      openImageBlob(blob);
     } else {
       downloadBlob(blob, fileName);
     }

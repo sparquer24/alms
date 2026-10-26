@@ -49,7 +49,7 @@ export class PublicController {
                         districtId = parsedDistrictId ? Number(parsedDistrictId) : undefined;
                         zoneId = parsedZoneId ? Number(parsedZoneId) : undefined;
                         roleCode = decoded?.role_code || (typeof decoded?.role === 'string' ? decoded.role : decoded?.role?.code);
-                    } catch (e) {
+                    } catch {
                         // ignore token verification error, fallback to public view
                     }
                 }

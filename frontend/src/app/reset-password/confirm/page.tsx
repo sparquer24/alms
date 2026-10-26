@@ -57,7 +57,7 @@ function ResetPasswordConfirmContent() {
       } else {
         setError(data.message || 'This reset link is invalid or has expired. Please request a new one.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);

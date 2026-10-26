@@ -27,12 +27,24 @@ async function loadAuthUser(userId: number) {
       divisionId: true,
       policeStationId: true,
       rangeOfficeId: true,
-      role: { select: { code: true } },
+      role: { select: { code: true, permissions: true } },
     },
   });
   // Not-found is deliberately not cached
   if (user) await cache.set(key, user, AUTH_USER_TTL_SECONDS);
   return user;
+}
+
+/**
+ * Whether a role grants a permission. Roles.permissions is stored either as a list of
+ * keys (seed data) or as a `{ key: true }` flag map (the admin Permissions screen).
+ */
+function roleHasPermission(rolePermissions: unknown, permission: string): boolean {
+  if (Array.isArray(rolePermissions)) return rolePermissions.includes(permission);
+  if (rolePermissions && typeof rolePermissions === 'object') {
+    return (rolePermissions as Record<string, unknown>)[permission] === true;
+  }
+  return false;
 }
 
 /** Drop cached auth data for one user, or for everyone when no id is given (e.g. a role changed). */
@@ -108,6 +120,13 @@ export class AuthGuard implements CanActivate {
         context.getClass(),
       ]);
 
+      if (requiredPermissions && requiredPermissions.length > 0) {
+        const missing = requiredPermissions.filter(p => !roleHasPermission(user.role?.permissions, p));
+        if (missing.length > 0) {
+          throw new ForbiddenException(`Access denied. Missing permission(s): ${missing.join(', ')}.`);
+        }
+      }
+
       return true;
     } catch (error: any) {
       if (error instanceof ForbiddenException || error instanceof UnauthorizedException) {
@@ -133,23 +152,3 @@ export class AuthGuard implements CanActivate {
   }
 }
 
-export function authenticate(request: any): any {
-  const authHeader = request.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    throw new Error('JWT_SECRET environment variable is not defined');
-  }
-
-  try {
-    return jwt.verify(token, secret);
-  } catch {
-    return null;
-  }
-}

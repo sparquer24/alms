@@ -100,7 +100,6 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
       pageType,
       showActionColumn = true,
       selectedFormType,
-      onSelectedFormTypeChange,
       searchQuery: externalSearchQuery,
       onSearchQueryChange,
       applicationTypeFilter: externalApplicationTypeFilter,
@@ -238,7 +237,7 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
           ];
       if (showActionColumn) base.push('Action');
       return base;
-    }, [isSentPage, isRenewalPage, showActionColumn]);
+    }, [isSentPage, showActionColumn]);
 
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -751,7 +750,6 @@ const TableRow: React.FC<{
   handleEditDraft,
   isDraftsPage,
   isSentPage = false,
-  isRenewalPage = false,
   userRole,
   isApplicationUnread,
   formatDateTime,

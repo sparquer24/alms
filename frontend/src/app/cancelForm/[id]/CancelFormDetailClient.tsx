@@ -12,7 +12,7 @@ import { formatStatusLabel } from '@/utils/formatters';
 import { truncateFilename } from '@/utils/string';
 import { openAttachment } from '@/utils/attachmentViewer';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
-import { History, Clock, ChevronDown, FileText, Shield, Home } from 'lucide-react';
+import { History, Clock, ChevronDown, FileText, Home } from 'lucide-react';
 
 const ClockIcon = Clock as any;
 const ChevronDownIcon = ChevronDown as any;
@@ -183,7 +183,7 @@ export default function CancelFormDetailClient() {
     };
   }, [id, request, router, setHeaderOptions]);
 
-  const handleProceedingsSuccess = (message?: string) => {
+  const handleProceedingsSuccess = () => {
     fetchCancelInfo({ replaceRequestOnly: true }); // Reload details
     // Give the user a moment to see the success confirmation before returning to inbox
     setTimeout(() => {
@@ -264,7 +264,7 @@ export default function CancelFormDetailClient() {
               <div className='p-4 lg:p-4 border-t border-gray-100'>
                 <div
                   ref={containerRef}
-                  className='flex h-[600px] items-stretch gap-0 relative w-full overflow-hidden'
+                  className='flex items-start gap-0 relative w-full'
                   style={{
                     display: 'flex',
                   }}
@@ -272,7 +272,7 @@ export default function CancelFormDetailClient() {
                   {showApplicationProcessingSection && (
                     <>
                       <div
-                        className='flex flex-col h-full overflow-hidden pr-4'
+                        className='flex flex-col pr-4'
                         style={{
                           width: `${dividerPosition}%`,
                           transition: isDragging ? 'none' : 'width 0.1s ease',
@@ -316,7 +316,7 @@ export default function CancelFormDetailClient() {
                             );
                           }
                           return canTakeAction ? (
-                            <div className='flex-1 bg-white overflow-y-auto'>
+                            <div className='bg-white'>
                               <ProceedingsForm
                                 applicationId={String(id)}
                                 onSuccess={handleProceedingsSuccess}
@@ -363,7 +363,7 @@ export default function CancelFormDetailClient() {
                       <div
                         ref={dividerRef}
                         onMouseDown={handleDividerMouseDown}
-                        className='w-1 bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-red-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
+                        className='w-1 self-stretch bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-red-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
                         style={{
                           cursor: 'col-resize',
                           userSelect: 'none',
@@ -375,7 +375,7 @@ export default function CancelFormDetailClient() {
                   )}
 
                   <div
-                    className={`flex flex-col h-full overflow-hidden ${showApplicationProcessingSection ? 'pl-4' : ''}`}
+                    className={`flex flex-col ${showApplicationProcessingSection ? 'pl-4' : ''}`}
                     style={{
                       width: showApplicationProcessingSection
                         ? `${100 - dividerPosition}%`
@@ -390,8 +390,8 @@ export default function CancelFormDetailClient() {
                       </h3>
                     </div>
 
-                    <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
-                      <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
+                    <div className='bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden'>
+                      <div className='overflow-y-auto p-6 custom-scrollbar max-h-[600px]'>
                         {request.cancelWorkflowHistories &&
                         request.cancelWorkflowHistories.length > 0 ? (
                           <div className='space-y-5'>
@@ -404,7 +404,9 @@ export default function CancelFormDetailClient() {
                               const hasAttachments =
                                 Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
                               const hasRemarks = !!h.remarks;
-                              const hasDetails = hasAttachments || hasRemarks;
+                              // System-generated text on older entries, kept apart from the officer's remarks.
+                              const systemNote = typeof h.systemNote === 'string' ? h.systemNote.trim() : '';
+                              const hasDetails = hasAttachments || hasRemarks || !!systemNote;
                               const isExpanded = !!expandedHistory[idx];
                               const historyDate = h.createdAt ? new Date(h.createdAt) : new Date();
                               const formattedDate = historyDate.toLocaleDateString('en-IN', {
@@ -481,10 +483,15 @@ export default function CancelFormDetailClient() {
                                       </button>
                                     )}
                                   </div>
+                                  {systemNote && isExpanded && (
+                                    <p className='mt-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-500'>
+                                      <span className='font-semibold uppercase tracking-wide'>System</span> · {systemNote}
+                                    </p>
+                                  )}
                                   {hasRemarks && isExpanded && (
                                     <div className='mt-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm'>
                                       <div className='text-base font-semibold text-gray-800 mb-3'>
-                                        Remarks
+                                        Officer Remarks
                                       </div>
                                       <div className='flex text-sm text-gray-700 leading-relaxed whitespace-pre-line'>
                                         <RichTextDisplay content={h.remarks} />

@@ -5,11 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { RenewalFormSkeleton } from '../../../components/Skeleton';
 import { ApplicationService } from '../../../api/applicationService';
-import { FileUploadService } from '../../../api/fileUploadService';
 import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
-import LicenseService from '../../../services/licenseService';
 import CancelService from '../../../api/cancelService';
 import RenewalHeader, { RENEWAL_SECTIONS } from '../../../components/forms/renewal/RenewalHeader';
 import { Card } from '../../../components/forms/elements/Card';
@@ -35,7 +33,6 @@ import DocumentsSection from '../../../components/forms/renewal/sections/Documen
 import PreviewSection from '../../../components/forms/renewal/sections/PreviewSection';
 import DeclarationSection from '../../../components/forms/renewal/sections/DeclarationSection';
 import MantraSDKService from '../../../services/mantraSDKService';
-import BiometricAPIService from '../../../services/biometricAPIService';
 import {
   validatePan,
   validateAadhaar,
@@ -443,52 +440,9 @@ const getSexValue = (value: any) => {
   return normalized;
 };
 
-const normalizeLicensePurpose = (value?: string) => {
-  if (!value) return undefined;
-  const normalized = String(value).toUpperCase();
 
-  switch (normalized) {
-    case 'SELF_PROTECTION':
-    case 'SELF_DEFENSE':
-    case 'SELF-DEFENSE':
-      return 'SELF_PROTECTION';
-    case 'SPORTS':
-    case 'CROP_PROTECTION':
-      return 'SPORTS';
-    case 'HEIRLOOM_POLICY':
-    case 'BUSINESS_SECURITY':
-      return 'HEIRLOOM_POLICY';
-    default:
-      return normalized;
-  }
-};
 
-const normalizeArmsCategoryForApi = (value?: string) => {
-  const normalized = String(value || '').toUpperCase();
-  if (normalized === 'RESTRICTED' || normalized === 'PERMISSIBLE') return normalized;
-  if (normalized.includes('RESTRICT')) return 'RESTRICTED';
-  if (normalized.includes('PERMISS')) return 'PERMISSIBLE';
-  return undefined;
-};
 
-const hasCompleteAddressPayload = (formData: RenewalFormState) =>
-  Boolean(
-    getTextValue(formData.presentAddress) &&
-    toNumber(formData.presentState) !== undefined &&
-    toNumber(formData.presentDistrict) !== undefined &&
-    toNumber(formData.presentPoliceStation) !== undefined &&
-    toNumber(formData.presentZone) !== undefined &&
-    toNumber(formData.presentDivision) !== undefined &&
-    getTextValue(formData.residingSince)
-  );
-
-const hasCompleteOccupationPayload = (formData: RenewalFormState) =>
-  Boolean(
-    getTextValue(formData.occupation) &&
-    getTextValue(formData.officeBusinessAddress) &&
-    toNumber(formData.officeBusinessState) !== undefined &&
-    toNumber(formData.officeBusinessDistrict) !== undefined
-  );
 
 const mapLicensePurposeToUiValue = (value?: string) => {
   if (!value) return '';
@@ -687,96 +641,10 @@ const mapPermanentAddressFields = (data: any) => {
   };
 };
 
-const ADDRESS_FORM_KEYS: (keyof RenewalFormState)[] = [
-  'presentAddress',
-  'presentState',
-  'presentDistrict',
-  'presentRangeOffice',
-  'presentZone',
-  'presentDivision',
-  'presentPoliceStation',
-  'jurisdictionPoliceStation',
-  'residingSince',
-  'sameAsPresent',
-  'permanentAddress',
-  'permanentState',
-  'permanentDistrict',
-  'permanentRangeOffice',
-  'permanentZone',
-  'permanentDivision',
-  'permanentPincode',
-  'permanentPoliceStation',
-  'officePhone',
-  'residencePhone',
-  'officeMobile',
-  'alternativeMobile',
-];
 
-const OCCUPATION_FORM_KEYS: (keyof RenewalFormState)[] = [
-  'occupation',
-  'officeBusinessAddress',
-  'officeBusinessState',
-  'officeBusinessDistrict',
-  'officeBusinessStateName',
-  'officeBusinessDistrictName',
-  'cropProtectionLocation',
-  'cultivatedArea',
-];
 
-const CRIMINAL_FORM_KEYS: (keyof RenewalFormState)[] = [
-  'convictedStatus',
-  'bondStatus',
-  'bondSentenceDate',
-  'bondPeriod',
-  'prohibitedStatus',
-  'prohibitedSentenceDate',
-  'prohibitedPeriod',
-  'firNumber',
-  'underSection',
-  'policeStationCriminal',
-  'criminalUnit',
-  'criminalDistrict',
-  'criminalState',
-  'offence',
-  'sentence',
-  'sentenceDate',
-  'firDetailsList',
-];
 
-const LICENSE_HISTORY_EXTRA_KEYS = [
-  'hasPreviousLicense',
-  'previousApplicationDetails',
-  'hasAppliedBefore',
-  'applicationDate',
-  'authorityAppliedTo',
-  'applicationResult',
-  'licenseRevokedOrSuspended',
-  'revokedByAuthority',
-  'revokedReason',
-  'familyMemberHasLicense',
-  'familyMemberName',
-  'familyLicenseNumber',
-  'weaponEndorsedList',
-  'hasSafeCustody',
-  'safeCustodyDetails',
-  'hasTrainingUnderRule10',
-  'trainingDetails',
-] as const;
 
-const LICENSE_DETAIL_FORM_KEYS: (keyof RenewalFormState)[] = [
-  'armsOptionType',
-  'areaOfValidity',
-  'ammunitionDescription',
-  'specialConsiderationClaim',
-  'formIVPlaceArea',
-  'formIVWildBeastsSpec',
-  'weaponType',
-  'weaponId',
-  'requestedWeaponIds',
-  'weaponReason',
-  'licenseValidity',
-  'licenseType',
-];
 
 const normalizeArmsCategory = (value?: string) => {
   const normalized = String(value || '')
@@ -816,11 +684,6 @@ const mapArmsOptionToCategory = (armsOption?: string): string => {
   return 'RESTRICTED'; // default to RESTRICTED
 };
 
-const BIOMETRIC_FORM_KEYS: (keyof RenewalFormState)[] = [
-  'selectedFingerprint',
-  'signature',
-  'irisScan',
-];
 
 const DOCUMENT_FORM_KEYS = [
   'idProofUploaded',
@@ -920,8 +783,6 @@ const hasSavedLicenseHistory = (data: any) =>
     (Array.isArray(data?.licenseHistory) && data.licenseHistory.length > 0)
   );
 
-const hasSavedLicenseDetails = (data: any) =>
-  Boolean(Array.isArray(data?.licenseDetails) && data.licenseDetails.length > 0);
 
 const hasSavedBiometric = (data: any) => {
   const biometric = data?.biometricData?.biometricData || data?.biometricData;
@@ -989,178 +850,13 @@ const collectUploadedFilesFromApi = (data: any): any[] => {
 
 const getUploadedFiles = (data: any) => collectUploadedFilesFromApi(data);
 
-const hasSavedDocuments = (data: any) => getUploadedFiles(data).length > 0;
 
 const resolveLicenseId = (renewalData: any, urlLicenseId: string) =>
   getTextValue(urlLicenseId, renewalData?.licenseId, renewalData?.id);
 
-const fetchFreshApplicationWithFiles = async (licenseId: string) => {
-  if (!licenseId) return null;
 
-  const freshResponse = await ApplicationService.getLicense(licenseId);
-  console.log(freshResponse);
-  let freshData = extractData(freshResponse);
 
-  return freshData;
-};
 
-const mergeDocumentFieldsFromFresh = (
-  merged: RenewalFormState,
-  fresh: RenewalFormState,
-  renewalFileIds?: ReadonlySet<number>
-) => {
-  for (const key of DOCUMENT_FORM_KEYS) {
-    if (key === 'specialEvidenceFiles') continue;
-    const mergedMeta = getDocumentUploadMeta((merged as Record<string, unknown>)[key]);
-    const freshMeta = getDocumentUploadMeta((fresh as Record<string, unknown>)[key]);
-    if (!mergedMeta.uploaded && freshMeta.uploaded) {
-      (merged as Record<string, unknown>)[key] =
-        asPendingRenewalDocument((fresh as Record<string, unknown>)[key], renewalFileIds ?? null) ??
-        (fresh as Record<string, unknown>)[key];
-    }
-  }
-
-  // Note: specialEvidenceFiles/specialEvidenceUploaded intentionally NOT copied
-  // from fresh application -- renewal form should only show its own uploaded evidence.
-};
-
-const restoreSectionFromFresh = (
-  merged: RenewalFormState,
-  fresh: RenewalFormState,
-  keys: readonly (keyof RenewalFormState | string)[]
-) => {
-  for (const key of keys) {
-    (merged as Record<string, unknown>)[key] = (fresh as Record<string, unknown>)[key];
-  }
-};
-
-const mergeRenewalStateOverFresh = (
-  fresh: RenewalFormState,
-  renewal: RenewalFormState,
-  renewalData: any
-): RenewalFormState => {
-  const merged: RenewalFormState = { ...fresh, ...renewal };
-
-  merged.renewalApplicationId = renewal.renewalApplicationId || fresh.renewalApplicationId;
-  merged.licenseId = renewal.licenseId || fresh.licenseId;
-  merged.licenseNumber = renewal.licenseNumber || fresh.licenseNumber;
-  merged.acknowledgementNo = renewal.acknowledgementNo || fresh.acknowledgementNo;
-
-  const personalPreferFreshKeys: (keyof RenewalFormState)[] = [
-    'applicantName',
-    'applicantMiddleName',
-    'applicantLastName',
-    'placeOfBirth',
-    'filledBy',
-    'dobInWords',
-    'motherName',
-    'maritalStatus',
-  ];
-  for (const key of personalPreferFreshKeys) {
-    const renewalValue = renewal[key];
-    if (typeof renewalValue === 'string' && !renewalValue.trim()) {
-      (merged as Record<string, unknown>)[key] = fresh[key];
-    }
-  }
-
-  if (!hasSavedAddress(getPresentAddress(renewalData))) {
-    restoreSectionFromFresh(merged, fresh, ADDRESS_FORM_KEYS);
-  } else if (!hasSavedAddress(renewalData?.permanentAddress)) {
-    restoreSectionFromFresh(merged, fresh, [
-      'permanentAddress',
-      'permanentState',
-      'permanentDistrict',
-      'permanentZone',
-      'permanentDivision',
-      'permanentPincode',
-      'permanentPoliceStation',
-    ]);
-  }
-
-  if (!hasSavedOccupation(renewalData)) {
-    restoreSectionFromFresh(merged, fresh, OCCUPATION_FORM_KEYS);
-  }
-
-  if (!hasSavedCriminal(renewalData)) {
-    restoreSectionFromFresh(merged, fresh, CRIMINAL_FORM_KEYS);
-  }
-
-  if (!hasSavedLicenseHistory(renewalData)) {
-    restoreSectionFromFresh(merged, fresh, LICENSE_HISTORY_EXTRA_KEYS);
-  }
-
-  if (!hasSavedLicenseDetails(renewalData)) {
-    restoreSectionFromFresh(merged, fresh, LICENSE_DETAIL_FORM_KEYS);
-  } else {
-    const renewalLicense = renewalData.licenseDetails?.[0];
-    const partialLicenseKeys: string[] = [];
-
-    if (!String(renewalLicense?.areaOfValidity || '').trim()) {
-      partialLicenseKeys.push('areaOfValidity');
-    }
-    if (!normalizeArmsCategory(renewalLicense?.armsCategory)) {
-      partialLicenseKeys.push('armsOptionType', 'licenseType');
-    }
-    if (
-      !Array.isArray(renewalLicense?.requestedWeapons) ||
-      renewalLicense.requestedWeapons.length === 0
-    ) {
-      partialLicenseKeys.push('requestedWeaponIds', 'weaponType', 'weaponId');
-    }
-
-    if (partialLicenseKeys.length) {
-      restoreSectionFromFresh(merged, fresh, partialLicenseKeys);
-    }
-
-    const licenseFieldKeys = [...LICENSE_DETAIL_FORM_KEYS] as const;
-    for (const key of licenseFieldKeys) {
-      const renewalValue = (renewal as Record<string, unknown>)[key];
-      const freshValue = (fresh as Record<string, unknown>)[key];
-      const renewalEmpty =
-        renewalValue === null ||
-        renewalValue === undefined ||
-        renewalValue === '' ||
-        (Array.isArray(renewalValue) && renewalValue.length === 0);
-      if (renewalEmpty) {
-        (merged as Record<string, unknown>)[key] = freshValue;
-      }
-    }
-  }
-
-  if (!getTextValue(merged.presentPincode) && getTextValue(fresh.presentPincode)) {
-    merged.presentPincode = fresh.presentPincode;
-  }
-
-  if (!hasSavedBiometric(renewalData)) {
-    restoreSectionFromFresh(merged, fresh, BIOMETRIC_FORM_KEYS);
-  }
-
-  if (
-    renewalData?.isDeclarationAccepted !== undefined ||
-    renewalData?.isAwareOfLegalConsequences !== undefined ||
-    renewalData?.isTermsAccepted !== undefined ||
-    renewalData?.declaration
-  ) {
-    merged.declaration = {
-      agreeToTruth: Boolean(
-        renewalData?.declaration?.agreeToTruth ?? renewalData?.isDeclarationAccepted
-      ),
-      understandLegalConsequences: Boolean(
-        renewalData?.declaration?.understandLegalConsequences ??
-        renewalData?.isAwareOfLegalConsequences
-      ),
-      agreeToTerms: Boolean(renewalData?.declaration?.agreeToTerms ?? renewalData?.isTermsAccepted),
-    };
-  }
-
-  const renewalFileIds = collectRenewalFileIds(renewalData);
-
-  // Populate document fields strictly from renewalData (not from fresh application)
-  const mappedDocs = mapDocumentUploadFields(renewalData, collectRenewalFileIds(renewalData));
-  Object.assign(merged, mappedDocs);
-
-  return merged;
-};
 
 const mapOccupationFields = (data: any) => {
   if (!hasSavedOccupation(data)) return {};
@@ -2234,7 +1930,7 @@ function RenewalFormPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [, setStatusMessage] = useState<string | null>(null);
   const [renewalRecord, setRenewalRecord] = useState<any>(null);
   const [formData, setFormData] = useState<RenewalFormState>(initialFormState);
   const renewalLocks: RenewalLocks | null = renewalRecord?.renewalLocks ?? null;
@@ -2262,9 +1958,7 @@ function RenewalFormPageContent() {
     licenseId: string;
   } | null>(null);
   const [deviceConnected, setDeviceConnected] = useState(false);
-  const [deviceChecking, setDeviceChecking] = useState(false);
   const [fingerprintCapturing, setFingerprintCapturing] = useState(false);
-  const [verificationMsg, setVerificationMsg] = useState<string | null>(null);
   const [enrolledTemplates, setEnrolledTemplates] = useState<any[]>([]);
 
   // States matching fresh biometric capture UI
@@ -2281,7 +1975,6 @@ function RenewalFormPageContent() {
 
   const checkDeviceConnection = async () => {
     try {
-      setDeviceChecking(true);
       const initialized = await MantraSDKService.initialize();
       setMantraSDKReady(initialized);
       if (initialized) {
@@ -2292,8 +1985,6 @@ function RenewalFormPageContent() {
       }
     } catch {
       setDeviceConnected(false);
-    } finally {
-      setDeviceChecking(false);
     }
   };
 
@@ -2371,7 +2062,6 @@ function RenewalFormPageContent() {
     const result = await MantraSDKService.verifyTemplate(
       enrolledTemplates[0].template,
       template,
-      65
     );
     return { matchScore: result.score, matched: result.isMatch };
   };
@@ -2630,7 +2320,7 @@ function RenewalFormPageContent() {
         }
         setShowCapturingModal(false);
         setShowFingerprintPreviewModal(true);
-      } catch (imageError) {
+      } catch {
         setPendingCaptureResult(captureResult);
         setFingerprintPreviewImage(null);
         setShowCapturingModal(false);
@@ -2663,7 +2353,6 @@ function RenewalFormPageContent() {
           const matchResult = await MantraSDKService.verifyTemplate(
             storedFp.template,
             liveTemplate,
-            65
           );
           if (matchResult.isMatch || matchResult.score >= 65) {
             matchFound = true;
@@ -2679,7 +2368,6 @@ function RenewalFormPageContent() {
       setPendingCaptureResult(null);
 
       if (matchFound) {
-        setVerificationMsg('Verification successful!');
         setIsVerified(true);
         setVerificationStatus('VERIFIED');
       } else {
@@ -2791,7 +2479,6 @@ function RenewalFormPageContent() {
 
   const allSectionsCompleted = Object.values(sectionCompleted).every(Boolean);
 
-  const [savingSection, setSavingSection] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -3244,7 +2931,7 @@ function RenewalFormPageContent() {
           base.officeBusinessDistrictName = district.name;
         }
       }
-    } catch (err) {
+    } catch {
       // Non-fatal: if location name lookup fails, proceed with numeric ids
     }
 
@@ -3725,7 +3412,6 @@ function RenewalFormPageContent() {
 
     try {
       setIsSaving(true);
-      setSavingSection(sectionKey);
       setError(null);
       const fileFields = SECTION_FILE_FIELDS[sectionKey];
       const dataToSave = fileFields
@@ -3763,7 +3449,6 @@ function RenewalFormPageContent() {
       setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
     } finally {
       setIsSaving(false);
-      setSavingSection(null);
     }
   };
 

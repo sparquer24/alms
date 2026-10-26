@@ -110,11 +110,7 @@ export class ActionesController {
   })
   @ApiResponse({ status: 201, description: "Action created successfully" })
   async createNewAction(@Body() actionData: { code: string; name: string; description?: string; isActive?: boolean }) {
-    try {
-      return await this.actionesService.createNewAction(actionData);
-    } catch (error) {
-      throw error;
-    }
+    return await this.actionesService.createNewAction(actionData);
   }
 
   @Post("RolesActionsMapping")
@@ -143,13 +139,8 @@ export class ActionesController {
     description: "Action created successfully",
   })
   async createAction(@Body() mappingData: RolesActionsMapping, @Request() req: any) {
-    try {
-      const userId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
-      return this.actionesService.createAction(mappingData, userId);
-    }
-    catch (error) {
-      throw error;
-    }
+    const userId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
+    return this.actionesService.createAction(mappingData, userId);
   }
 
   @Put("RolesActionsMapping/:id")
@@ -179,12 +170,8 @@ export class ActionesController {
     description: "Action updated successfully",
   })
   async updateAction(@Param('id') id: number, @Body() mappingData: RolesActionsMapping, @Request() req: any) {
-    try {
-      const userId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
-      return this.actionesService.updateAction(Number(id), mappingData, userId);
-    } catch (error) {
-      throw error;
-    }
+    const userId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
+    return this.actionesService.updateAction(Number(id), mappingData, userId);
   }
   @Delete("RolesActionsMapping/:id")
   @InvalidateCache(CacheKeys.actions, CacheKeys.statuses)
@@ -211,11 +198,7 @@ export class ActionesController {
     description: "Action mapping deleted successfully (soft delete)",
   })
   async deleteActionMapping(@Param('id') id: number) {
-    try {
-      return this.actionesService.deleteActionMapping(Number(id));
-    } catch (error) {
-      throw error;
-    }
+    return this.actionesService.deleteActionMapping(Number(id));
   }
 
 }

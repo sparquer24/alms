@@ -68,10 +68,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Custom webpack config for bundle optimization
-  webpack: (config, { isServer, dev }) => {
-    return config;
-  },
   // Stable build ID derived from git commit to avoid cache mismatches on redeploy.
   // Falls back to BUILD_ID env var or a static string when git is unavailable.
   generateBuildId() {

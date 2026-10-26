@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowController as WorkflowStatusesActionsController } from './workflow.statuses-actions.controller';
 import { WorkflowService } from './workflow.service';

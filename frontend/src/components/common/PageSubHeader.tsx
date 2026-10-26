@@ -4,7 +4,6 @@ import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useLayout } from '@/config/layoutContext';
 import { normalizeRole } from '@/utils/roleUtils';
 import { Search, X } from 'lucide-react';
 
@@ -46,7 +45,6 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
   className = '',
 }) => {
   const { userRole } = useAuth();
-  const { headerHeight } = useLayout();
   const pathname = usePathname();
 
   const effectiveRole = normalizeRole(userRole);

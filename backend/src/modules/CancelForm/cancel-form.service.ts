@@ -4,7 +4,7 @@ import { CreateCancelRequestDto } from './dto/create-cancel-request.dto';
 import { UpdateCancelRequestDto } from './dto/update-cancel-request.dto';
 import { CancelRequestActionDto } from './dto/cancel-request-action.dto';
 import { UploadCancelFileDto } from './dto/upload-file.dto';
-import { ACTION_CODES, STATUS_CODES } from '../../constants/workflow-actions';
+import { ACTION_CODES, STATUS_CODES, splitCancelHistoryRemarks } from '../../constants/workflow-actions';
 import { LicenseStatus } from '@prisma/client';
 
 const CANCEL_MAX_FILES = 10;
@@ -25,8 +25,6 @@ export class CancelFormService {
     currentUserRoleId: number | null = null,
   ): Promise<any> {
     try {
-      console.log('--- createCancelRequest Start ---');
-      console.log('DTO:', JSON.stringify(dto, null, 2));
       
       const initiateStatus = await prisma.statuses.findFirst({
         where: {
@@ -36,7 +34,6 @@ export class CancelFormService {
         orderBy: { id: 'asc' },
       });
       
-      console.log('currentUserId:', currentUserId);
 
       // Wrap creation and workflow history in a transaction for atomicity.
       // The CANCELLED status check runs INSIDE the transaction so it is atomic with the INSERT.
@@ -83,7 +80,6 @@ export class CancelFormService {
 
         // generate a unique acknowledgement number for the cancel request
         const acknowledgementNo = `CAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
-        console.log('Generated acknowledgementNo:', acknowledgementNo);
         
         const created = await tx.cancelFormRequests.create({
           data: {
@@ -123,8 +119,9 @@ export class CancelFormService {
           await tx.cancelWorkflowHistories.create({
             data: {
               applicationId: created.id,
-              previousUserId: null,
-              nextUserId: null,
+              // The requester raised it, so the first step shows who did.
+              previousUserId: currentUserId,
+              nextUserId: currentUserId,
               previousRoleId: currentUserRoleId,
               nextRoleId: currentUserRoleId,
               actionTaken: 'INITIATED',
@@ -282,11 +279,12 @@ export class CancelFormService {
               previousRoleId: true,
               nextRoleId: true,
               actionesId: true,
+              attachments: true,
               nextUser: {
-                select: { role: true },
+                select: { username: true, role: true },
               },
               previousUser: {
-                select: { role: true },
+                select: { username: true, role: true },
               },
               nextRole: true,
               previousRole: true,
@@ -304,6 +302,14 @@ export class CancelFormService {
       const computedApplicantName = cancelRequest.Licenses
       return {
         ...cancelRequest,
+        // Flat names, as the fresh/renewal histories expose them.
+        cancelWorkflowHistories: cancelRequest.cancelWorkflowHistories.map((h) => ({
+          ...splitCancelHistoryRemarks(h),
+          previousUserName: h.previousUser?.username ?? null,
+          previousRoleName: h.previousRole?.name ?? h.previousUser?.role?.name ?? null,
+          nextUserName: h.nextUser?.username ?? null,
+          nextRoleName: h.nextRole?.name ?? h.nextUser?.role?.name ?? null,
+        })),
         applicantName: computedApplicantName || cancelRequest.requester?.username || `Cancel Request #${cancelRequest.id}`,
       };
     } catch (error: any) {
@@ -710,7 +716,7 @@ export class CancelFormService {
               previousUserId: currentUserId,
               nextUserId: currentUserId,
               actionTaken: ACTION_CODES.CANCEL,
-              remarks: cancelRequest.remarks,
+              remarks: dto.remarks || '',
             },
           });
 

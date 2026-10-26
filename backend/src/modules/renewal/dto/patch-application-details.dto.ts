@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsOptional,  ValidateNested, IsArray, IsNumber, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PatchRenewalPersonalDetailsDto } from './patch-personal-details.dto';

@@ -360,32 +360,6 @@ export class LicensesService {
     };
   }
 
-  private async attachFreshWorkflowHistories(application: any) {
-    const workflowHistories = await this.prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-      where: { applicationId: application.id },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        previousRole: true,
-        previousUser: true,
-        nextRole: true,
-        nextUser: true,
-        actiones: true,
-      },
-    });
-
-    if (workflowHistories.length > 0) {
-      application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }: { previousUser: any; previousRole: any; nextUser: any; nextRole: any;[key: string]: any }) => ({
-        ...rest,
-        previousUserName: previousUser?.username ?? null,
-        previousRoleName: previousRole?.name ?? null,
-        nextUserName: nextUser?.username ?? null,
-        nextRoleName: nextRole?.name ?? null,
-      }));
-    }
-
-    return application;
-  }
-
   private async loadApplicationForLicense(licenseRecord: any) {
     const applicationType = this.normalizeApplicationType(licenseRecord?.lastModifiedAppType);
 
@@ -454,19 +428,28 @@ export class LicensesService {
       }
     }
 
+    // A cancel request carries no applicant, address, license or document data, so a
+    // cancelled license is described by the application it held before the cancellation.
+    // When that is unknown, the fallbacks below try the fresh and renewal applications.
     if (applicationType === 'CANCELLATION') {
-      const cancelAppId = licenseRecord?.cancelApplicationId;
-      if (cancelAppId) {
-        const cancelRequest = await this.prisma.cancelFormRequests.findUnique({
-          where: { id: cancelAppId },
-          include: {
-            workflowStatus: true,
-            requester: { select: { id: true, username: true } },
-            actioner: { select: { id: true, username: true } },
-            Licenses: { select: { id: true, licenseNumber: true } },
-          }
+      const previousType = this.normalizeApplicationType(licenseRecord?.previousModifiedAppType);
+      const previousId = licenseRecord?.previousModifiedAppId;
+      if (previousType === 'RENEWAL' && previousId) {
+        const application = await this.prisma.renewalFormPersonalDetails.findUnique({
+          where: { id: previousId },
+          include: this.buildRenewalApplicationInclude(),
         });
-        if (cancelRequest) return cancelRequest;
+        if (application) {
+          const freshAppId = await this.resolveFreshIdFromRenewal(application.licenseNumber);
+          return { ...application, freshApplicationId: freshAppId };
+        }
+      }
+      if (previousType === 'FRESH' && previousId) {
+        const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: previousId },
+          include: this.buildFreshApplicationInclude(),
+        });
+        if (application) return application;
       }
     }
 
@@ -571,6 +554,8 @@ export class LicensesService {
       validTill: license.validTill,
       lastRenewedDate: license.lastRenewedDate ?? null,
       renewalCount: license.renewalCount ?? 0,
+      cancellationDate: license.cancellationDate ?? null,
+      cancellationReason: license.cancellationReason ?? null,
       armsCategory: license.armsCategory,
       areaOfValidity: license.areaOfValidity,
       ammunitionDescription: license.ammunitionDescription,
@@ -1836,8 +1821,6 @@ export class LicensesService {
     ArmsCategory.RESTRICTED,
     ArmsCategory.PERMISSIBLE,
   ];
-
-  private static readonly SEX_VALUES: Sex[] = [Sex.MALE, Sex.FEMALE, Sex.OTHER];
 
   /** Natural-language weapon categories seen in legacy registers, mapped to the enum. */
   private static readonly ARMS_CATEGORY_ALIASES: Record<string, ArmsCategory> = {

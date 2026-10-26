@@ -17,7 +17,7 @@ export async function generateStaticParams() {
         }
       });
     }
-  } catch (error) {
+  } catch {
     // API offline or build-time error, fallback to static params
   }
 

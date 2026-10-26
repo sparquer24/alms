@@ -12,12 +12,10 @@ import {
 import { AdminErrorBoundary } from '@/components/admin';
 import { AdminRoleService } from '@/services/admin/roles';
 import { AdminActionService, Action, RoleActionMapping } from '@/services/admin/actions';
-import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminDataTable } from '@/components/tables/AdminDataTable';
 
 export default function ActionMappingContent() {
   const queryClient = useQueryClient();
-  const { colors } = useAdminTheme();
 
   // Selected Role & Application Type State
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
@@ -26,11 +24,6 @@ export default function ActionMappingContent() {
   // Action search state
   const [actionSearchQuery, setActionSearchQuery] = useState('');
 
-  const appTypeOptions = [
-    { value: 'FRESH', label: 'Fresh' },
-    { value: 'RENEWAL', label: 'Renewal' },
-    { value: 'CANCEL', label: 'Cancellation' },
-  ];
 
   // Create Action Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

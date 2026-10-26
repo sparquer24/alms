@@ -39,7 +39,7 @@ export class LicensesController {
           const zoneId = parsedZoneId ? Number(parsedZoneId) : undefined;
           const roleCode = decoded?.role_code || (typeof decoded?.role === 'string' ? decoded.role : decoded?.role?.code);
           return { stateId, districtId, zoneId, roleCode };
-        } catch (e) {
+        } catch {
           // ignore
         }
       }

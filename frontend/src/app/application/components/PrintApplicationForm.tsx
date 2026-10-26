@@ -262,7 +262,7 @@ export default function PrintApplicationForm({
         month: 'short',
         year: 'numeric',
       });
-    } catch (e) {
+    } catch {
       return dateStr;
     }
   };
@@ -278,7 +278,7 @@ export default function PrintApplicationForm({
         minute: '2-digit',
         hour12: true,
       });
-    } catch (e) {
+    } catch {
       return dateStr;
     }
   };
@@ -321,7 +321,7 @@ export default function PrintApplicationForm({
   const htmlToPlainText = (html: string): string => {
     if (!html) return '';
     try {
-      let text = html
+      const text = html
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n')
         .replace(/<\/div>/gi, '\n')
@@ -442,7 +442,7 @@ export default function PrintApplicationForm({
           aside,
           nav,
           button,
-          .print\:hidden {
+          .print\\:hidden {
             display: none !important;
             height: 0 !important;
             margin: 0 !important;

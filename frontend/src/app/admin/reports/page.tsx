@@ -9,10 +9,6 @@ import { fetchAllApplications } from "@/services/sidebarApiCalls";
 import { AdminCardSkeleton, AdminTableSkeleton } from "@/components/admin";
 import type { ApplicationData } from "@/types";
 
-interface Application {
-  status: string;
-  // ...other fields if needed
-}
 
 export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +30,7 @@ export default function ReportsPage() {
         setIsLoading(true);
         const fetchedApplications = await fetchAllApplications();
         setApplications(fetchedApplications);
-      } catch (error) {
+      } catch {
         setApplications([]);
       } finally {
         setIsLoading(false);

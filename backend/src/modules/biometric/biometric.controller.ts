@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { BiometricService } from './biometric.service';
+import { BiometricAuditService } from './biometric-audit.service';
 import { BiometricEnrollmentDto, BiometricVerificationDto } from './dto/biometric.dto';
 import { AuthGuard } from '../../middleware/auth.middleware';
 
@@ -21,7 +22,10 @@ import { AuthGuard } from '../../middleware/auth.middleware';
 @UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class BiometricController {
-    constructor(private readonly biometricService: BiometricService) { }
+    constructor(
+        private readonly biometricService: BiometricService,
+        private readonly auditService: BiometricAuditService,
+    ) { }
 
     /**
      * Device Status Check
@@ -318,11 +322,12 @@ export class BiometricController {
         @Query('offset') offset: string = '0',
     ) {
         try {
-            return {
-                success: true,
-                data: [],
-                message: 'Audit logs feature available. Configure data storage.',
-            };
+            const data = await this.auditService.getAuditLogs(
+                Number(applicantId),
+                Math.min(Math.max(Number(limit) || 50, 1), 200),
+                Math.max(Number(offset) || 0, 0),
+            );
+            return { success: true, data };
         } catch (error: any) {
             throw new HttpException(
                 { success: false, message: error.message },
