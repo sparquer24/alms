@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import LandingPage from './landing/page';
+import { getRoleBasedRedirectPath } from '../config/roleRedirections';
 
 export default function Home() {
   const { isAuthenticated, isLoading, userRole, initialized } = useAuth();
@@ -13,27 +14,9 @@ export default function Home() {
   useEffect(() => {
     if (!initialized || isLoading) return;
 
-    // If authenticated, redirect based on role
+    // If authenticated, redirect based on role (using centralized redirect rules)
     if (isAuthenticated && userRole) {
-      const redirectMap: Record<string, string> = {
-        ADMIN: '/dashboard',
-        SUPER_ADMIN: '/dashboard',
-        ARMS_SUPDT: '/inbox',
-        SHO: '/inbox',
-        ZS: '/inbox',
-        DCP: '/inbox',
-        ACP: '/inbox',
-        CP: '/inbox',
-        JTCP: '/inbox',
-        ADO: '/inbox',
-        CADO: '/inbox',
-        AS: '/inbox',
-        ARMS_SEAT: '/inbox',
-        ACO: '/inbox',
-        APPLICANT: '/inbox?type=all',
-      };
-
-      const redirectPath = redirectMap[userRole] || '/inbox';
+      const redirectPath = getRoleBasedRedirectPath(userRole);
       router.replace(redirectPath);
       return;
     }

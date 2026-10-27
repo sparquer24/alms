@@ -22,8 +22,8 @@ const Footer: React.FC<FooterProps> = ({
   const borderClass = showBorder ? 'border-t border-gray-200/80' : '';
 
   return (
-    <footer className={`w-full text-center text-xs py-3 mt-auto ${variantClasses[variant]} ${borderClass} ${className} print:hidden`}>
-      <div className="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+    <footer className={`w-full text-center text-xs py-1.5 mt-auto ${variantClasses[variant]} ${borderClass} ${className} print:hidden`}>
+      <div className="max-w-[1600px] mx-auto px-4 flex flex-row items-center justify-between gap-2">
         <p className="text-gray-600 font-medium">
           &copy; {currentYear} <span className="font-bold text-[#0B1F3A]">ALMS</span> — Arms License Management System. by Sparquer AI.
         </p>

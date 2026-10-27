@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useImperativeHandle } from 'react';
+﻿import React, { useState, useCallback, useImperativeHandle } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ApplicationData } from '../types';
 import styles from './ApplicationTable.module.css';
@@ -421,7 +421,7 @@ const ApplicationTable = React.forwardRef<ApplicationTableRef, ApplicationTableP
     );
 
     const formatDateTime = useCallback((dateStr: string) => {
-      if (!dateStr) return '—';
+      if (!dateStr) return 'â€”';
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return String(dateStr);
       return date.toLocaleString('en-IN', {
@@ -915,7 +915,7 @@ const TableRow: React.FC<{
                 handleViewApplication(app.id);
               }}
               disabled={isRowLoading}
-              className={`text-[#0B1F3A] hover:text-[#15325B] hover:underline transition-colors truncate text-left font-medium ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              className={`text-[#D4AF37] hover:text-[#B89628] hover:underline transition-colors truncate text-left font-semibold ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
               style={{ maxWidth: '100%', display: 'block' }}
               aria-label={`View details for application ${app.id}`}
             >
@@ -1029,7 +1029,7 @@ const TableRow: React.FC<{
         title={app.applicantName || 'N/A'}
       >
         {isDrafts ? (
-          <span className='text-slate-800 truncate block' style={{ maxWidth: '100%' }}>
+          <span className='truncate block' style={{ maxWidth: '100%', color: '#D4AF37' }}>
             {app.applicantName}
           </span>
         ) : (
@@ -1062,7 +1062,7 @@ const TableRow: React.FC<{
                 handleViewApplication(app.id);
               }}
               disabled={isRowLoading}
-              className={`text-[#0B1F3A] hover:text-[#15325B] hover:underline transition-colors truncate text-left font-medium ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              className={`text-[#D4AF37] hover:text-[#B89628] hover:underline transition-colors truncate text-left font-semibold ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
               style={{ maxWidth: '100%', display: 'block' }}
               aria-label={`View details for application ${app.id}`}
             >

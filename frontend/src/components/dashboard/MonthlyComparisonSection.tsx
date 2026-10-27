@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { BarChart2, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
@@ -81,8 +81,8 @@ export default function MonthlyComparisonSection({ data, loading }: MonthlyCompa
   ];
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-      <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+    <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+      <div className="flex items-center justify-between pb-5 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-[#0B1F3A]" />
@@ -102,7 +102,7 @@ export default function MonthlyComparisonSection({ data, loading }: MonthlyCompa
         </div>
       ) : (
         <>
-          <div className="mt-4 h-44">
+          <div className="mt-5 h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -116,7 +116,7 @@ export default function MonthlyComparisonSection({ data, loading }: MonthlyCompa
           </div>
 
           {/* Delta chips */}
-          <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2">
+          <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-4">
             <DeltaChip label="Submitted" thisVal={data?.thisMonth.submitted ?? 0} lastVal={data?.lastMonth.submitted ?? 0} />
             <DeltaChip label="Approved" thisVal={data?.thisMonth.approved ?? 0} lastVal={data?.lastMonth.approved ?? 0} />
             <DeltaChip label="Rejected" thisVal={data?.thisMonth.rejected ?? 0} lastVal={data?.lastMonth.rejected ?? 0} />

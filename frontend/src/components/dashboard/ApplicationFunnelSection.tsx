@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { TrendingDown, Loader2 } from 'lucide-react';
@@ -30,8 +30,8 @@ export default function ApplicationFunnelSection({ stages, loading }: Applicatio
   const maxCount = Math.max(...enriched.map((s) => s.count), 1);
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-      <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+    <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+      <div className="flex items-center justify-between pb-5 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
             <TrendingDown className="w-4 h-4 text-[#0B1F3A]" />
@@ -49,7 +49,7 @@ export default function ApplicationFunnelSection({ stages, loading }: Applicatio
       ) : enriched.length === 0 || maxCount === 0 ? (
         <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No data available</div>
       ) : (
-        <div className="mt-4 space-y-2">
+        <div className="mt-5 space-y-3">
           {enriched.map((stage, idx) => {
             const pct = maxCount > 0 ? Math.max(5, Math.round((stage.count / maxCount) * 100)) : 5;
             const color = FUNNEL_COLORS[idx % FUNNEL_COLORS.length];
@@ -78,7 +78,7 @@ export default function ApplicationFunnelSection({ stages, loading }: Applicatio
                   {/* Drop-off */}
                   {idx > 0 && stage.dropOff > 0 && (
                     <span className="text-[10px] text-rose-500 font-medium w-14 shrink-0">
-                      ↓{stage.dropOff}%
+                      â†“{stage.dropOff}%
                     </span>
                   )}
                   {idx > 0 && stage.dropOff === 0 && (

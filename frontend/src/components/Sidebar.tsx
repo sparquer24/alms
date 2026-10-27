@@ -13,7 +13,7 @@ const ImageFixed = Image as any;
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
-import { CornerUpRight, Undo2, Flag, RefreshCcw, List, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CornerUpRight, Undo2, Flag, RefreshCcw, List, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 const CornerUpRightFixed = CornerUpRight as any;
 const Undo2Fixed = Undo2 as any;
@@ -62,7 +62,7 @@ const MenuItem = memo(({ icon, label, count, active, collapsed, onClick, onActiv
       type='button'
       onMouseDown={onActivate}
       onClick={onClick}
-      title={collapsed ? `${label}${count !== undefined && count > 0 ? ` (${count})` : ''}` : undefined}
+      title={collapsed ? `${label}${typeof count === 'number' ? ` (${count})` : ''}` : undefined}
       className={`group relative flex items-center w-full rounded-lg text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-1 ${
         collapsed ? 'justify-center py-2 px-1' : 'px-2.5 py-2'
       } ${
@@ -91,12 +91,14 @@ const MenuItem = memo(({ icon, label, count, active, collapsed, onClick, onActiv
       {!collapsed && (
         <>
           <span className='flex-1 truncate font-medium'>{label}</span>
-          {count !== undefined && count > 0 && (
+          {typeof count === 'number' && (
             <span
               className={`inline-flex items-center justify-center min-w-[20px] h-4.5 px-1.5 text-[10px] font-bold rounded-full ml-1.5 transition-colors ${
                 active
                   ? 'bg-[#D4AF37] text-[#0B1F3A]'
-                  : 'bg-[#0B1F3A]/10 text-[#0B1F3A] group-hover:bg-[#0B1F3A] group-hover:text-white'
+                  : count === 0
+                    ? 'bg-gray-100 text-gray-400 group-hover:bg-[#0B1F3A] group-hover:text-white'
+                    : 'bg-[#0B1F3A]/10 text-[#0B1F3A] group-hover:bg-[#0B1F3A] group-hover:text-white'
               }`}
             >
               {count > 99 ? '99+' : count}
@@ -104,7 +106,7 @@ const MenuItem = memo(({ icon, label, count, active, collapsed, onClick, onActiv
           )}
         </>
       )}
-      {collapsed && count !== undefined && count > 0 && (
+      {collapsed && typeof count === 'number' && count > 0 && (
         <span
           className='absolute top-1 right-1.5 w-2 h-2 rounded-full bg-[#D4AF37] ring-1 ring-white'
           aria-hidden='true'
@@ -151,7 +153,7 @@ const InboxSubMenuItem = memo(
           type='button'
           onMouseDown={() => onActivate?.(name)}
           onClick={handleClick}
-          title={collapsed ? `${label}${count !== undefined && count > 0 ? ` (${count})` : ''}` : undefined}
+          title={collapsed ? `${label}${typeof count === 'number' ? ` (${count})` : ''}` : undefined}
           className={`group relative flex items-center w-full rounded-lg text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-1 ${
             collapsed ? 'justify-center py-2 px-1' : 'px-2.5 py-1.5'
           } ${
@@ -180,12 +182,14 @@ const InboxSubMenuItem = memo(
           {!collapsed && (
             <>
               <span className='flex-1 truncate font-medium'>{label}</span>
-              {typeof count === 'number' && count > 0 && (
+              {typeof count === 'number' && (
                 <span
                   className={`inline-flex items-center justify-center min-w-[20px] h-4.5 px-1.5 text-[10px] font-bold rounded-full ml-1.5 transition-colors ${
                     active
                       ? 'bg-[#D4AF37] text-[#0B1F3A]'
-                      : 'bg-[#0B1F3A]/10 text-[#0B1F3A] group-hover:bg-[#0B1F3A] group-hover:text-white'
+                      : count === 0
+                        ? 'bg-gray-100 text-gray-400 group-hover:bg-[#0B1F3A] group-hover:text-white'
+                        : 'bg-[#0B1F3A]/10 text-[#0B1F3A] group-hover:bg-[#0B1F3A] group-hover:text-white'
                   }`}
                 >
                   {count > 99 ? '99+' : count}
@@ -242,7 +246,13 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
   const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
+  const effectiveRole = cookieRole ?? userRole;
   const [roleConfig, setRoleConfig] = useState(() => getRoleConfig(userRole));
+
+  // FIX: Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
 
   // Get admin menu context (optional, may not be available)
   const adminMenuContext = useAdminMenu();
@@ -277,9 +287,9 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
     }
 
     const params = new URLSearchParams(searchParamsKey);
-    const type = params.get('type');
-    if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
-      const rawType = String(type).toLowerCase();
+    const typeParam = params.get('type');
+    const rawType = (typeParam || (pathname === '/inbox' ? 'all' : null))?.toLowerCase();
+    if ((pathname === '/inbox' || pathname.startsWith('/admin')) && rawType) {
       const topLevelMap: Record<string, string> = {
         sent: 'sent',
         closed: 'closed',
@@ -409,11 +419,10 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
   // timer for scheduled refresh
   const refreshTimerRef = useRef<number | null>(null);
 
-  // Sidebar counts hook — fetch as soon as sidebar is shown (use showSidebar, not visible,
-  // because `visible` starts false and is updated asynchronously in an effect)
+  // Sidebar counts hook — fetch as soon as sidebar is shown for authenticated non-admin users
   const shouldFetchCounts = useMemo(
-    () => showSidebar && !cookieRole?.includes('ADMIN'),
-    [showSidebar, cookieRole]
+    () => Boolean(showSidebar && !isAdminRole(effectiveRole)),
+    [showSidebar, effectiveRole]
   );
   const {
     applicationCounts: rawCounts,
@@ -426,6 +435,12 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
       returnedCount: rawCounts?.returnedCount || 0,
       redFlaggedCount: rawCounts?.redFlaggedCount || 0,
       reEnquiryCount: rawCounts?.reEnquiryCount || 0,
+      draftCount: rawCounts?.draftCount || 0,
+      sentCount: rawCounts?.sentCount || 0,
+      closedCount: rawCounts?.closedCount || 0,
+      freshFormCount: rawCounts?.freshFormCount || 0,
+      cancelFormCount: rawCounts?.cancelFormCount || 0,
+      applicationsCount: rawCounts?.applicationsCount || 0,
       allCount: rawCounts?.allCount || 0,
     }),
     [
@@ -433,6 +448,12 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
       rawCounts?.returnedCount,
       rawCounts?.redFlaggedCount,
       rawCounts?.reEnquiryCount,
+      rawCounts?.draftCount,
+      rawCounts?.sentCount,
+      rawCounts?.closedCount,
+      rawCounts?.freshFormCount,
+      rawCounts?.cancelFormCount,
+      rawCounts?.applicationsCount,
       rawCounts?.allCount,
     ]
   );
@@ -449,12 +470,26 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
     if (
       !s.includes(' ') &&
       s === s.toLowerCase() &&
-      ['forwarded', 'returned', 'redflagged', 'reenquiry'].includes(s)
+      ['all', 'forwarded', 'returned', 'redflagged', 'reenquiry'].includes(s)
     ) {
       return `inbox-${s.replace(/\s+/g, '').toLowerCase()}`;
     }
     return s.replace(/\s+/g, '').toLowerCase();
   }, []);
+
+  const getMenuItemCount = useCallback(
+    (name: string): number | undefined => {
+      const k = normalizeNavKey(name);
+      if (k === 'drafts' || k === 'draft') return applicationCounts.draftCount;
+      if (k === 'sent') return applicationCounts.sentCount;
+      if (k === 'closed') return applicationCounts.closedCount;
+      if (k === 'freshform' || k === 'newforms' || k === 'newform') return applicationCounts.freshFormCount;
+      if (k === 'cancelform' || k === 'cancel' || k === 'cancelforms') return applicationCounts.cancelFormCount;
+      if (k === 'applications' || k === 'application') return applicationCounts.applicationsCount;
+      return undefined;
+    },
+    [applicationCounts, normalizeNavKey]
+  );
 
   /* ----------------------------
      Client-only: read role cookie once on mount
@@ -818,14 +853,6 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
         ]);
 
         if (key && topLevelInboxLike.has(key)) {
-          try {
-            dispatch(closeInbox());
-            try {
-              if (typeof window !== 'undefined' && window.localStorage) {
-                window.localStorage.setItem('inboxDesiredOpen', 'false');
-              }
-            } catch {}
-          } catch {}
           setActiveItem(key);
           persistActiveNavToLocal(key);
           // For 'sent', trigger navigation to inbox with type=sent and load data
@@ -908,11 +935,6 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
         }
 
         if (wasTopLevel) {
-          try {
-            if (typeof window !== 'undefined' && window.sessionStorage) {
-              window.sessionStorage.setItem('skipOpenInbox', 'true');
-            }
-          } catch {}
           // Always pre-load data into InboxContext (force=true when already on same page)
           void loadType(type, isSamePath, item.statusIds).catch(() => {});
           if (isSamePath) {
@@ -962,50 +984,65 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
     ]
   );
 
-  const handleInboxToggle = useCallback(() => {
-    try {
-      const newState = !isInboxOpen;
-      
-      // When clicking Inbox button (not just toggling), navigate to show all inbox items
-      if (!isInboxOpen) {
-        // Opening inbox - navigate to combined view
-        const activeItemKey = normalizeNavKey('inbox-all');
-        setActiveItem(activeItemKey);
-        persistActiveNavToLocal(activeItemKey);
-        
-        // Navigate to combined inbox view
-        router.push('/inbox?type=all');
+  const handleChevronClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const nextState = !isInboxOpen;
+      if (nextState) {
+        dispatch(openInbox());
+      } else {
+        dispatch(closeInbox());
       }
-      
-      dispatch(toggleInbox());
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('inboxDesiredOpen', newState ? 'true' : 'false');
-      }
-    } catch {
       try {
-        dispatch(toggleInbox());
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('inboxDesiredOpen', String(nextState));
+        }
       } catch {}
-    }
-  }, [dispatch, isInboxOpen, normalizeNavKey, persistActiveNavToLocal, setActiveItem, router]);
+    },
+    [dispatch, isInboxOpen]
+  );
+
+  const handleInboxToggle = useCallback(
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      // Clicking on Inbox defaults to ?type=all, opens accordion, and sets active item to inbox-all
+      dispatch(openInbox());
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('inboxDesiredOpen', 'true');
+        }
+      } catch {}
+      const activeItemKey = 'inbox-all';
+      setActiveItem(activeItemKey);
+      persistActiveNavToLocal(activeItemKey);
+
+      void loadType('all', false).catch(() => {});
+
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
+      if (currentPath !== '/inbox?type=all') {
+        router.push('/inbox?type=all');
+      } else {
+        void loadType('all', true).catch(() => {});
+        if (onTableReload) onTableReload('inbox-all');
+      }
+    },
+    [dispatch, persistActiveNavToLocal, router, loadType, onTableReload]
+  );
 
   const handleInboxSubItemClick = useCallback(
     async (subItem: string) => {
       const actionId = `inbox-${subItem.toLowerCase().replace(/\s+/g, '')}`;
 
-      // Prevent repeated clicks on the same sub-item while its action is in progress
-      if (isActionInProgress(actionId) || isInboxLoading) {
+      // Prevent repeated clicks on the same sub-item while that exact action is in progress
+      if (isActionInProgress(actionId)) {
         return;
       }
-      // Only block navigation if same actionId is in progress
-      // (canNavigateTo now accepts actionId)
       if (!startAction(actionId)) {
         return;
       }
 
       try {
-        // Check if admin user is trying to access inbox (should not happen)
         if (isAdminRole(userRole || cookieRole)) {
-          // Admin users shouldn't be in inbox - redirect to role-appropriate dashboard
           const redirectPath = getRoleBasedRedirectPath(userRole || cookieRole);
           router.push(redirectPath);
           return;
@@ -1015,16 +1052,13 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
         setActiveItem(activeItemKey);
         persistActiveNavToLocal(activeItemKey);
 
-        try {
-          const desiredOpen =
-            typeof window !== 'undefined' && window.localStorage
-              ? window.localStorage.getItem('inboxDesiredOpen')
-              : null;
-          if (desiredOpen !== 'false') {
-            if (!isInboxOpen) dispatch(openInbox());
-          }
-        } catch {
-          if (!isInboxOpen) dispatch(openInbox());
+        if (!isInboxOpen) {
+          dispatch(openInbox());
+          try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.setItem('inboxDesiredOpen', 'true');
+            }
+          } catch {}
         }
 
         // Resolve statusIds fallback logic
@@ -1052,48 +1086,29 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
             );
             if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
           }
-          // Final fallback: known static mappings for some inbox types
           if (!customStatusIds) {
             try {
               const normalized = String(subItem).replace(/\s+/g, '').toLowerCase();
               if (normalized === 'reenquiry') {
                 customStatusIds = [5];
               }
-            } catch {
-              /* ignore */
-            }
+            } catch {}
           }
-        } catch {
-          /* ignore */
-        }
+        } catch {}
 
-        // Clear loading state immediately — loadType has its own loading indicator
-        endAction(actionId);
+        const targetUrl = `/inbox?type=${encodeURIComponent(subItem.toLowerCase())}`;
+        const isSameType = !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
+        
+        // Always trigger context loader with forceReload if already on same type
+        void loadType(String(subItem), isSameType, customStatusIds).catch(() => {});
+        if (onTableReload) onTableReload(subItem);
 
-        // If user clicked the same inbox type that's already selected, force a reload
-        const forceReload =
-          !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
-        await loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
-
-        const targetBase = '/inbox';
-        const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
-
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-        const isOnInboxBase = currentPath === '/inbox' || currentPath.startsWith('/inbox');
-
-        if (isOnInboxBase) {
-          try {
-            window.history.replaceState(null, '', targetUrl);
-          } catch {}
-          if (onTableReload) onTableReload(subItem);
-        } else {
-          if (canNavigateTo(targetUrl)) {
-            router.push(targetUrl);
-            scheduleInboxForwardedRefresh();
-          }
+        // Client route navigation via Next.js router
+        router.push(targetUrl);
+        if (subItem.toLowerCase() === 'forwarded') {
+          scheduleInboxForwardedRefresh();
         }
       } finally {
-        // Always release the lock for this actionId
         endAction(actionId);
       }
     },
@@ -1110,10 +1125,8 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
       normalizeNavKey,
       isInboxOpen,
       isActionInProgress,
-      isInboxLoading,
       startAction,
       endAction,
-      canNavigateTo,
       selectedType,
       persistActiveNavToLocal,
     ]
@@ -1151,58 +1164,66 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
     []
   );
 
-  const inboxSubItems = useMemo(() => {
-    const set = new Set<string>();
-    set.add('all'); // 'all' (All Applications) is always first
-    menuItems.forEach(mi => {
-      try {
-        const k = normalizeNavKey(mi.name as string);
-        if (k.startsWith('inbox-') && k !== 'inbox-all') {
-          set.add(k.replace('inbox-', ''));
-        }
-      } catch {}
-    });
-    const fallbacks = ['all', 'forwarded', 'returned', 'redflagged', 'reenquiry'];
-    if (set.size === 0) fallbacks.forEach(f => set.add(f));
-    else fallbacks.forEach(f => set.add(f)); // ensure common types present
+  const overallInboxCount = useMemo(() => {
+    const subTotal =
+      (applicationCounts?.forwardedCount || 0) +
+      (applicationCounts?.returnedCount || 0) +
+      (applicationCounts?.redFlaggedCount || 0) +
+      (applicationCounts?.reEnquiryCount || 0);
 
-    const iconMap: Record<string, React.ReactNode> = {
-      all: allApplicationsIcon,
-      forwarded: forwardedIcon,
-      returned: returnedIcon,
-      redflagged: redFlaggedIcon,
-      reenquiry: reenquiryIcon,
-    };
-    const countMap: Record<string, number> = {
-      all: applicationCounts?.allCount || 0,
-      forwarded: applicationCounts?.forwardedCount || 0,
-      returned: applicationCounts?.returnedCount || 0,
-      redflagged: applicationCounts?.redFlaggedCount || 0,
-      reenquiry: applicationCounts?.reEnquiryCount || 0,
-    };
-    const labelFor = (n: string) => {
-      if (n.toLowerCase() === 'all') return 'All Applications';
-      if (n.toLowerCase() === 'redflagged') return 'Red Flagged';
-      return n.charAt(0).toUpperCase() + n.slice(1);
-    };
-    return Array.from(set).map(name => ({
-      name,
-      label: labelFor(name),
-      icon: iconMap[name] ?? forwardedIcon,
-      count: countMap[name] ?? 0,
-    }));
+    return Math.max(applicationCounts?.allCount || 0, subTotal);
   }, [
-    menuItems,
-    normalizeNavKey,
-    forwardedIcon,
-    returnedIcon,
-    redFlaggedIcon,
-    reenquiryIcon,
+    applicationCounts?.allCount,
     applicationCounts?.forwardedCount,
     applicationCounts?.returnedCount,
     applicationCounts?.redFlaggedCount,
     applicationCounts?.reEnquiryCount,
-    applicationCounts?.allCount,
+  ]);
+
+  const inboxSubItems = useMemo(() => {
+    return [
+      {
+        name: 'all',
+        label: 'All Applications',
+        icon: allApplicationsIcon,
+        count: overallInboxCount,
+      },
+      {
+        name: 'forwarded',
+        label: 'Forwarded',
+        icon: forwardedIcon,
+        count: applicationCounts?.forwardedCount || 0,
+      },
+      {
+        name: 'returned',
+        label: 'Returned',
+        icon: returnedIcon,
+        count: applicationCounts?.returnedCount || 0,
+      },
+      {
+        name: 'redflagged',
+        label: 'Red Flagged',
+        icon: redFlaggedIcon,
+        count: applicationCounts?.redFlaggedCount || 0,
+      },
+      {
+        name: 'reenquiry',
+        label: 'Reenquiry',
+        icon: reenquiryIcon,
+        count: applicationCounts?.reEnquiryCount || 0,
+      },
+    ];
+  }, [
+    allApplicationsIcon,
+    forwardedIcon,
+    returnedIcon,
+    redFlaggedIcon,
+    reenquiryIcon,
+    overallInboxCount,
+    applicationCounts?.forwardedCount,
+    applicationCounts?.returnedCount,
+    applicationCounts?.redFlaggedCount,
+    applicationCounts?.reEnquiryCount,
   ]);
 
   /* ----------------------------
@@ -1213,21 +1234,26 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
     else setTimeout(() => setVisible(false), 400);
   }, [showSidebar]);
 
-  const effectiveRole = cookieRole ?? userRole;
   // During SSR or before hydration we return null to keep server and
   // initial client HTML identical. After hydration we render normally.
   if (!hydrated) return null;
   if (!visible && !showSidebar) return null;
   if (!effectiveRole) return null;
 
+  // FIX: derive dashboard active state from pathname
+  const isDashboardActive = pathname === '/dashboard' || pathname?.startsWith('/dashboard/');
+  const isAdminDashboardActive = isDashboardActive;
+
   /* ----------------------------
      Render
   -----------------------------*/
   return (
     <>
+      {/* Hamburger — visible only on mobile */}
       <div className='md:hidden fixed top-4 left-4 z-50'>
         <HamburgerButton open={mobileSidebarOpen} onClick={() => setMobileSidebarOpen(v => !v)} />
       </div>
+
       {/* Mobile backdrop overlay */}
       {mobileSidebarOpen && (
         <div
@@ -1236,14 +1262,18 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
           aria-hidden='true'
         />
       )}
+
       <aside
+        role='navigation'
+        aria-label='Main navigation'
         className={`z-40 w-[80vw] max-w-xs ${
           sidebarCollapsed ? 'md:w-16' : 'md:w-60'
-        } h-screen md:h-auto bg-white border border-gray-200/90 fixed left-0 top-0 md:left-4 md:top-4 md:bottom-4 flex flex-col shadow-xl md:shadow-md md:rounded-xl overflow-hidden
+        } h-screen md:h-[calc(100vh-2rem)] bg-white border border-gray-200/90 fixed left-0 top-0 md:left-4 md:top-4 md:bottom-4 flex flex-col shadow-xl md:shadow-md md:rounded-xl overflow-hidden
         transition-all duration-300 ease-in-out
         ${showSidebar || mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0`}
       >
+        {/* Header: logo + collapse toggle */}
         <div className={`p-2.5 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} border-b border-gray-100 flex-shrink-0`}>
           <div className='flex items-center gap-2 min-w-0'>
             <ImageFixed
@@ -1260,21 +1290,36 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
               </div>
             )}
           </div>
-          <button
-            type='button'
-            onClick={toggleSidebarCollapsed}
-            className='hidden md:flex items-center justify-center p-1 rounded-md text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {sidebarCollapsed ? (
-              <ChevronRight className='w-4 h-4' />
-            ) : (
-              <ChevronLeft className='w-4 h-4' />
-            )}
-          </button>
+
+          <div className='flex items-center gap-1'>
+            {/* Desktop collapse toggle */}
+            <button
+              type='button'
+              onClick={toggleSidebarCollapsed}
+              className='hidden md:flex items-center justify-center p-1 rounded-md text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? (
+                <ChevronRight className='w-4 h-4' />
+              ) : (
+                <ChevronLeft className='w-4 h-4' />
+              )}
+            </button>
+
+            {/* FIX: Mobile close button inside the sidebar */}
+            <button
+              type='button'
+              onClick={() => setMobileSidebarOpen(false)}
+              className='md:hidden flex items-center justify-center p-1 rounded-md text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
+              aria-label='Close sidebar'
+            >
+              <X className='w-4 h-4' />
+            </button>
+          </div>
         </div>
 
+        {/* Dashboard shortcut button */}
         {isAdminRole(effectiveRole) ? (
           <button
             type='button'
@@ -1287,7 +1332,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
             className={`w-full text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${
               sidebarCollapsed ? 'flex justify-center py-2.5 px-0' : 'px-3 py-2.5 flex items-center gap-2.5'
             } ${
-              pathname === '/dashboard'
+              isAdminDashboardActive
                 ? 'bg-[#0B1F3A] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] shadow-inner'
                 : 'bg-[#0B1F3A]/90 text-white hover:bg-[#0B1F3A]'
             }`}
@@ -1300,7 +1345,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className={`w-5 h-5 flex-shrink-0 ${pathname === '/dashboard' ? 'text-[#D4AF37]' : 'text-white'}`}
+              className={`w-5 h-5 flex-shrink-0 ${isAdminDashboardActive ? 'text-[#D4AF37]' : 'text-white'}`}
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
@@ -1319,7 +1364,11 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
             title={sidebarCollapsed ? (roleConfig?.dashboardTitle ?? 'Dashboard') : undefined}
             className={`w-full text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${
               sidebarCollapsed ? 'flex justify-center py-2.5 px-0' : 'px-3 py-2.5 flex items-center gap-2.5'
-            } bg-[#0B1F3A] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] shadow-inner`}
+            } ${
+              isDashboardActive
+                ? 'bg-[#0B1F3A] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] shadow-inner'
+                : 'bg-[#0B1F3A]/90 text-white hover:bg-[#0B1F3A]'
+            }`}
           >
             <svg
               xmlns='http://www.w3.org/2000/svg'
@@ -1329,7 +1378,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className='w-5 h-5 flex-shrink-0 text-[#D4AF37]'
+              className={`w-5 h-5 flex-shrink-0 ${isDashboardActive ? 'text-[#D4AF37]' : 'text-white'}`}
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
@@ -1340,26 +1389,38 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
           </button>
         )}
 
-        <nav className={`flex-1 overflow-y-auto thin-scrollbar py-2 ${sidebarCollapsed ? 'px-1' : 'px-1.5'}`}>
-          <ul className='space-y-1'>
+        {/* Menu items */}
+        <nav
+          className={`flex-1 overflow-y-auto thin-scrollbar py-2 ${sidebarCollapsed ? 'px-1' : 'px-1.5'}`}
+          aria-label='Sidebar navigation'
+        >
+          <ul className='space-y-1' role='menu'>
             {!isAdminRole(effectiveRole) && (
               <li>
-                {/* highlight Inbox when any inbox-{type} is active, not only when the panel is expanded */}
+                {/* Inbox expandable section */}
                 <button
                   type='button'
                   onClick={handleInboxToggle}
                   title={sidebarCollapsed ? menuMeta.inbox.label : undefined}
+                  aria-expanded={isInboxOpen}
+                  aria-haspopup='true'
                   className={`flex items-center w-full rounded-lg text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-1 ${
                     sidebarCollapsed ? 'justify-center py-2 px-1' : 'px-2.5 py-2'
                   } ${
-                    (activeItem && String(activeItem).startsWith('inbox-')) || isInboxOpen
-                      ? 'bg-[#0B1F3A] text-white font-semibold shadow-xs border-l-4 border-[#D4AF37]'
+                    activeItem && String(activeItem).startsWith('inbox-')
+                      ? !isInboxOpen
+                        ? 'bg-[#0B1F3A] text-white font-semibold shadow-xs border-l-4 border-[#D4AF37]'
+                        : 'bg-gray-100/80 text-[#0B1F3A] font-semibold'
                       : 'text-gray-700 hover:bg-[#F3F5F8] hover:text-[#0B1F3A]'
                   }`}
                 >
                   <span
                     className={`inline-flex items-center justify-center w-6 h-6 flex-shrink-0 transition-colors ${
-                      (activeItem && String(activeItem).startsWith('inbox-')) || isInboxOpen ? 'text-[#D4AF37]' : 'text-gray-500'
+                      activeItem && String(activeItem).startsWith('inbox-')
+                        ? !isInboxOpen
+                          ? 'text-[#D4AF37]'
+                          : 'text-[#0B1F3A]'
+                        : 'text-gray-500'
                     } ${sidebarCollapsed ? '' : 'mr-2.5'}`}
                     aria-hidden='true'
                   >
@@ -1367,11 +1428,35 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
                   </span>
                   {!sidebarCollapsed && (
                     <>
-                      <span className='flex-1 font-medium'>{menuMeta.inbox.label}</span>
-                      <span className='ml-2 flex-shrink-0 transition-transform duration-200' style={{ transform: isInboxOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
+                      <span className='flex-1 font-medium truncate'>{menuMeta.inbox.label}</span>
+                      {typeof overallInboxCount === 'number' && (
+                        <span
+                          className={`inline-flex items-center justify-center min-w-[20px] h-4.5 px-1.5 text-[10px] font-bold rounded-full ml-1.5 transition-colors ${
+                            activeItem && String(activeItem).startsWith('inbox-') && !isInboxOpen
+                              ? 'bg-[#D4AF37] text-[#0B1F3A]'
+                              : overallInboxCount === 0
+                                ? 'bg-gray-100 text-gray-400 group-hover:bg-[#0B1F3A] group-hover:text-white'
+                                : 'bg-[#0B1F3A]/10 text-[#0B1F3A]'
+                          }`}
+                        >
+                          {overallInboxCount > 99 ? '99+' : overallInboxCount}
+                        </span>
+                      )}
+                      <span
+                        onClick={handleChevronClick}
+                        className='ml-2 p-1 rounded hover:bg-black/10 transition-transform duration-200 flex-shrink-0 cursor-pointer'
+                        style={{ transform: isInboxOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                        title={isInboxOpen ? 'Collapse Inbox' : 'Expand Inbox'}
+                      >
                         <ChevronDown className='w-4 h-4' />
                       </span>
                     </>
+                  )}
+                  {sidebarCollapsed && overallInboxCount > 0 && (
+                    <span
+                      className='absolute top-1 right-1.5 w-2 h-2 rounded-full bg-[#D4AF37] ring-1 ring-white'
+                      aria-hidden='true'
+                    />
                   )}
                 </button>
                 {isInboxOpen && (
@@ -1408,10 +1493,10 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
 
             {menuItems
               .filter(
-                item =>
-                  String(item.name || '')
-                    .replace(/\s+/g, '')
-                    .toLowerCase() !== 'inbox'
+                item => {
+                  const lower = String(item.name || '').replace(/\s+/g, '').toLowerCase();
+                  return lower !== 'inbox' && lower !== 'dashboard';
+                }
               )
               .map(item => {
                 const normalizedKey = normalizeNavKey(item.name as string);
@@ -1462,6 +1547,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
                     key={`menu-${normalizedKey}`}
                     icon={item.icon}
                     label={item.label}
+                    count={getMenuItemCount(item.name)}
                     active={isActive}
                     loading={isLoading}
                     collapsed={sidebarCollapsed}
@@ -1478,6 +1564,7 @@ export const Sidebar = memo(({ onTableReload }: SidebarProps = {}) => {
           </ul>
         </nav>
 
+        {/* Logout */}
         <div className={`p-2 border-t border-gray-200 mt-auto bg-white flex-shrink-0 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
           <button
             type='button'

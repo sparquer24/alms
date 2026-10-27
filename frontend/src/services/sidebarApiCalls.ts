@@ -487,7 +487,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   // Special handling for 'sent' - use isSent parameter instead of status filtering
   if (key === 'sent') {
     try {
-      const response = await ApplicationApi.getAll({ isSent: true });
+      const response = await ApplicationApi.getAll({ isSent: true, limit: 1000 } as any);
 
       if (!response?.success || !response?.data || !Array.isArray(response.data)) {
         console.warn('⚠️ fetchApplicationsByStatusKey (sent): Invalid response data, returning empty array');
@@ -623,6 +623,10 @@ export const fetchApplicationCounts = async (): Promise<{
   closedCount: number;
   cancelledCount: number;
   groundReportCount: number;
+  sentCount: number;
+  freshFormCount: number;
+  cancelFormCount: number;
+  applicationsCount: number;
   allCount: number;
 }> => {
   try {
@@ -634,13 +638,33 @@ export const fetchApplicationCounts = async (): Promise<{
       return cachedData;
     }
     const allActiveStatusIds = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11].join(',');
-    // Fetch counts for essential inbox items and total (All Applications)
-    const [forwarded, returned, redFlagged, reEnquiry, draft, allApps] = await Promise.all([
+    // Fetch counts for essential inbox items, top-level tabs, and total (All Applications)
+    const [forwarded, returned, redFlagged, reEnquiry, draft, sentRes, closed, freshform, cancelReqs, applicationsList, allApps] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
       fetchApplicationsByStatus(STATUS_MAP.reEnquiry),
       fetchApplicationsByStatus(STATUS_MAP.drafts),
+      ApplicationApi.getAll({ isSent: true, limit: 1000 } as any)
+        .then(r => {
+          if (typeof (r as any)?.total === 'number') return (r as any).total;
+          if (Array.isArray((r as any)?.data)) return (r as any).data.length;
+          if (Array.isArray(r)) return r.length;
+          return 0;
+        })
+        .catch(() => 0),
+      fetchApplicationsByStatus(STATUS_MAP.closed),
+      fetchApplicationsByStatusKey('freshform').catch(() => []),
+      ApplicationApi.getAll({ applicationType: 'CancelFormRequest', limit: 1000 } as any)
+        .then(r => {
+          if (typeof (r as any)?.total === 'number') return (r as any).total;
+          if (Array.isArray((r as any)?.data)) return (r as any).data.length;
+          if (Array.isArray(r)) return r.length;
+          return 0;
+        })
+        .catch(() => 0),
+      // Terminal applications tab (e.g. statusIds [9, 3] / CLOSE + APPROVED)
+      fetchApplicationsByStatus(STATUS_MAP.applications).catch(() => []),
       // All Applications: fetch using statusIds to let backend filter (no client-side filtering)
       ApplicationApi.getAll({ statusIds: allActiveStatusIds, limit: 1000 } as any)
         .then(r => (Array.isArray(r?.data) ? r.data.map(transformApiApplicationToApplicationData) : []))
@@ -653,11 +677,15 @@ export const fetchApplicationCounts = async (): Promise<{
       redFlaggedCount: redFlagged.length,
       reEnquiryCount: reEnquiry.length,
       draftCount: draft.length,
+      sentCount: typeof sentRes === 'number' ? sentRes : (Array.isArray(sentRes) ? sentRes.length : 0),
+      closedCount: closed.length,
+      freshFormCount: Array.isArray(freshform) ? freshform.length : 0,
+      cancelFormCount: typeof cancelReqs === 'number' ? cancelReqs : (Array.isArray(cancelReqs) ? cancelReqs.length : 0),
+      applicationsCount: Array.isArray(applicationsList) ? applicationsList.length : 0,
       allCount: allApps.length,
       // Set other counts to 0 for now - can be loaded on-demand
       pendingCount: 0,
       approvedCount: 0,
-      closedCount: 0,
       cancelledCount: 0,
       groundReportCount: 0,
     };
@@ -677,6 +705,10 @@ export const fetchApplicationCounts = async (): Promise<{
       closedCount: 0,
       cancelledCount: 0,
       groundReportCount: 0,
+      sentCount: 0,
+      freshFormCount: 0,
+      cancelFormCount: 0,
+      applicationsCount: 0,
       allCount: 0,
     };
   }

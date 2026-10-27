@@ -14,7 +14,7 @@ import { PageLayoutSkeleton } from '../../components/Skeleton';
 import { useLayout } from '../../config/layoutContext';
 
 export default function SettingsPage() {
-  const { isAuthenticated, isLoading: authLoading, token } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, token, initialized } = useAuth();
   const { headerHeight, sidebarCollapsed } = useLayout();
   const dispatch = useDispatch();
 
@@ -35,10 +35,12 @@ export default function SettingsPage() {
   const [cookieUser, setCookieUser] = useState<any | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    // Redirect only after auth has fully resolved, not during initialization.
+    if (!initialized || authLoading) return;
+    if (!isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [isAuthenticated, authLoading, initialized, router]);
 
   useEffect(() => {
     try {
@@ -109,9 +111,9 @@ export default function SettingsPage() {
     showUserPermissions ||
     showAvailableActions;
 
-  // Show skeleton while auth is loading
-  if (authLoading) return <PageLayoutSkeleton />;
-  if (!authLoading && !isAuthenticated) return null;
+  // Show skeleton while auth is resolving (not yet initialized, or still loading)
+  if (!initialized || authLoading) return <PageLayoutSkeleton />;
+  if (!isAuthenticated) return null;
 
   return (
     <div className='flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white'>

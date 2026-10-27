@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo, ReactNode } from 'react';
 
 export interface HeaderBreadcrumbItem {
   label: string;
@@ -66,21 +66,30 @@ interface LayoutProviderProps {
 export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children, initialShowSidebar = true }) => {
   const [showHeader, setShowHeader] = useState(true);
   const [showSidebar, setShowSidebar] = useState(initialShowSidebar);
-  const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('alms_sidebar_collapsed') === 'true';
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
   const [headerOptions, setHeaderOptions] = useState<HeaderOptions | undefined>(undefined);
   const [headerHeight, setHeaderHeight] = useState<number | null>(null);
 
-  // Restore sidebar collapsed preference on mount
+  // Restore sidebar collapsed preference on mount (sync if storage updated)
   useEffect(() => {
     try {
       const saved = localStorage.getItem('alms_sidebar_collapsed');
-      if (saved === 'true') {
-        setSidebarCollapsedState(true);
+      if (saved !== null) {
+        setSidebarCollapsedState(saved === 'true');
       }
     } catch {}
   }, []);
 
-  const setSidebarCollapsed = (value: boolean | ((prev: boolean) => boolean)) => {
+  const setSidebarCollapsed = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
     setSidebarCollapsedState(prev => {
       const nextVal = typeof value === 'function' ? value(prev) : value;
       try {
@@ -88,28 +97,39 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children, initia
       } catch {}
       return nextVal;
     });
-  };
+  }, []);
 
-  const toggleSidebarCollapsed = () => {
+  const toggleSidebarCollapsed = useCallback(() => {
     setSidebarCollapsed(prev => !prev);
-  };
+  }, [setSidebarCollapsed]);
+
+  const value = useMemo<LayoutContextType>(
+    () => ({
+      showHeader,
+      showSidebar,
+      sidebarCollapsed,
+      headerOptions,
+      headerHeight,
+      setShowHeader,
+      setShowSidebar,
+      setSidebarCollapsed,
+      toggleSidebarCollapsed,
+      setHeaderOptions,
+      setHeaderHeight,
+    }),
+    [
+      showHeader,
+      showSidebar,
+      sidebarCollapsed,
+      headerOptions,
+      headerHeight,
+      setSidebarCollapsed,
+      toggleSidebarCollapsed,
+    ]
+  );
 
   return (
-    <LayoutContext.Provider
-      value={{
-        showHeader,
-        showSidebar,
-        sidebarCollapsed,
-        headerOptions,
-        headerHeight,
-        setShowHeader,
-        setShowSidebar,
-        setSidebarCollapsed,
-        toggleSidebarCollapsed,
-        setHeaderOptions,
-        setHeaderHeight,
-      }}
-    >
+    <LayoutContext.Provider value={value}>
       {children}
     </LayoutContext.Provider>
   );

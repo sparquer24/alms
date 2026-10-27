@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { AlertTriangle, ChevronRight, Bell, Clock, Award, FileText, Shield, Loader2 } from 'lucide-react';
@@ -81,7 +81,7 @@ export default function ActionRequiredSection({ items, loading, onItemClick }: A
                 type="button"
                 onClick={() => onItemClick?.(item.key, item.label)}
                 disabled={item.count === 0}
-                className={`flex flex-col items-center justify-center gap-2 px-4 py-5 transition-all group text-center ${
+                className={`flex flex-col items-center justify-center gap-3 px-5 py-6 transition-all group text-center ${
                   item.count === 0 ? 'bg-gray-50 opacity-50 cursor-default' : `${cfg.bg} cursor-pointer`
                 }`}
               >

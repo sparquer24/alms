@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -165,8 +165,8 @@ export default function UniversalDashboard() {
 
   // Active in-page drill-down tab
 
-  // ── Enhancement section data — cached via React Query, fetched once per
-  // authChecked session and served from cache on revisits within staleTime ──
+  // â”€â”€ Enhancement section data â€” cached via React Query, fetched once per
+  // authChecked session and served from cache on revisits within staleTime â”€â”€
 
   const openCardDetail = (
     category: CardCategoryType,
@@ -268,7 +268,7 @@ export default function UniversalDashboard() {
     setMounted(true);
   }, []);
 
-  // ── Role-based Access Control Guard ──
+  // â”€â”€ Role-based Access Control Guard â”€â”€
   // ADMIN/SUPER_ADMIN see unscoped or state-scoped data; ZS/DCP see zone-scoped
   // data; JTCP/CP see district-scoped data (enforced server-side).
   useEffect(() => {
@@ -294,7 +294,7 @@ export default function UniversalDashboard() {
     setAuthChecked(true);
   }, [token, effectiveRole, authLoading, authInitialized, authChecked, router]);
 
-  // Overview data — cached per (timeRange, appTypeFilter); background-polled
+  // Overview data â€” cached per (timeRange, appTypeFilter); background-polled
   // every 30s while autoRefresh is on, without showing a loading spinner
   // (isLoading is only true when there's no cached data to show yet).
   const overviewQuery = useQuery({
@@ -308,8 +308,8 @@ export default function UniversalDashboard() {
   const loading = overviewQuery.isLoading;
   const lastUpdated = overviewQuery.dataUpdatedAt ? new Date(overviewQuery.dataUpdatedAt) : new Date();
 
-  // ── Enhancement section data — each cached independently so revisiting the
-  // dashboard within staleTime renders instantly from cache with no spinner ──
+  // â”€â”€ Enhancement section data â€” each cached independently so revisiting the
+  // dashboard within staleTime renders instantly from cache with no spinner â”€â”€
   const actionRequiredQuery = useQuery({
     queryKey: ['dashboard', 'actionRequired'],
     queryFn: () => analyticsService.getActionRequired(),
@@ -455,7 +455,7 @@ export default function UniversalDashboard() {
                 </div>
               }
             />
-            <div className="flex-grow max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5">
+            <div className="flex-grow max-w-[1800px] w-full mx-auto px-5 sm:px-7 lg:px-10 py-6 sm:py-8">
               <DashboardFullSkeleton />
             </div>
           </DashboardMain>
@@ -544,13 +544,13 @@ export default function UniversalDashboard() {
           />
 
           {/* Main Dashboard Content Area */}
-          <div className="flex-grow min-h-0 overflow-y-auto max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
+          <div className="flex-grow min-h-0 overflow-y-auto max-w-[1800px] w-full mx-auto px-5 sm:px-7 lg:px-10 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             0. QUICK ACTIONS (role-gated shortcuts)
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {quickActions.length > 0 && (
-          <section className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-sm">
+          <section className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mr-1">
                 Quick Actions
@@ -570,11 +570,11 @@ export default function UniversalDashboard() {
           </section>
         )}
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             1. CORE APPLICATION & LICENSING METRIC CARDS (INTERACTIVE)
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <section>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#0B1F3A]" />
@@ -593,7 +593,7 @@ export default function UniversalDashboard() {
           {loading && !summary ? (
             <DashboardKpiCardsSkeleton />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-5">
               {/* Card 1: Total Applications */}
               <div
                 role="button"
@@ -606,7 +606,7 @@ export default function UniversalDashboard() {
                   subtitle: 'All application lifecycles across Fresh, Renewal, and Cancellation requests',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0B1F3A]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0B1F3A]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -671,7 +671,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Operational arms licenses currently in force within your jurisdiction',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -720,7 +720,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Applications successfully verified and granted license issuance',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -771,7 +771,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Applications undergoing multi-level verification and scrutiny',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -806,7 +806,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Durations from application submission to final administrative disposal',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -841,7 +841,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Fingerprint and iris authentication verification records under MHA Rule 11',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -882,9 +882,9 @@ export default function UniversalDashboard() {
           )}
         </section>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             2. ACTION REQUIRED ALERT BANNER
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <ActionRequiredSection
           items={actionItems}
           loading={actionLoading}
@@ -902,10 +902,10 @@ export default function UniversalDashboard() {
           }}
         />
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             2B. APPLICATION FUNNEL + AGING + PROCESSING PERFORMANCE
-        ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-1">
             <ApplicationFunnelSection stages={funnelStages} loading={funnelLoading} />
           </div>
@@ -917,17 +917,17 @@ export default function UniversalDashboard() {
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             3. INTERACTIVE CHARTS & VISUAL ANALYTICS SECTION
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {loading && !data?.trend ? (
           <DashboardChartsSkeleton />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Main Chart: Volume Inflow Trends (2 cols on lg) */}
-            <div className="lg:col-span-2 bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
               <div>
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between pb-4 border-b border-gray-100 gap-3">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between pb-5 border-b border-gray-100 gap-3">
                   <div>
                     <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-[#0B1F3A]" />
@@ -1432,26 +1432,26 @@ export default function UniversalDashboard() {
               </div>
 
               {/* Inflow Summary Benchmarks */}
-              <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                <div className="p-2 rounded-lg bg-gray-50">
+              <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div className="p-3 rounded-lg bg-gray-50">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">Total Intake</div>
                   <div className="text-sm font-bold text-gray-900 mt-0.5">
                     {summary ? summary.totalApplications.toLocaleString() : '...'}
                   </div>
                 </div>
-                <div className="p-2 rounded-lg bg-gray-50">
+                <div className="p-3 rounded-lg bg-gray-50">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">Fresh Intake</div>
                   <div className="text-sm font-bold text-blue-700 mt-0.5">
                     {summary ? summary.freshApplications.toLocaleString() : '...'}
                   </div>
                 </div>
-                <div className="p-2 rounded-lg bg-gray-50">
+                <div className="p-3 rounded-lg bg-gray-50">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">Renewals</div>
                   <div className="text-sm font-bold text-emerald-700 mt-0.5">
                     {summary ? summary.renewalApplications.toLocaleString() : '...'}
                   </div>
                 </div>
-                <div className="p-2 rounded-lg bg-gray-50">
+                <div className="p-3 rounded-lg bg-gray-50">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">Cancellations</div>
                   <div className="text-sm font-bold text-amber-700 mt-0.5">
                     {summary ? summary.cancelApplications.toLocaleString() : '...'}
@@ -1461,9 +1461,9 @@ export default function UniversalDashboard() {
             </div>
 
             {/* Ratio Breakdown / Donut Chart (1 col on lg) */}
-            <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between pb-5 border-b border-gray-100">
                   <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     Status Distribution
@@ -1472,7 +1472,7 @@ export default function UniversalDashboard() {
                 </div>
 
                 {/* Donut Chart */}
-                <div className="mt-4 h-44 w-full relative flex items-center justify-center">
+                <div className="mt-5 h-48 w-full relative flex items-center justify-center">
                   {data?.statusDistribution ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -1513,11 +1513,11 @@ export default function UniversalDashboard() {
                 </div>
 
                 {/* Status Breakdown List */}
-                <div className="mt-4 space-y-2">
+                <div className="mt-5 space-y-2.5">
                   {data?.statusDistribution?.map((item, idx) => (
                     <div
                       key={item.status}
-                      className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                      className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -1544,10 +1544,10 @@ export default function UniversalDashboard() {
           </div>
         )}
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             4B. MONTHLY COMPARISON + LICENSE EXPIRY BUCKETS
-        ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <MonthlyComparisonSection data={monthlyData} loading={monthlyLoading} />
           <LicenseExpiryBucketsSection
             buckets={expiryBuckets}
@@ -1562,20 +1562,20 @@ export default function UniversalDashboard() {
           />
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             4C. APPLICATION & LICENSE ANALYTICS (moved from the former
             Analytics sidebar page: By Type / By Status / License Status)
-        ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <BarChart2 className="w-4 h-4 text-[#0B1F3A]" />
                 Applications by Type
               </h3>
               <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
             </div>
-            <div className="mt-4">
+            <div className="mt-5">
               <ApplicationTypeChart
                 fresh={applicationTypeStatusSummary.totalFresh}
                 renewal={applicationTypeStatusSummary.totalRenewal}
@@ -1585,15 +1585,15 @@ export default function UniversalDashboard() {
               />
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 Applications by Status
               </h3>
               <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
             </div>
-            <div className="mt-4">
+            <div className="mt-5">
               <ApplicationStatusChart
                 approved={applicationTypeStatusSummary.totalApproved}
                 pending={applicationTypeStatusSummary.totalPending}
@@ -1605,13 +1605,13 @@ export default function UniversalDashboard() {
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             5. WEAPON CATEGORIES & PURPOSE DISTRIBUTION
-        ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Weapon Categories */}
-          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Target className="w-4 h-4 text-[#0B1F3A]" />
                 Weapon Category Breakdown
@@ -1655,8 +1655,8 @@ export default function UniversalDashboard() {
           </div>
 
           {/* Purpose Breakdown */}
-          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-[#B8860B]" />
                 Authorized Purpose Distribution
@@ -1688,14 +1688,14 @@ export default function UniversalDashboard() {
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             6. LIVE PUBLIC ACTIVITY FEED & SYSTEM MILESTONES
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {loading && !data?.recentActivities ? (
           <DashboardActivitySkeleton />
         ) : (
-          <section className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <section className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-blue-600" />
                 Live System Milestones &amp; Public Activity
@@ -1703,9 +1703,9 @@ export default function UniversalDashboard() {
               <span className="text-xs text-gray-500">Sanitized Real-Time Log</span>
             </div>
 
-            <div className="mt-4 divide-y divide-gray-100">
+            <div className="mt-5 divide-y divide-gray-100">
               {data?.recentActivities?.map((act) => (
-                <div key={act.id} className="py-3 flex items-start justify-between gap-3 text-xs">
+                <div key={act.id} className="py-4 flex items-start justify-between gap-3 text-xs">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 p-1.5 rounded-lg bg-blue-50 text-blue-700">
                       <Shield className="w-3.5 h-3.5" />
@@ -1714,9 +1714,9 @@ export default function UniversalDashboard() {
                       <div className="font-bold text-gray-900">{act.title}</div>
                       <div className="text-gray-500 text-[11px] mt-0.5 flex flex-wrap gap-2">
                         <span>Ref: <strong className="font-mono text-gray-700">{act.reference}</strong></span>
-                        <span>•</span>
+                        <span>â€¢</span>
                         <span>{act.location}</span>
-                        <span>•</span>
+                        <span>â€¢</span>
                         <span className="text-[#B8860B] font-medium">{act.category}</span>
                       </div>
                     </div>
