@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
 import { Select } from '../elements/Select';
 import { FormSkeleton } from '../elements/FormSkeleton';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
 import { FileUploadService } from '../../../api/fileUploadService';
@@ -530,10 +531,19 @@ const LicenseDetails = () => {
   // Debug: Log current form state on render
   return (
     <form className='p-6'>
-      <h2 className='text-xl font-bold mb-4'>License Details</h2>
+      <FormStepHeader
+        title="License Details"
+        subtitle="Specify the arms category, requested weapons, area of validity, and reasons for license requirement."
+        stepNumber={6}
+        totalSteps={10}
+        applicationId={applicantId}
+        acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+        onRefresh={typeof loadExistingData === 'function' && applicantId ? () => loadExistingData(applicantId) : undefined}
+        isRefreshing={isLoading}
+      />
 
       {/* Display Applicant ID and License ID if available */}
-      {(applicantId || almsLicenseId) && (
+      {false && (applicantId || almsLicenseId) && (
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
             {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>

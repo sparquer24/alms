@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '../elements/Input';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import FormFooter from '../elements/footer';
 import { FormSkeleton } from '../elements/FormSkeleton';
 import { useRouter } from 'next/navigation';
@@ -347,10 +348,19 @@ const CriminalHistory = () => {
 
 	return (
 		<form className="p-6">
-			<h2 className="text-xl font-bold mb-4">Criminal History</h2>
+			<FormStepHeader
+				title="Criminal History"
+				subtitle="Disclose any past convictions, bond executions, or prohibitions under the Arms Act."
+				stepNumber={4}
+				totalSteps={10}
+				applicationId={applicantId}
+				acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+				onRefresh={typeof loadExistingData === 'function' && applicantId ? () => loadExistingData(applicantId) : undefined}
+				isRefreshing={isLoading}
+			/>
 			
 			{/* Display Applicant ID and License ID if available */}
-			{(applicantId || almsLicenseId) && (
+			{false && (applicantId || almsLicenseId) && (
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<div className="flex flex-col"></div>
 					{typeof loadExistingData === 'function' && (
@@ -379,7 +389,7 @@ const CriminalHistory = () => {
 			)}
 			
 			<div className="mb-4">
-				<div className="font-semibold mb-2">13. Whether the applicant has been -</div>
+				<div className="font-bold text-[#0B1F3A] text-base mb-2">13. Whether the applicant has been -</div>
 				<div className="mb-2">(a) Convicted</div>
 				<div className="flex gap-6 mb-4">
 					<label className="flex items-center gap-2 cursor-pointer">

@@ -108,6 +108,16 @@ const isFinalWorkflowStatus = (app: any): boolean => {
   return FINAL_STATUSES.some(s => code === s || name === s);
 };
 
+/** Checks whether the application is still in Draft status (unsubmitted). */
+const isDraftWorkflowStatus = (app: any): boolean => {
+  if (!app) return false;
+  if (app?.isSubmit === false) return true;
+  const code = String(app?.workflowStatus?.code || '').toUpperCase();
+  const name = String(app?.workflowStatus?.name || code).toUpperCase();
+  const generalStatus = String(app?.status || '').toUpperCase();
+  return code === 'DRAFT' || name === 'DRAFT' || generalStatus === 'DRAFT';
+};
+
 /** Signed-in user's id from the `user` cookie (callers fall back to the auth hook's user). */
 const readCookieUserId = (): number | null => {
   try {
@@ -319,8 +329,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     const currentUserId = readCookieUserId() ?? (user?.id ? Number(user.id) : null);
     const holder = application.currentUser ?? null;
     const isFinal = isFinalWorkflowStatus(application) || renewalLicenseClosed;
+    const isDraft = isDraftWorkflowStatus(application);
     const canAct = Boolean(
-      !isFinal && currentUserId && holder?.id && Number(holder.id) === currentUserId
+      !isFinal && !isDraft && currentUserId && holder?.id && Number(holder.id) === currentUserId
     );
     const lastMovedAt = (workflowHistory || [])
       .map((h: any) => new Date(h?.createdAt || h?.date || h?.timestamp || '').getTime())
@@ -329,6 +340,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     return {
       holder,
       isFinal,
+      isDraft,
       canAct,
       since: lastMovedAt ? new Date(lastMovedAt) : null,
       statusLabel: renewalLicenseClosed
@@ -931,35 +943,41 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         {application && assignment && (
           <div
             className={`mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-5 py-3 print:hidden ${
-              assignment.canAct
-                ? 'border-blue-200 bg-blue-50'
-                : assignment.isFinal
-                  ? 'border-slate-200 bg-slate-50'
-                  : 'border-slate-200 bg-white'
+              assignment.isDraft
+                ? 'border-amber-200 bg-amber-50/70'
+                : assignment.canAct
+                  ? 'border-blue-200 bg-blue-50'
+                  : assignment.isFinal
+                    ? 'border-slate-200 bg-slate-50'
+                    : 'border-slate-200 bg-white'
             }`}
             role='status'
           >
             <div className='flex min-w-0 items-center gap-3'>
               <span
                 className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                  assignment.canAct
-                    ? 'bg-blue-600'
-                    : assignment.isFinal
-                      ? 'bg-slate-400'
-                      : 'bg-amber-500'
+                  assignment.isDraft
+                    ? 'bg-amber-500 animate-pulse'
+                    : assignment.canAct
+                      ? 'bg-blue-600'
+                      : assignment.isFinal
+                        ? 'bg-slate-400'
+                        : 'bg-amber-500'
                 }`}
                 aria-hidden='true'
               />
               <div className='min-w-0'>
                 <p className='text-sm font-semibold text-slate-900'>
-                  {assignment.isFinal
-                    ? `${assignment.statusLabel} — no further action can be taken`
-                    : assignment.canAct
-                      ? 'Pending with you'
-                      : assignment.holder?.username
-                        ? `With ${assignment.holder.username}`
-                        : assignment.statusLabel}
-                  {!assignment.isFinal && assignment.since && formatPendingSince(assignment.since) && (
+                  {assignment.isDraft
+                    ? 'Workflow Status: Draft — Not Yet Submitted'
+                    : assignment.isFinal
+                      ? `${assignment.statusLabel} — no further action can be taken`
+                      : assignment.canAct
+                        ? 'Pending with you'
+                        : assignment.holder?.username
+                          ? `With ${assignment.holder.username}`
+                          : assignment.statusLabel}
+                  {!assignment.isFinal && !assignment.isDraft && assignment.since && formatPendingSince(assignment.since) && (
                     <span className='font-normal text-slate-600'>
                       {' '}
                       {formatPendingSince(assignment.since)}
@@ -969,14 +987,32 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 <p className='truncate text-xs text-slate-500'>
                   {[
                     application.acknowledgementNo && `Ack No: ${application.acknowledgementNo}`,
-                    !assignment.isFinal && `Status: ${assignment.statusLabel}`,
+                    assignment.isDraft
+                      ? 'Application processing is unavailable until submitted'
+                      : !assignment.isFinal && `Status: ${assignment.statusLabel}`,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
               </div>
             </div>
-            {assignment.canAct && (
+            {assignment.isDraft ? (
+              <button
+                type='button'
+                onClick={() => {
+                  const targetRoute = isRenewalView
+                    ? `/forms/renewal?renewalId=${applicationId}`
+                    : `/forms/createFreshApplication/personalInformation?id=${applicationId}`;
+                  router.push(targetRoute);
+                }}
+                className='inline-flex items-center gap-2 rounded-lg bg-[#0B1F3A] hover:bg-[#15325B] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150'
+              >
+                <span>Continue Application</span>
+                <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M14 5l7 7m0 0l-7 7m7-7H3' />
+                </svg>
+              </button>
+            ) : assignment.canAct && (
               <button
                 type='button'
                 onClick={goToActionPanel}
@@ -2168,12 +2204,63 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               displayApp?.workflowStatus?.code || ''
                             ).toUpperCase();
                             const isClosed = statusCode === 'CLOSE' || statusName === 'close';
+                            const isDraft = isDraftWorkflowStatus(displayApp);
+
+                            if (isDraft) {
+                              return (
+                                <div className='rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-xs'>
+                                  <div className='flex items-start gap-3.5'>
+                                    <div className='p-2 rounded-full bg-amber-100 text-amber-700 flex-shrink-0 mt-0.5'>
+                                      <svg
+                                        className='w-5 h-5'
+                                        fill='none'
+                                        stroke='currentColor'
+                                        viewBox='0 0 24 24'
+                                      >
+                                        <path
+                                          strokeLinecap='round'
+                                          strokeLinejoin='round'
+                                          strokeWidth={2}
+                                          d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+                                        />
+                                      </svg>
+                                    </div>
+                                    <div className='flex-1'>
+                                      <h4 className='text-sm font-bold text-amber-900 uppercase tracking-wide mb-1'>
+                                        Workflow Status: Draft
+                                      </h4>
+                                      <p className='text-sm text-amber-800 leading-relaxed mb-3'>
+                                        Application Processing cannot be performed while the application is in Draft status. Official proceedings, verifications, and approvals can only be initiated after the application has been submitted.
+                                      </p>
+                                      {displayAppId && (
+                                        <button
+                                          type='button'
+                                          onClick={() => {
+                                            const targetRoute = isRenewalView
+                                              ? `/forms/renewal?renewalId=${displayAppId}`
+                                              : `/forms/createFreshApplication/personalInformation?id=${displayAppId}`;
+                                            router.push(targetRoute);
+                                          }}
+                                          className='inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#0B1F3A] hover:bg-[#15325B] text-white transition-all duration-150 shadow-sm'
+                                        >
+                                          <span>Continue Application Form</span>
+                                          <svg className='w-3.5 h-3.5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M14 5l7 7m0 0l-7 7m7-7H3' />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
 
                             const canTakeAction =
                               currentUserId &&
                               applicationUserId &&
                               currentUserId == applicationUserId &&
-                              !isClosed;
+                              !isClosed &&
+                              !isDraft;
 
                             return canTakeAction ? (
                               <>
@@ -2716,7 +2803,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     actionButtonText={confirmationDetails.actionButtonText}
                     actionButtonColor={confirmationDetails.actionButtonColor}
                   />
-                  {showProceedingsModal && (
+                  {showProceedingsModal && !isDraftWorkflowStatus(application) && (
                     <div className='fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm'>
                       <div className='bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-100'>
                         <div className='flex justify-between items-center p-6 lg:p-8 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50'>

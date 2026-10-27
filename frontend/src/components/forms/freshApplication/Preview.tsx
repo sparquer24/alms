@@ -6,6 +6,7 @@ import { WeaponsService, Weapon } from '../../../services/weapons';
 import { openDocumentFile } from '../../../services/fileHandler';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import FormFooter from '../elements/footer';
+import { FormStepHeader } from '../elements/FormStepHeader';
 
 
 
@@ -199,66 +200,50 @@ const Preview = () => {
     if (!applicationData) return null;
 
     return (
-      <div className='mb-6 border-2 border-blue-200 rounded-lg p-5 bg-gradient-to-r from-blue-50 to-blue-100 shadow-sm'>
-        <h3 className='text-xl font-semibold text-blue-800 mb-4 flex items-center gap-2'>
-          <span className='w-2 h-2 bg-blue-600 rounded-full'></span>
+      <div className='mb-6 border border-slate-200 rounded-xl p-5 bg-slate-50/70 shadow-2xs'>
+        <h3 className='text-lg font-bold text-[#0B1F3A] mb-4 flex items-center gap-2'>
+          <span className='w-2 h-2 bg-[#0B1F3A] rounded-full'></span>
           Application Overview
         </h3>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-          <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
-            <span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5'>
+          <div className='bg-white rounded-lg p-3.5 border border-slate-200 shadow-2xs'>
+            <span className='text-[11px] font-semibold text-slate-500 uppercase tracking-wider'>
               Application ID
             </span>
-            <div className='text-lg font-semibold text-gray-800 mt-1'>
+            <div className='text-base font-bold text-slate-900 mt-1 font-mono'>
               {applicationData.id || 'N/A'}
             </div>
           </div>
-          <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
-            <span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
+          <div className='bg-white rounded-lg p-3.5 border border-slate-200 shadow-2xs'>
+            <span className='text-[11px] font-semibold text-slate-500 uppercase tracking-wider'>
               Acknowledgement No
             </span>
-            <div className='text-lg font-semibold text-gray-800 mt-1'>
-              {applicationData.acknowledgementNo || 'Not Generated'}
+            <div className='text-base font-bold text-[#0B1F3A] mt-1 font-mono'>
+              {applicationData.acknowledgementNo || applicationData.almsLicenseId || 'Not Generated'}
             </div>
           </div>
-          <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
-            <span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
-              License ID
-            </span>
-            <div className='text-lg font-semibold text-gray-800 mt-1'>
-              {applicationData.almsLicenseId ?? applicationData.alms_license_id ?? applicationData.licenseId ?? 'Not Assigned'}
-            </div>
-          </div>
-          <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
-            <span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
+          <div className='bg-white rounded-lg p-3.5 border border-slate-200 shadow-2xs'>
+            <span className='text-[11px] font-semibold text-slate-500 uppercase tracking-wider'>
               Workflow Status
             </span>
-            <div className='text-lg font-semibold text-green-600 mt-1'>
+            <div className='text-base font-bold text-emerald-600 mt-1'>
               {applicationData.workflowStatus?.status || 'In Progress'}
             </div>
           </div>
-          <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
-            <span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
+          <div className='bg-white rounded-lg p-3.5 border border-slate-200 shadow-2xs'>
+            <span className='text-[11px] font-semibold text-slate-500 uppercase tracking-wider'>
               Application Status
             </span>
-            <div className='text-lg font-semibold text-blue-600 mt-1'>
+            <div className='text-base font-bold text-blue-700 mt-1'>
               {applicationData.isSubmit ? 'Submitted' : 'Draft'}
             </div>
           </div>
-          <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
-            <span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
+          <div className='bg-white rounded-lg p-3.5 border border-slate-200 shadow-2xs'>
+            <span className='text-[11px] font-semibold text-slate-500 uppercase tracking-wider'>
               Created Date
             </span>
-            <div className='text-sm text-gray-800 mt-1 font-medium'>
+            <div className='text-xs font-semibold text-slate-800 mt-1'>
               {formatDate(applicationData.createdAt)}
-            </div>
-          </div>
-          <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
-            <span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
-              Last Updated
-            </span>
-            <div className='text-sm text-gray-800 mt-1 font-medium'>
-              {formatDate(applicationData.updatedAt)}
             </div>
           </div>
         </div>
@@ -1582,16 +1567,17 @@ const Preview = () => {
   }
 
   return (
-    <div className='p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-gray-100'>
-      <div className='max-w-6xl mx-auto'>
-          <div className='text-center mb-6'>
-            <h2 className='text-3xl font-bold mb-2 text-gray-800'>Application Preview</h2>
-            <div className='w-24 h-1 bg-blue-600 mx-auto rounded-full mb-4'></div>
-            <p className='text-gray-600 text-lg max-w-2xl mx-auto'>
-              Please review all your information before submitting the application. You can edit any
-              section by clicking the Edit button.
-            </p>
-          </div>
+    <div className='flex flex-col bg-gray-50/60'>
+      <FormStepHeader
+        title="Application Preview"
+        subtitle="Please review all your entered information before final submission. Click Edit on any section to make changes."
+        stepNumber={9}
+        totalSteps={10}
+        applicationId={applicationData?.id}
+        acknowledgementNo={applicationData?.acknowledgementNo}
+      />
+      <div className='p-4 sm:p-6'>
+        <div className='max-w-6xl mx-auto'>
 
           {renderApplicationOverview()}
           {renderPersonalInfo()}
@@ -1609,6 +1595,7 @@ const Preview = () => {
         </div>
 
         <FormFooter onNext={handleNext} onPrevious={handlePrevious} />
+      </div>
     </div>
   );
 };

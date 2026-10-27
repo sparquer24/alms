@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FormSkeleton } from '../elements/FormSkeleton';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import FormFooter from '../elements/footer';
 import { FileUploadService } from '../../../api/fileUploadService';
 import { getFileTypeFromDisplayName, validateFileForDocumentType, DOCUMENT_TYPE_MAPPING } from '../../../config/documentTypes';
@@ -295,10 +296,19 @@ const DocumentsUpload = () => {
 
 	return (
 		<form className="p-6">
-			<h2 className="text-xl font-bold mb-4">Documents Upload</h2>
+			<FormStepHeader
+				title="Documents Upload"
+				subtitle="Upload all required supporting documents (Identity Proof, Address Proof, Age Proof, Medical Certificate, etc.)."
+				stepNumber={8}
+				totalSteps={10}
+				applicationId={applicationId}
+				acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+				onRefresh={typeof loadExistingData === 'function' && applicationId ? () => loadExistingData(applicationId) : undefined}
+				isRefreshing={isLoading}
+			/>
 			
 		{/* Display Application ID and License ID if available */}
-		{(applicationId || almsLicenseId) && (
+		{false && (applicationId || almsLicenseId) && (
 			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 				<div className="flex flex-col">
 					{/* <strong>Application ID: {applicationId ?? '—'}</strong> */}</div>

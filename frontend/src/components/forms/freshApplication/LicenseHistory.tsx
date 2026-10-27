@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Input, TextArea } from '../elements/Input';
 import { Select } from '../elements/Select';
 import { FormSkeleton } from '../elements/FormSkeleton';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
 import { useRouter } from 'next/navigation';
@@ -660,10 +661,19 @@ const LicenseHistory = () => {
 
 	return (
 		<form className="p-6">
-			<h2 className="text-xl font-bold mb-4">License History</h2>
+			<FormStepHeader
+				title="License History"
+				subtitle="Details of previous applications, suspensions, family member licenses, safe storage, and arms training."
+				stepNumber={5}
+				totalSteps={10}
+				applicationId={applicantId}
+				acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+				onRefresh={typeof loadExistingData === 'function' && applicantId ? () => loadExistingData(applicantId) : undefined}
+				isRefreshing={isLoading}
+			/>
 			
 			{/* Display Applicant ID and License ID if available */}
-			{(applicantId || almsLicenseId) && (
+			{false && (applicantId || almsLicenseId) && (
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<div className="flex flex-col"></div>
 					{typeof loadExistingData === 'function' && (
@@ -692,7 +702,7 @@ const LicenseHistory = () => {
 			)}
 
 			<div className="mb-6">
-				<div className="font-semibold mb-2">14. Whether the applicant has applied for -</div>
+				<div className="font-bold text-[#0B1F3A] text-base mb-2">14. Whether the applicant has applied for -</div>
 				<div className="mb-2">(a) Arms License before?</div>
 				<div className="flex gap-6 mb-2">
 					<label className="flex items-center gap-2 cursor-pointer">

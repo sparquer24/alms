@@ -44,6 +44,13 @@ export function filterArea(value: string): string {
  * Alphanumeric fields (FIR Number, Under Section, etc.): allow alphabets, numbers, spaces.
  * Collapses multiple consecutive spaces into one.
  */
+/**
+ * Email field: strip whitespace.
+ */
+export function filterEmail(value: string): string {
+  return value.replace(/\s/g, '');
+}
+
 export function filterAlphaNumeric(value: string): string {
   let filtered = value.replace(/[^A-Za-z0-9\s]/g, '');
   filtered = filtered.replace(/\s{2,}/g, ' ');

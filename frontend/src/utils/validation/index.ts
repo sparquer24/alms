@@ -13,6 +13,7 @@ export {
   validateAadhaar,
   validateMobileNumber,
   validatePhone,
+  validateEmail,
   validateDate,
   validateSelect,
   validateArea,
@@ -27,11 +28,13 @@ export {
   AADHAAR_REGEX,
   MOBILE_REGEX,
   PHONE_REGEX,
+  EMAIL_REGEX,
   AREA_REGEX,
 } from './validators';
 
 export {
   filterText,
+  filterEmail,
   filterPan,
   filterDigits,
   filterArea,

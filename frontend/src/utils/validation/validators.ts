@@ -35,6 +35,9 @@ export const PHONE_REGEX = /^\d{10,15}$/;
 /** Area: positive number with optional decimal places */
 export const AREA_REGEX = /^\d+(\.\d{1,2})?$/;
 
+/** Email: standard email regex */
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 // ─── Validator Functions ──────────────────────────────────────────────────────
 
 /**
@@ -233,6 +236,30 @@ export function validatePhone(
 
   if (!PHONE_REGEX.test(v)) {
     return overrides?.format || 'Phone number must contain 10 to 15 digits.';
+  }
+
+  return '';
+
+}
+
+/**
+ * Validate an email address.
+ */
+export function validateEmail(
+  value: string,
+  required: boolean,
+  overrides?: Record<string, string>,
+): string {
+  const v = value.trim();
+
+  if (required && !v) {
+    return overrides?.required || 'Email address is required.';
+  }
+  if (!v) return '';
+
+  if (!EMAIL_REGEX.test(v)) {
+    return overrides?.format || 'Please enter a valid email address (e.g. name@example.com).';
+
   }
 
   return '';

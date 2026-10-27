@@ -4653,7 +4653,7 @@ function RenewalFormPageContent() {
             )}
 
             <Card padding='sm'>
-                <h2 className='text-2xl font-bold  text-gray-900 mb-6'>
+                <h2 className='text-2xl font-bold text-[#0B1F3A] mb-6'>
                   {RENEWAL_SECTIONS[currentStepIndex]}
                 </h2>
 

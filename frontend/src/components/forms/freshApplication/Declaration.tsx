@@ -6,6 +6,7 @@ import { Frown } from 'lucide-react';
 // Type assertion for lucide-react icons to fix React 18 compatibility
 const FrownFixed = Frown as any;
 import FormFooter from '../elements/footer';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import { ApplicationService } from '../../../api/applicationService';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { patchData } from '../../../api/axiosConfig';
@@ -28,15 +29,15 @@ const Declaration = () => {
   const searchParams = useSearchParams();
   const applicantId = searchParams?.get('applicantId') || searchParams?.get('id');
 
-  // Load license id for display (if available)
+  // Load acknowledgement number for display (if available)
   React.useEffect(() => {
     const loadLicense = async () => {
       if (!applicantId) return;
       try {
         const resp = await ApplicationService.getApplication(applicantId);
         const data = resp?.data || resp;
-        const licenseId = data?.almsLicenseId ?? data?.alms_license_id ?? data?.licenseId ?? null;
-        if (licenseId) setAlmsLicenseId(licenseId);
+        const ackNo = data?.acknowledgementNo ?? data?.almsLicenseId ?? data?.alms_license_id ?? null;
+        if (ackNo) setAlmsLicenseId(ackNo);
       } catch {
         // ignore
       }
@@ -118,19 +119,18 @@ const Declaration = () => {
   };
 
   return (
-    <div className='p-4 bg-white'>
-      {/* <div className=""> */}
-      <div className='max-w-6xl mx-auto'>
-        <div className='text-center mb-6'>
-          <h2 className='text-3xl font-bold mb-2 text-gray-800'>Declaration & Submit</h2>
-          <div className='w-24 h-1 bg-blue-600 mx-auto rounded-full mb-4'></div>
-        </div>
-        <form onSubmit={e => e.preventDefault()} className=''>
-          {/* Display Application ID and License ID if available */}
-          {(applicantId || almsLicenseId) && (
-            <div className='mb-6 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-lg font-semibold max-w-md mx-auto text-center'>
-              {/* <div>Application ID: <span className="font-bold">{applicantId ?? '—'}</span></div> */}</div>
-          )}{' '}
+    <div className='flex flex-col'>
+      <FormStepHeader
+        title="Declaration & Submit"
+        subtitle="Confirm truthfulness of all provided particulars under the Arms Act, 1959 and submit your application."
+        stepNumber={10}
+        totalSteps={10}
+        applicationId={applicantId}
+        acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+      />
+      <div className='p-6'>
+        <div className='max-w-4xl mx-auto'>
+          <form onSubmit={e => e.preventDefault()} className='space-y-4'>
           {error && (
             <div className='mb-4 p-4 bg-red-50 border border-red-200 rounded-md max-w-lg mx-auto'>
               <div className='flex items-start'>
@@ -180,10 +180,14 @@ const Declaration = () => {
         isOpen={showSuccessModal}
         onClose={handleCloseSuccessModal}
         title='Application Submitted Successfully!'
+        message='Your fresh arms license application has been successfully submitted and forwarded to the licensing authority for verification.'
+        applicationId={applicantId ? String(applicantId) : undefined}
+        acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
         onNavigateHome={handleNavigateHome}
-        autoRedirectSeconds={5}
-        hideCloseButton={true}
+        autoRedirectSeconds={6}
+        hideCloseButton={false}
       />
+      </div>
     </div>
   );
 };

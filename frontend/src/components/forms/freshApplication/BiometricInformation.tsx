@@ -9,6 +9,7 @@ const Webcam = dynamic(() => import('react-webcam').then(mod => mod.default), {
   ssr: false,
 }) as any;
 import FormFooter from '../elements/footer';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FileUploadService } from '../../../api/fileUploadService';
 import { ApplicationService } from '../../../api/applicationService';
@@ -967,9 +968,17 @@ const BiometricInformation = () => {
 
   return (
     <form className='p-6 space-y-6'>
-      <h2 className='text-xl font-bold'>Biometric Information</h2>
+      <FormStepHeader
+        title="Biometric Information"
+        subtitle="Capture or upload applicant photograph and thumbprint biometrics via Mantra device or manual upload."
+        stepNumber={7}
+        totalSteps={10}
+        applicationId={applicantId}
+        acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+        onRefresh={applicantId ? () => ApplicationService.getApplication(applicantId) : undefined}
+      />
 
-      {(applicantId || almsLicenseId) && (
+      {false && (applicantId || almsLicenseId) && (
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
             {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>

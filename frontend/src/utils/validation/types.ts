@@ -9,6 +9,7 @@
  */
 export type FieldType =
   | 'text'      // Alphabets + spaces only (names, occupation)
+  | 'email'     // Standard email format: name@domain.ext
   | 'address'   // Alphanumeric + spaces + , / - . (addresses)
   | 'pan'       // PAN format: ABCDE1234F
   | 'aadhaar'   // 12-digit number
