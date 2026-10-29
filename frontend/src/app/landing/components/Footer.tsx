@@ -146,7 +146,7 @@ export default function LandingFooter({ footer }: LandingFooterProps) {
                   href="/login"
                   className="text-[#D4AF37] hover:underline font-bold inline-flex items-center gap-1 pt-1"
                 >
-                  <span>Officer Sign In Desk</span>
+                  <span>Officer Sign In</span>
                   <span>→</span>
                 </Link>
               </li>

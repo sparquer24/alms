@@ -10,6 +10,7 @@ export const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api').replace(/\/$
 // Authentication APIs
 export const AUTH_APIS = {
   LOGIN: `/auth/login`,
+  CAPTCHA: `/auth/captcha`,
   GET_CURRENT_USER: `/auth/me`,
   CHANGE_PASSWORD: `/auth/change-password`,
   RESET_PASSWORD: `/auth/reset-password`,
@@ -30,6 +31,8 @@ export const NOTIFICATION_APIS = {
 export type LoginParams = {
   username: string;
   password: string;
+  captchaId?: string;
+  captchaCode?: string;
 };
 
 export type ApplicationQueryParams = {

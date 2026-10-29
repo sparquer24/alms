@@ -1,4 +1,4 @@
-﻿import { createAsyncThunk } from '@reduxjs/toolkit';
+import { createAsyncThunk } from '@reduxjs/toolkit';
 import { AuthApi } from '../../config/APIClient';
 import { setCredentials, setLoading, setError, logout, setInitialized } from '../slices/authSlice';
 import { setCookie, getCookie, deleteCookie } from 'cookies-next';
@@ -205,12 +205,15 @@ export const initializeAuth = createAsyncThunk(
 
 export const login = createAsyncThunk(
   'auth/login',
-  async ({ username, password }: { username: string; password: string }, { dispatch, rejectWithValue }) => {
+  async (
+    { username, password, captchaId, captchaCode }: { username: string; password: string; captchaId?: string; captchaCode?: string },
+    { dispatch, rejectWithValue }
+  ) => {
     try {
       dispatch(setLoading(true));
       dispatch(setError(''));
 
-      const response = await AuthApi.login({ username, password });
+      const response = await AuthApi.login({ username, password, captchaId, captchaCode });
 
       let token: string;
       let user: any = null;

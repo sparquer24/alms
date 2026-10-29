@@ -94,12 +94,12 @@ export default function LandingHeader({
             </Link>
 
             {/* Desktop Navigation Links */}
-            <nav className="hidden xl:flex items-center gap-1" aria-label="Main navigation">
+            <nav className="hidden xl:flex items-center gap-0.5" aria-label="Main navigation">
               {navLinks.map((link) => (
                 <a
                   key={link.label}
                   href={link.href}
-                  className="px-2.5 py-1.5 text-xs font-semibold text-gray-200 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                  className="px-2 py-1 text-[11px] font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded transition-colors whitespace-nowrap"
                 >
                   {link.label}
                 </a>
@@ -168,7 +168,7 @@ export default function LandingHeader({
                   className="block w-full py-2.5 text-center text-sm font-bold rounded-lg bg-[#D4AF37] text-[#071527]"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Officer Sign In Desk
+                  Officer Sign In
                 </Link>
               </div>
             </nav>

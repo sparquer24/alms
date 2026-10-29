@@ -93,13 +93,12 @@ export default function HeroSection({ hero }: HeroSectionProps) {
                     Telangana ALMS Gateway
                   </h3>
                   <p className="text-xs text-gray-300 mt-1">
-                    Select a portal to sign in or explore state licensing modules and approval workflows.
+                    Authorized access for Law Enforcement and Licensing Authorities.
                   </p>
                 </div>
 
-                {/* The 3 Moved Buttons */}
-                <div className="space-y-3 pt-2">
-                  {/* 1. Officer / Authority Sign In */}
+                {/* Officer Sign In Button */}
+                <div className="pt-2">
                   <Link
                     href="/login"
                     className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-[#D4AF37] via-[#C4A02F] to-[#B8860B] hover:from-[#E5BE48] hover:to-[#A0750A] text-[#0B1F3A] rounded-xl font-extrabold shadow-xl hover:shadow-2xl transition-all duration-200 border border-[#FFE58F]/60 group"
@@ -110,51 +109,10 @@ export default function HeroSection({ hero }: HeroSectionProps) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 10-8 0v4h8z" />
                         </svg>
                       </div>
-                      <div className="text-left">
-                        <span className="block text-sm font-black leading-tight">Officer / Authority Sign In</span>
-                        <span className="block text-[11px] font-semibold text-[#0B1F3A]/80">SHO • SB • ACP • DCP • CP / DM</span>
-                      </div>
+                      <span className="text-base font-black leading-tight">Officer Sign In</span>
                     </div>
                     <span className="text-lg font-bold text-[#0B1F3A] group-hover:translate-x-1 transition-transform">&rarr;</span>
                   </Link>
-
-                  {/* 2. State Services & Modules */}
-                  <a
-                    href="#services"
-                    className="w-full flex items-center justify-between p-4 bg-white/10 hover:bg-white/20 border border-white/25 hover:border-[#D4AF37]/50 rounded-xl text-white backdrop-blur-md shadow-md transition-all duration-200 group"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <div className="text-left">
-                        <span className="block text-sm font-bold leading-tight">State Services &amp; Modules</span>
-                        <span className="block text-[11px] text-gray-300">Fresh Licenses, Renewals &amp; Transfers</span>
-                      </div>
-                    </div>
-                    <span className="text-lg text-gray-300 group-hover:text-white group-hover:translate-y-0.5 transition-transform">&darr;</span>
-                  </a>
-
-                  {/* 3. Police Approval Chain */}
-                  <a
-                    href="#workflow"
-                    className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/15 border border-white/15 hover:border-white/30 rounded-xl text-white backdrop-blur-md shadow-sm transition-all duration-200 group"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                      </div>
-                      <div className="text-left">
-                        <span className="block text-sm font-bold leading-tight">Police Approval Chain</span>
-                        <span className="block text-[11px] text-gray-300">7-Tier Law Enforcement Hierarchy</span>
-                      </div>
-                    </div>
-                    <span className="text-lg text-gray-300 group-hover:text-white group-hover:translate-x-1 transition-transform">&rarr;</span>
-                  </a>
                 </div>
 
                 {/* Subtle Authority Footer note inside card */}

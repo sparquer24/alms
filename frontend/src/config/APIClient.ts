@@ -77,6 +77,31 @@ export const AuthApi = {
     }
   },
 
+  getCaptcha: async (): Promise<{ success: boolean; data: { captchaId: string; svg: string } }> => {
+    const url = AUTH_APIS.CAPTCHA;
+    const headers = getHeaders();
+    const axiosHeaders: Record<string, string> = Array.isArray(headers)
+      ? headers.reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {} as Record<string, string>)
+      : (headers as Record<string, string>);
+    try {
+      const response = await axiosInstance.get(url, { headers: axiosHeaders });
+      return response.data;
+    } catch (primaryErr: any) {
+      const status = primaryErr?.response?.status;
+      if (status === 404 || status === 405) {
+        let alternate = url;
+        if (url.includes('/api/')) {
+          alternate = url.replace('/api/', '/');
+        } else {
+          alternate = url.replace('/auth/', '/api/auth/');
+        }
+        const resp2 = await axiosInstance.get(alternate, { headers: axiosHeaders });
+        return resp2.data;
+      }
+      throw primaryErr;
+    }
+  },
+
   // Note: getCurrentUser is the only auth endpoint that requires authorization (for getting current user info)
   getCurrentUser: async (token: string): Promise<ApiResponse<any>> => {
     // If a token was passed (e.g. immediately after login), ensure axios has it set
