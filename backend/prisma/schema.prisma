@@ -48,6 +48,7 @@ model States {
   users              Users[]                             @relation("StateUsers")
   roleFlowMappings   RoleFlowMapping[]
   cancelFormRequests CancelFormRequests[]
+  approvalRules      ApprovalRule[]
 }
 
 model Districts {
@@ -64,6 +65,9 @@ model Districts {
   renewalAddresses   RenewalAddressesAndContactDetails[]
   renewalOccupations RenewalOccupationAndBusiness[]
   users              Users[]                             @relation("DistrictUsers")
+  approvalRules      ApprovalRule[]
+
+  @@index([stateId])
 }
 
 model Zones {
@@ -77,6 +81,8 @@ model Zones {
   renewalAddresses RenewalAddressesAndContactDetails[]
   users            Users[]                             @relation("ZoneUsers")
   RangeOffices     RangeOffices?                       @relation(fields: [rangeOfficeId], references: [id], onDelete: Cascade)
+
+  @@index([rangeOfficeId])
 }
 
 model Divisions {
@@ -90,6 +96,8 @@ model Divisions {
   stations         PoliceStations[]
   renewalAddresses RenewalAddressesAndContactDetails[]
   users            Users[]                             @relation("DivisionUsers")
+
+  @@index([zoneId])
 }
 
 model PoliceStations {
@@ -102,6 +110,8 @@ model PoliceStations {
   division         Divisions                           @relation(fields: [divisionId], references: [id], onDelete: Cascade)
   renewalAddresses RenewalAddressesAndContactDetails[]
   users            Users[]                             @relation("PoliceStationUsers")
+
+  @@index([divisionId])
 }
 
 model Roles {
@@ -129,6 +139,7 @@ model Roles {
   currentRoleFlowMappings        RoleFlowMapping[]                               @relation("CurrentRole")
   rolesActionsMapping            RolesActionsMapping[]
   users                          Users[]
+  approvalRules                  ApprovalRule[]                                  @relation("ApprovalRuleApproverRole")
 }
 
 // Definitions of individual permission flags (the keys used inside Roles.permissions'
@@ -253,6 +264,10 @@ model Users {
   role                           Roles                                           @relation(fields: [roleId], references: [id], onDelete: Cascade)
   state                          States?                                         @relation("StateUsers", fields: [stateId], references: [id], onDelete: Cascade)
   zone                           Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([roleId])
+  @@index([stateId])
+  @@index([districtId])
 }
 
 model FlowMaps {
@@ -399,6 +414,8 @@ model FLAFCriminalHistories {
   updatedAt         DateTime                               @updatedAt
   firDetails        Json?
   application       FreshLicenseApplicationPersonalDetails @relation("CriminalHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
 }
 
 model FLAFLicenseHistories {
@@ -422,6 +439,8 @@ model FLAFLicenseHistories {
   createdAt               DateTime                               @default(now())
   updatedAt               DateTime                               @updatedAt
   application             FreshLicenseApplicationPersonalDetails @relation("LicenseHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
 }
 
 model FLAFLicenseDetails {
@@ -438,6 +457,8 @@ model FLAFLicenseDetails {
   updatedAt                  DateTime                               @updatedAt
   application                FreshLicenseApplicationPersonalDetails @relation("LicenseDetails", fields: [applicationId], references: [id], onDelete: Cascade)
   requestedWeapons           WeaponTypeMaster[]                     @relation("RequestedWeapons")
+
+  @@index([applicationId])
 }
 
 model FLAFFileUploads {
@@ -449,6 +470,8 @@ model FLAFFileUploads {
   fileName      String
   fileSize      Int
   application   FreshLicenseApplicationPersonalDetails @relation("FileUploads", fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
 }
 
 model FLAFBiometricDatas {
@@ -476,6 +499,10 @@ model FreshLicenseApplicationsFormWorkflowHistories {
   nextUser       Users                                  @relation("WorkflowNextUser", fields: [nextUserId], references: [id], onDelete: Cascade)
   previousRole   Roles?                                 @relation("WorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
   previousUser   Users                                  @relation("WorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
+  @@index([previousUserId, createdAt])
+  @@index([nextUserId])
 }
 
 model RenewalFormPersonalDetails {
@@ -591,6 +618,8 @@ model RenewalLicenseDetails {
   updatedAt                  DateTime                   @updatedAt
   application                RenewalFormPersonalDetails @relation("RenewalLicenseDetails", fields: [applicationId], references: [id], onDelete: Cascade)
   requestedWeapons           WeaponTypeMaster[]         @relation("RenewalRequestedWeapons")
+
+  @@index([applicationId])
 }
 
 model RenewalFileUploads {
@@ -602,6 +631,8 @@ model RenewalFileUploads {
   fileName      String
   fileSize      Int
   application   RenewalFormPersonalDetails @relation("RenewalFileUploads", fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
 }
 
 model RenewalBiometricDatas {
@@ -625,6 +656,8 @@ model RenewalCriminalHistories {
   updatedAt         DateTime                   @updatedAt
   firDetails        Json?
   application       RenewalFormPersonalDetails @relation("RenewalCriminalHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
 }
 
 model RenewalLicenseHistories {
@@ -648,6 +681,8 @@ model RenewalLicenseHistories {
   createdAt               DateTime                   @default(now())
   updatedAt               DateTime                   @updatedAt
   application             RenewalFormPersonalDetails @relation("RenewalLicenseHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
 }
 
 model RenewalApplicationsFormWorkflowHistories {
@@ -668,6 +703,10 @@ model RenewalApplicationsFormWorkflowHistories {
   nextUser       Users                      @relation("RenewalWorkflowNextUser", fields: [nextUserId], references: [id], onDelete: Cascade)
   previousRole   Roles?                     @relation("RenewalWorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
   previousUser   Users                      @relation("RenewalWorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
+  @@index([previousUserId, createdAt])
+  @@index([nextUserId])
 }
 
 model LicensesMergeAuditLog {
@@ -763,6 +802,8 @@ model RangeOffices {
   RenewalAddressesAndContactDetails RenewalAddressesAndContactDetails[]
   Users                             Users[]
   Zones                             Zones[]
+
+  @@index([districtId])
 }
 
 model Licenses {
@@ -841,6 +882,8 @@ model Licenses {
   @@index([firstName, lastName])
   @@index([presentStateId])
   @@index([presentDistrictId])
+  @@index([freshApplicationId])
+  @@index([renewalApplicationId])
 }
 
 model LicenseWorkflowHistory {
@@ -874,6 +917,8 @@ model AuditLogs {
   browser       String?
   createdAt     DateTime @default(now())
   user          Users    @relation("UserAuditLogs", fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model PoliceEnquiryReports {
@@ -896,6 +941,9 @@ model PoliceEnquiryReports {
   freshApplication       FreshLicenseApplicationPersonalDetails? @relation("FreshPoliceReports", fields: [applicationId], references: [id], onDelete: Cascade)
   officer                Users                                   @relation("OfficerPoliceReports", fields: [officerId], references: [id])
   renewalApplication     RenewalFormPersonalDetails?             @relation("RenewalPoliceReports", fields: [renewalId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([renewalId])
 }
 
 model Hearings {
@@ -917,6 +965,9 @@ model Hearings {
   freshApplication   FreshLicenseApplicationPersonalDetails? @relation("FreshHearings", fields: [applicationId], references: [id], onDelete: Cascade)
   renewalApplication RenewalFormPersonalDetails?             @relation("RenewalHearings", fields: [renewalId], references: [id], onDelete: Cascade)
   scheduler          Users                                   @relation("ScheduledHearings", fields: [scheduledBy], references: [id])
+
+  @@index([applicationId])
+  @@index([renewalId])
 }
 
 enum LicenseStatus {
@@ -977,4 +1028,43 @@ enum LicenseResult {
   APPROVED
   REJECTED
   PENDING
+}
+
+/// Area of validity an approval rule applies to (see src/constants/area-of-validity.ts)
+enum ApprovalRuleArea {
+  DISTRICT
+  STATE
+  INDIA
+}
+
+/// What the decision role may do: Approve/Reject locally, or only Recommend/Not Recommend
+enum ApprovalDecision {
+  APPROVE
+  RECOMMEND
+}
+
+/// Which role makes the final decision on an application, and whether it approves
+/// or only recommends. The most specific active rule wins: district > state >
+/// default (both null), then a specific purpose > ALL, then a specific
+/// application type > ALL. With no matching rule the built-in default applies
+/// (see src/modules/approvalRules/approval-rules.resolver.ts).
+model ApprovalRule {
+  id              Int                     @id @default(autoincrement())
+  applicationType RoleFlowApplicationType @default(ALL)
+  stateId         Int?
+  districtId      Int?
+  purpose         RoleFlowPurpose         @default(ALL)
+  area            ApprovalRuleArea
+  approverRoleId  Int
+  decision        ApprovalDecision
+  isActive        Boolean                 @default(true)
+  updatedBy       Int?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  approverRole    Roles                   @relation("ApprovalRuleApproverRole", fields: [approverRoleId], references: [id], onDelete: Cascade)
+  state           States?                 @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  district        Districts?              @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationType, stateId, districtId, purpose, area])
+  @@index([stateId, districtId])
 }

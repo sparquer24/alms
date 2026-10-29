@@ -5,6 +5,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { useAuth } from '../../hooks/useAuth';
 import { useLayout } from '../../config/layoutContext';
+import { useIsomorphicLayoutEffect } from '../../hooks/useIsomorphicLayoutEffect';
 
 /**
  * Layout for all /cancelForm/* routes.
@@ -14,9 +15,12 @@ import { useLayout } from '../../config/layoutContext';
 export default function CancelFormLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, initialized } = useAuth();
   const { headerOptions, setShowSidebar, setShowHeader } = useLayout();
-  const [checked, setChecked] = useState(false);
+  // Start as checked when auth is already resolved (client-side navigation into
+  // this section) so the full-screen spinner doesn't flash on every visit.
+  const [checked, setChecked] = useState(() => initialized && !isLoading && isAuthenticated);
 
-  useEffect(() => {
+  // Layout effect: hide the sidebar before paint so the header doesn't shift.
+  useIsomorphicLayoutEffect(() => {
     setShowHeader(true);
     setShowSidebar(false);
 

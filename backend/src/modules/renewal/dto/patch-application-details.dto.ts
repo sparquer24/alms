@@ -49,6 +49,12 @@ export class PatchRenewalApplicationDetailsDto {
   @Type(() => PatchRenewalAddressDetailsDto)
   addressDetails?: PatchRenewalAddressDetailsDto;
 
+  @ApiPropertyOptional({ description: 'Permanent address; when omitted, addressDetails is used for both' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PatchRenewalAddressDetailsDto)
+  permanentAddressDetails?: PatchRenewalAddressDetailsDto;
+
   @ApiPropertyOptional({ description: 'Occupation and business details to update' })
   @IsOptional()
   @ValidateNested()

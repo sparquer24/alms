@@ -15,7 +15,7 @@ export async function generateStaticParams() {
 
 export default async function Page({ params }: Props) {
   return (
-    <Suspense fallback={<PageLayoutSkeleton />}>
+    <Suspense fallback={<PageLayoutSkeleton sidebar={false} />}>
       <LicenseDetailClient params={params} />
     </Suspense>
   );

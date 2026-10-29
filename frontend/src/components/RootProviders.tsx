@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Provider } from 'react-redux';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../lib/queryClient';
@@ -15,11 +15,13 @@ import { ApplicationProvider } from '../context/ApplicationContext';
 import { InboxProvider } from '../context/InboxContext';
 import { AdminThemeProvider } from '../context/AdminThemeContext';
 import { GlobalActionProvider } from '../context/GlobalActionContext';
+import NavigationProgress from './NavigationProgress';
 
 
 
 
 import { Toaster } from 'react-hot-toast';
+import { ToastContainer } from 'react-toastify';
 
 export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
@@ -37,7 +39,13 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
                         <InboxProvider>
                           <GlobalActionProvider>
                             <AuthInitializer />
+                            <Suspense fallback={null}>
+                              <NavigationProgress />
+                            </Suspense>
                             {children}
+                            {/* Both toast libraries are used in the app; each needs its own host. */}
+                            <Toaster position='top-right' />
+                            <ToastContainer position='top-right' autoClose={4000} newestOnTop />
 
                           </GlobalActionProvider>
                         </InboxProvider>

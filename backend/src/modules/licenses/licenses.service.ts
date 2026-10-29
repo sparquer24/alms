@@ -5,6 +5,7 @@ import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as QRCode from 'qrcode';
+import cache, { CacheKeys, CacheTtl } from '../../cache/cache';
 
 /** Caller context for bulk import: identity plus the jurisdiction to scope rows to. */
 export interface LicenseImportScope {
@@ -547,6 +548,64 @@ export class LicensesService {
       renewalIds: license.renewalIds ?? [],
     };
 
+    // The license row is the source of truth for the license itself. These are
+    // spread last so a source application's own `id`/`status` (or a cancel
+    // request lacking applicant fields) can never shadow the license's values.
+    const licenseFields: Record<string, any> = {
+      id: license.id,
+      status: license.status,
+      isSubmit: true,
+      sourceApplicationId: sourceApplication?.id ?? null,
+      sourceApplicationType: this.normalizeApplicationType(license.lastModifiedAppType),
+      firstName: license.firstName,
+      middleName: license.middleName,
+      lastName: license.lastName,
+      parentOrSpouseName: license.parentOrSpouseName,
+      sex: license.sex,
+      dateOfBirth: license.dateOfBirth,
+      placeOfBirth: license.placeOfBirth,
+      aadharNumber: license.aadharNumber,
+      panNumber: license.panNumber,
+      issueDate: license.issueDate,
+      validFrom: license.validFrom,
+      validTill: license.validTill,
+      lastRenewedDate: license.lastRenewedDate ?? null,
+      renewalCount: license.renewalCount ?? 0,
+      armsCategory: license.armsCategory,
+      areaOfValidity: license.areaOfValidity,
+      ammunitionDescription: license.ammunitionDescription,
+      licencePlaceArea: license.licencePlaceArea,
+      specialConsiderationReason: license.specialConsiderationReason,
+      needForLicense: license.needForLicense,
+      endorsedWeapons: license.endorsedWeapons ?? [],
+      presentAddressLine: license.presentAddressLine,
+      presentStateId: license.presentStateId,
+      presentDistrictId: license.presentDistrictId,
+      presentPoliceStationId: license.presentPoliceStationId,
+      presentZoneId: license.presentZoneId,
+      presentDivisionId: license.presentDivisionId,
+      presentRangeOfficeId: license.presentRangeOfficeId,
+      presentStateName: license.presentStateName ?? null,
+      presentDistrictName: license.presentDistrictName ?? null,
+      presentPoliceStationName: license.presentPoliceStationName ?? null,
+      presentZoneName: license.presentZoneName ?? null,
+      presentDivisionName: license.presentDivisionName ?? null,
+      presentRangeOfficeName: license.presentRangeOfficeName ?? null,
+      permanentAddressLine: license.permanentAddressLine,
+      permanentStateId: license.permanentStateId,
+      permanentDistrictId: license.permanentDistrictId,
+      permanentPoliceStationId: license.permanentPoliceStationId,
+      permanentZoneId: license.permanentZoneId,
+      permanentDivisionId: license.permanentDivisionId,
+      permanentRangeOfficeId: license.permanentRangeOfficeId,
+      permanentStateName: license.permanentStateName ?? null,
+      permanentDistrictName: license.permanentDistrictName ?? null,
+      permanentPoliceStationName: license.permanentPoliceStationName ?? null,
+      permanentZoneName: license.permanentZoneName ?? null,
+      permanentDivisionName: license.permanentDivisionName ?? null,
+      permanentRangeOfficeName: license.permanentRangeOfficeName ?? null,
+    };
+
     // If no source application found, this is typically a bulk-imported license
     // (lastModifiedAppType 'IMPORT') that was never created through the fresh/renewal
     // application flow. Its applicant/address/license details live directly on the
@@ -558,12 +617,15 @@ export class LicensesService {
       if (!hasOwnApplicantData) {
         return {
           ...baseMetadata,
+          id: license.id,
+          status: license.status,
           applicantName: null,
         };
       }
 
       return {
         ...baseMetadata,
+        ...licenseFields,
         isSubmit: true,
         status: license.status,
         firstName: license.firstName,
@@ -640,7 +702,8 @@ export class LicensesService {
     const transformed: Record<string, any> = {
       ...sourceApplication,
       ...baseMetadata,
-      applicantName: [sourceApplication.firstName, sourceApplication.middleName, sourceApplication.lastName].filter(Boolean).join(' '),
+      ...licenseFields,
+      applicantName: [license.firstName, license.middleName, license.lastName].filter(Boolean).join(' '),
       // Always expose documents from the most recently approved application (fresh or renewal).
       // The sourceApplication already reflects the last approved application per loadApplicationForLicense.
       documents: sourceApplication.fileUploads ?? [],
@@ -1139,45 +1202,26 @@ export class LicensesService {
    * Otherwise falls through to the standard license -> source application flow.
    */
   async getLicenseById(id: string) {
-    const isLicenseNumber = id.toUpperCase().startsWith('LUAN');
-
-    // First check: is there an existing draft renewal for this license?
-    // With multi-renewal support, multiple renewals can share the same licenseNumber.
-    // We order by createdAt descending to get the most recent draft.
-    const draftRenewal = await this.prisma.renewalFormPersonalDetails.findFirst({
-      where: isLicenseNumber
-        ? { licenseNumber: id, isSubmit: false }
-        : {
-          OR: [
-            { licenseId: Number(id) },
-            { id: Number(id) },
-          ],
-          isSubmit: false,
-        },
-      orderBy: { createdAt: 'desc' },
-      include: this.buildRenewalApplicationInclude(),
-    });
-    console.log('Draft Renewal Check:', draftRenewal);
-    if (draftRenewal) {
-      return draftRenewal;
-    }
-    console.log('No draft renewal found, proceeding to standard license lookup for id:', id); ``
-    // Fall through to standard license lookup
+    // Always resolve the Licenses record itself. Draft renewals are NOT returned
+    // here: every caller (license detail page, renewal/cancel forms) reads
+    // `id`/`licenseId`/`status` as the license's own values, and draft renewals
+    // are resumed via the renewal-forms endpoints instead.
+    // Numeric input is the license PK; anything else (LUAN-prefixed or imported
+    // numbers) is treated as a license number.
+    const numericId = /^\d+$/.test(id.trim()) ? Number(id.trim()) : null;
     const licenseRecord = await this.prisma.licenses.findUnique({
-      where: isLicenseNumber
-        ? { licenseNumber: id }
-        : { id: Number(id) },
+      where: numericId !== null ? { id: numericId } : { licenseNumber: id.trim() },
       include: {
         endorsedWeapons: true,
       },
-    })
-    console.log('License Record:', licenseRecord);
+    });
     if (!licenseRecord) {
       return null;
     }
 
+    const [licenseWithNames] = await this.attachLocationNames([licenseRecord as any]);
     const sourceApplication = await this.loadApplicationForLicense(licenseRecord as any);
-    const mapped = this.buildLicenseDetailResponse(licenseRecord, sourceApplication);
+    const mapped = this.buildLicenseDetailResponse(licenseWithNames, sourceApplication);
 
     if (!mapped) {
       return null;
@@ -1449,67 +1493,46 @@ export class LicensesService {
    * Filters by state for ADMIN users, SUPER_ADMIN sees all states
    */
   async getLicenseStatistics(stateId?: number, roleCode?: string, districtId?: number, zoneId?: number) {
+    // Dashboard counters: cached briefly per jurisdiction. Licenses are written from several
+    // services (issue, renew, cancel, import), so a short TTL bounds staleness instead of
+    // invalidating at every write site.
+    const key = `${CacheKeys.licenseStats}${roleCode ?? ''}:${stateId ?? ''}:${districtId ?? ''}:${zoneId ?? ''}`;
+    return cache.wrap(key, CacheTtl.licenses, () =>
+      this.computeLicenseStatistics(stateId, roleCode, districtId, zoneId),
+    );
+  }
+
+  private async computeLicenseStatistics(stateId?: number, roleCode?: string, districtId?: number, zoneId?: number) {
     const now = new Date();
     const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
     const baseWhere: any = {
       ...this.buildLocationScopeWhere({ stateId, districtId, zoneId, roleCode }),
     };
+    const expiringWithin = (days: number) =>
+      this.prisma.licenses.count({
+        where: { ...baseWhere, status: LicenseStatus.ACTIVE, validTill: { lte: daysFromNow(days), gte: now } },
+      });
 
-    const [total, activeCount, expiredCount, cancelledCount, suspendedCount, revokedCount, expiringSoonCount, expiringWithin60Days, expiringWithin90Days, renewedCount] = await Promise.all([
-      this.prisma.licenses.count({ where: baseWhere }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'ACTIVE' as any } }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'EXPIRED' as any } }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'CANCELLED' as any } }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'SUSPENDED' as any } }),
-      this.prisma.licenses.count({ where: { ...baseWhere, status: 'REVOKED' as any } }),
-      this.prisma.licenses.count({
-        where: {
-          ...baseWhere,
-          status: 'ACTIVE' as any,
-          validTill: {
-            lte: daysFromNow(30),
-            gte: now
-          }
-        }
-      }),
-      this.prisma.licenses.count({
-        where: {
-          ...baseWhere,
-          status: 'ACTIVE' as any,
-          validTill: {
-            lte: daysFromNow(60),
-            gte: now
-          }
-        }
-      }),
-      this.prisma.licenses.count({
-        where: {
-          ...baseWhere,
-          status: 'ACTIVE' as any,
-          validTill: {
-            lte: daysFromNow(90),
-            gte: now
-          }
-        }
-      }),
-      this.prisma.licenses.count({
-        where: {
-          ...baseWhere,
-          renewalCount: {
-            gt: 0
-          }
-        }
-      }),
+    // One grouped query replaces a separate COUNT per status
+    const [byStatus, expiringSoonCount, expiringWithin60Days, expiringWithin90Days, renewedCount] = await Promise.all([
+      this.prisma.licenses.groupBy({ by: ['status'], where: baseWhere, _count: { _all: true } }),
+      expiringWithin(30),
+      expiringWithin(60),
+      expiringWithin(90),
+      this.prisma.licenses.count({ where: { ...baseWhere, renewalCount: { gt: 0 } } }),
     ]);
+
+    const countFor = (status: LicenseStatus) => byStatus.find((row) => row.status === status)?._count._all ?? 0;
+    const total = byStatus.reduce((sum, row) => sum + row._count._all, 0);
 
     return {
       total,
-      active: activeCount,
-      expired: expiredCount,
-      cancelled: cancelledCount,
-      suspended: suspendedCount,
-      revoked: revokedCount,
+      active: countFor(LicenseStatus.ACTIVE),
+      expired: countFor(LicenseStatus.EXPIRED),
+      cancelled: countFor(LicenseStatus.CANCELLED),
+      suspended: countFor(LicenseStatus.SUSPENDED),
+      revoked: countFor(LicenseStatus.REVOKED),
       expiringWithin30Days: expiringSoonCount,
       expiringWithin60Days,
       expiringWithin90Days,

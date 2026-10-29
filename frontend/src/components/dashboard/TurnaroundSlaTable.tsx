@@ -183,28 +183,28 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
         <table className="w-full text-left text-xs border-collapse">
           <thead className="bg-gray-50 text-gray-600 uppercase font-semibold border-b border-gray-200">
             <tr>
-              <th className="py-3 px-4 w-14">S.No</th>
-              <th className="py-3 px-4">Ack No / License ID</th>
-              <th className="py-3 px-4">Applicant Name</th>
-              <th className="py-3 px-4">Application Type</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Days In Process</th>
-              <th className="py-3 px-4">SLA Compliance</th>
-              <th className="py-3 px-4 text-right">Action</th>
+              <th className="py-1.5 px-4 w-14">S.No</th>
+              <th className="py-1.5 px-4">Ack No / License ID</th>
+              <th className="py-1.5 px-4">Applicant Name</th>
+              <th className="py-1.5 px-4">Application Type</th>
+              <th className="py-1.5 px-4">Status</th>
+              <th className="py-1.5 px-4">Days In Process</th>
+              <th className="py-1.5 px-4">SLA Compliance</th>
+              <th className="py-1.5 px-4 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="py-3.5 px-4"><div className="h-3 w-6 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-28 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-32 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-4 w-20 bg-gray-200 rounded-full"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-4 w-24 bg-gray-200 rounded-full"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-16 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-4 w-28 bg-gray-200 rounded-full"></div></td>
-                  <td className="py-3.5 px-4 text-right"><div className="h-6 w-16 bg-gray-200 rounded ml-auto"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3 w-6 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-28 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-32 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-4 w-20 bg-gray-200 rounded-full"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-4 w-24 bg-gray-200 rounded-full"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-16 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-4 w-28 bg-gray-200 rounded-full"></div></td>
+                  <td className="py-0.5 px-4 text-right"><div className="h-6 w-16 bg-gray-200 rounded ml-auto"></div></td>
                 </tr>
               ))
             ) : filteredData.length > 0 ? (
@@ -215,26 +215,26 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
 
                 return (
                   <tr key={`${row.applicationId}-${idx}`} className="hover:bg-blue-50/40 transition-colors">
-                    <td className="py-3.5 px-4 font-mono text-gray-500 font-medium">{sNo}</td>
+                    <td className="py-0.5 px-4 font-mono text-gray-500 font-medium">{sNo}</td>
 
-                    <td className="py-3.5 px-4 font-semibold text-gray-900">
+                    <td className="py-0.5 px-4 font-semibold text-gray-900">
                       <div className="flex items-center gap-1.5 font-mono text-xs">
                         <FileText className="w-3.5 h-3.5 text-[#0F2D52]" />
                         <span>{row.licenseId || `APP-${row.applicationId}`}</span>
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 font-medium text-gray-800">
+                    <td className="py-0.5 px-4 font-medium text-gray-800">
                       {row.applicantName || 'Applicant Pending'}
                     </td>
 
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <span className="font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-[11px]">
                         {row.applicationType || 'FRESH'}
                       </span>
                     </td>
 
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         row.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
                         row.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
@@ -243,20 +243,20 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
                       </span>
                     </td>
 
-                    <td className="py-3.5 px-4 font-mono font-bold text-gray-900">
+                    <td className="py-0.5 px-4 font-mono font-bold text-gray-900">
                       <div className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-gray-400" />
                         <span>{days} {days === 1 ? 'Day' : 'Days'}</span>
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${slaInfo.bg}`}>
                         {slaInfo.label}
                       </span>
                     </td>
 
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-0.5 px-4 text-right">
                       <button
                         type="button"
                         onClick={() => setSelectedRecord({
@@ -295,7 +295,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
       )}
 
       {/* Pagination */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-3 text-xs text-gray-600">
+      <div className="flex items-center justify-between pt-1.5 border-t border-gray-100 mt-1 text-xs text-gray-600">
         <div>
           Showing {data.length > 0 ? (page - 1) * limit + 1 : 0} to {Math.min(page * limit, totalRecords)} of {totalRecords.toLocaleString()} cases
         </div>
@@ -305,18 +305,18 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
-            className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="p-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="px-3 py-1 font-semibold text-gray-800 bg-gray-100 rounded-md">
+          <span className="px-2.5 py-0.5 font-semibold text-gray-800 bg-gray-100 rounded-md">
             {page} / {totalPages}
           </span>
           <button
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages || loading}
-            className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="p-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

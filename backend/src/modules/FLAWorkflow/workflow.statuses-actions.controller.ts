@@ -1,6 +1,8 @@
 import { Controller, Get, Query, NotFoundException, BadRequestException } from '@nestjs/common';
 import { WorkflowService } from './workflow.service';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { CacheResponse } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 @ApiTags('Workflow')
 @Controller('workflow')
@@ -8,6 +10,7 @@ export class WorkflowController {
   constructor(private readonly workflowService: WorkflowService) {}
 
   @Get('statuses-actions')
+  @CacheResponse(CacheKeys.statuses, CacheTtl.reference)
   @ApiOperation({ summary: 'Get statuses and actions', description: 'Fetch all statuses and actions, or by id if provided.' })
   @ApiResponse({ status: 200, description: 'List of statuses and actions, or single status/action by id.' })
   @ApiQuery({ name: 'id', required: false, type: Number, description: 'Optional id to filter status and action' })

@@ -1,5 +1,6 @@
+// Must stay the first import: loads the root .env before modules that read process.env
+import './load-env';
 import 'reflect-metadata';
-import { config } from 'dotenv';
 import { resolve } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -8,10 +9,6 @@ import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { ErrorsInterceptor } from './interceptors/errors.interceptor';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { Logger, ValidationPipe } from '@nestjs/common';
-
-// Load environment variables before anything else (prefer root .env)
-const rootEnvPath = resolve(__dirname, '../../.env');
-config({ path: rootEnvPath });
 
 const logger = new Logger('Bootstrap');
 

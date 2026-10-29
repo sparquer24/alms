@@ -4,8 +4,10 @@ import { FileUpload } from '../../elements/FileUpload';
 import { openDocumentFile } from '../../../../services/fileHandler';
 import {
   deleteRenewalDocument,
+  discardStagedRenewalDocument,
   getDocumentUploadMeta,
-  uploadRenewalDocument,
+  isStagedRenewalDocument,
+  stageRenewalDocument,
 } from '../../../../utils/renewalFileUpload';
 import { usePrefilledDocumentSync } from '../../../../hooks/usePrefilledDocumentSync';
 
@@ -37,7 +39,8 @@ const DOCUMENT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   { key: 'trainingCertificateUploaded', label: 'Training certificate' },
   { key: 'medicalCertificateUploaded', label: 'Medical Certificate', required: true },
   { key: 'otherStateLicenseUploaded', label: 'Other state Arms License (optional)' },
-  { key: 'existingArmsLicenseUploaded', label: 'Existing Arms License (optional)' },
+  // A renewal is for an existing license, so a copy of it is always required
+  { key: 'existingArmsLicenseUploaded', label: 'Existing Arms License (license being renewed)', required: true },
   { key: 'safeCustodyUploaded', label: 'Safe custody (optional)' },
 ];
 
@@ -80,7 +83,6 @@ const DocumentsSection = forwardRef(function DocumentsSection(
   ref: any,
 ) {
   const { formData, renewalId, onPatch, onError, onStatus, errors = {}, isReadOnly = false, onReload } = props;
-  const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
   const [fileSizeErrors, setFileSizeErrors] = useState<Record<string, string>>({});
 
@@ -139,24 +141,17 @@ const DocumentsSection = forwardRef(function DocumentsSection(
     // --- Resolve file type: unsupported types saved as "Other" ---
     const fileTypeLabel = resolveFileTypeLabel(file);
 
-    const existing = getDocumentUploadMeta(formData?.[fieldKey]);
-    setUploadingField(fieldKey);
-    onStatus?.('Uploading document...');
-
-    try {
-      const meta = await uploadRenewalDocument(renewalId, fieldKey, file, existing.id);
-      // Attach resolved file type
-      const metaWithType = { ...meta, fileType: meta.fileType || fileTypeLabel };
-      onPatch({ [fieldKey]: metaWithType });
-      onStatus?.('Document uploaded successfully.');
-    } catch (err: any) {
-      onError?.(err?.message || 'Failed to upload document.');
-    } finally {
-      setUploadingField(null);
-    }
+    // Held in form state only; uploaded (and any replaced file deleted) on Save to Draft / Next.
+    onPatch({ [fieldKey]: stageRenewalDocument(file, formData?.[fieldKey], fileTypeLabel) });
+    onStatus?.('Document added. Click Save to Draft or Next to save it.');
   };
 
   const handleDelete = (fieldKey: string, fileId?: number) => async () => {
+    const current = formData?.[fieldKey];
+    if (isStagedRenewalDocument(current)) {
+      onPatch({ [fieldKey]: discardStagedRenewalDocument(current) });
+      return;
+    }
     if (!fileId) {
       onPatch({ [fieldKey]: null });
       return;
@@ -204,9 +199,11 @@ const DocumentsSection = forwardRef(function DocumentsSection(
       <div className='mt-3 grid grid-cols-1 md:grid-cols-2 gap-4'>
         {DOCUMENT_FIELDS.map(({ key, label, required }) => {
           const meta = getDocumentUploadMeta(formData?.[key]);
+          const staged = isStagedRenewalDocument(formData?.[key]);
+          const replacesSaved = staged && Boolean(formData[key].replaces);
           const isFieldSyncing =
-            isSyncingPrefilled && Boolean(meta.fileUrl && !meta.id);
-          const isUploading = uploadingField === key || isFieldSyncing;
+            !staged && isSyncingPrefilled && Boolean(meta.fileUrl && !meta.id);
+          const isUploading = isFieldSyncing;
           const isDeleting = Boolean(meta.id && deletingFileId === meta.id);
           // Display uploaded files only after a successful upload (has id) or when already uploaded
           const showUploaded = Boolean((meta.uploaded || meta.id) && meta.fileName);
@@ -266,6 +263,11 @@ const DocumentsSection = forwardRef(function DocumentsSection(
               {/* Display uploaded files only after a successful upload */}
               {showUploaded && (
                 <div className='mt-2 space-y-2 text-xs'>
+                  {staged && (
+                    <p className='inline-block rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700'>
+                      Not saved yet. Click Save to Draft or Next to save.
+                    </p>
+                  )}
                   {meta.fileName && <p className='text-gray-600'>File name: {meta.fileName}</p>}
                   {meta.fileType && <p className='text-gray-600'>File type: {meta.fileType}</p>}
                   {meta.fileUrl && (
@@ -282,7 +284,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                         </svg>
                         View document
                       </button>
-                      {!isReadOnly && (canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
+                      {!isReadOnly && (staged || canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
                         <button
                           type='button'
                           className='text-red-600 underline hover:text-red-800 disabled:opacity-50 inline-flex items-center gap-1'
@@ -292,7 +294,13 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                           <svg xmlns='http://www.w3.org/2000/svg' className='h-3.5 w-3.5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
                             <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
                           </svg>
-                          {isDeleting ? 'Deleting...' : 'Delete'}
+                          {isDeleting
+                            ? 'Deleting...'
+                            : staged
+                            ? replacesSaved
+                              ? 'Undo replace'
+                              : 'Remove'
+                            : 'Delete'}
                         </button>
                       )}
                     </div>

@@ -153,7 +153,9 @@ const CriminalHistory = forwardRef(function CriminalHistory(
   return (
     <div className='space-y-6'>
       <div>
-        <p className='text-sm font-semibold text-gray-900 mb-4'>Whether the applicant has been -</p>
+        <p className='text-sm font-semibold text-gray-900 mb-4'>
+          Since the license was granted or last renewed, whether the applicant has been -
+        </p>
 
         <div className='space-y-6'>
           <div>

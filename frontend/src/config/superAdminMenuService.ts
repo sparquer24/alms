@@ -13,6 +13,7 @@ export type SuperAdminMenuItemKey =
     | 'userManagement'
     | 'roleMapping'
     | 'flowMapping'
+    | 'approvalRules'
     | 'locationsManagement'
     | 'actionMapping';
 
@@ -55,6 +56,13 @@ export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMen
         label: 'Flow Mapping',
         path: '/superAdmin/flowMapping',
         order: 4,
+    },
+    approvalRules: {
+        name: 'approvalRules',
+        key: 'approvalRules',
+        label: 'Approval Rules',
+        path: '/superAdmin/approvalRules',
+        order: 4.5,
     },
     locationsManagement: {
         name: 'locationsManagement',
@@ -137,6 +145,9 @@ export function normalizeSuperAdminMenuItem(name: string): SuperAdminMenuItemKey
         'flow-mapping': 'flowMapping',
         'flowmap': 'flowMapping',
         'flow': 'flowMapping',
+        'approvalrules': 'approvalRules',
+        'approval_rules': 'approvalRules',
+        'approval-rules': 'approvalRules',
         'locationsmanagement': 'locationsManagement',
         'locations_management': 'locationsManagement',
         'locations-management': 'locationsManagement',

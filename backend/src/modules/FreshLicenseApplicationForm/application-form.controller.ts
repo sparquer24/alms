@@ -5,6 +5,8 @@ import { AuthGuard } from '../../middleware/auth.middleware';
 import { CreatePersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchApplicationDetailsDto } from './dto/patch-application-details.dto';
 import { UploadFileDto, UploadFileResponseDto } from './dto/upload-file.dto';
+import { CacheResponse } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 @ApiTags('Application Form')
 @Controller('application-form')
@@ -769,6 +771,7 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/states')
+  @CacheResponse(CacheKeys.locations, CacheTtl.reference)
   @ApiOperation({ summary: 'Get States for Application Form', description: 'Get all available states for use in application forms' })
   @ApiResponse({ status: 200, description: 'States retrieved successfully' })
   async getStates() {
@@ -781,6 +784,7 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/districts/:stateId')
+  @CacheResponse(CacheKeys.locations, CacheTtl.reference)
   @ApiOperation({
     summary: 'Get Districts by State',
     description: 'Get all districts for a specific state'
@@ -815,6 +819,7 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/police-stations/:divisionId')
+  @CacheResponse(CacheKeys.locations, CacheTtl.reference)
   @ApiOperation({
     summary: 'Get Police Stations by Division',
     description: 'Get all police stations for a specific division'

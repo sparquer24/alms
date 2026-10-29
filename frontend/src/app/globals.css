@@ -292,3 +292,32 @@ body::-webkit-scrollbar-thumb,
     page-break-inside: avoid;
   }
 }
+
+/* ── Page transitions ───────────────────────────────────────────────
+   Gentle fade for the content area when a page mounts. Sidebar and
+   header are fixed siblings of <main>, so only the content moves.
+   Opacity only (no transform) so fixed/sticky descendants are unaffected,
+   and no fill-mode so no stacking context lingers after the 180ms. */
+@keyframes alms-page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+main,
+.alms-page-enter {
+  animation: alms-page-enter 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main,
+  .alms-page-enter {
+    animation: none;
+  }
+}
+
+@media print {
+  main,
+  .alms-page-enter {
+    animation: none;
+  }
+}

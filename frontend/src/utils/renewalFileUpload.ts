@@ -179,6 +179,122 @@ export async function deleteRenewalDocument(fileId: number) {
 }
 
 /**
+ * A document the user picked (or picked as a replacement) that is only held in form
+ * state. It is uploaded by commitStagedRenewalDocuments when its section is saved.
+ */
+export type StagedRenewalDocument = {
+  pendingFile: File;
+  fileName: string;
+  fileUrl: string; // blob: preview URL
+  fileSize: number;
+  fileType?: string;
+  /** Saved document(s) this upload replaces; deleted only after the new upload succeeds. */
+  replaces?: unknown;
+};
+
+/** Single-file fields outside the Documents step that are also saved only on Save to Draft / Next. */
+export const RENEWAL_STAGEABLE_FIELD_KEYS = [
+  ...RENEWAL_DOCUMENT_FIELD_KEYS,
+  'rejectionDocUploaded',
+  'specialEvidenceUploaded',
+] as const;
+
+export function isStagedRenewalDocument(value: unknown): value is StagedRenewalDocument {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      typeof File !== 'undefined' &&
+      (value as StagedRenewalDocument).pendingFile instanceof File,
+  );
+}
+
+const collectSavedFileIds = (value: unknown): number[] =>
+  (Array.isArray(value) ? value : [value])
+    .filter((item) => item && !isStagedRenewalDocument(item))
+    .map((item) => getDocumentUploadMeta(item).id)
+    .filter((id): id is number => typeof id === 'number' && id > 0);
+
+/**
+ * @param previous the saved value being replaced — one document, or a list (evidence).
+ */
+export function stageRenewalDocument(
+  file: File,
+  previous: unknown,
+  fileType?: string,
+): StagedRenewalDocument {
+  // Re-staging over an unsaved pick keeps pointing at the originally saved file.
+  const replaces = isStagedRenewalDocument(previous) ? previous.replaces : previous;
+  if (isStagedRenewalDocument(previous)) URL.revokeObjectURL(previous.fileUrl);
+  return {
+    pendingFile: file,
+    fileName: file.name,
+    fileUrl: URL.createObjectURL(file),
+    fileSize: file.size,
+    fileType,
+    ...(collectSavedFileIds(replaces).length ? { replaces } : {}),
+  };
+}
+
+/** Drop an unsaved pick and fall back to the saved document(s) it would have replaced. */
+export function discardStagedRenewalDocument(staged: StagedRenewalDocument): unknown {
+  URL.revokeObjectURL(staged.fileUrl);
+  return staged.replaces ?? null;
+}
+
+export function hasStagedRenewalDocuments(
+  formData: Record<string, any>,
+  fieldKeys: readonly string[] = RENEWAL_STAGEABLE_FIELD_KEYS,
+): boolean {
+  return fieldKeys.some((key) => isStagedRenewalDocument(formData[key]));
+}
+
+/** Staged entries from form state, so a reload from the server does not drop unsaved picks. */
+export function pickStagedRenewalDocuments(formData: Record<string, any>): Record<string, unknown> {
+  const staged: Record<string, unknown> = {};
+  for (const key of RENEWAL_STAGEABLE_FIELD_KEYS) {
+    if (isStagedRenewalDocument(formData[key])) staged[key] = formData[key];
+  }
+  if (staged.specialEvidenceUploaded) staged.specialEvidenceFiles = formData.specialEvidenceFiles;
+  return staged;
+}
+
+/**
+ * Upload the staged documents among fieldKeys, then delete the saved file(s) each one
+ * replaces. Returns a form patch with the saved file meta for each committed field.
+ */
+export async function commitStagedRenewalDocuments(
+  renewalId: string,
+  formData: Record<string, any>,
+  fieldKeys: readonly string[] = RENEWAL_STAGEABLE_FIELD_KEYS,
+  /** Called as each field is saved, so a later failure does not lose earlier uploads. */
+  onFieldSaved?: (patch: Record<string, unknown>) => void,
+): Promise<Record<string, unknown>> {
+  const patch: Record<string, unknown> = {};
+  for (const fieldKey of fieldKeys) {
+    const staged = formData[fieldKey];
+    if (!isStagedRenewalDocument(staged)) continue;
+
+    const uploaded = await RenewalService.uploadDocument(renewalId, fieldKey, staged.pendingFile);
+    for (const replacedId of collectSavedFileIds(staged.replaces)) {
+      try {
+        await RenewalService.deleteRenewalFile(replacedId);
+      } catch {
+        // The new file is saved; a leftover old file must not fail the save.
+      }
+    }
+    URL.revokeObjectURL(staged.fileUrl);
+    const base = toRenewalFileMeta(uploaded);
+    const meta = { ...base, fileType: base.fileType || staged.fileType };
+    const fieldPatch: Record<string, unknown> = { [fieldKey]: meta };
+    // Evidence is a single file shown from the list as well.
+    if (fieldKey === 'specialEvidenceUploaded') fieldPatch.specialEvidenceFiles = [meta];
+    Object.assign(patch, fieldPatch);
+    onFieldSaved?.(fieldPatch);
+  }
+  return patch;
+}
+
+/**
  * Upload any documents that exist in form state (fileUrl) but lack a renewal file id.
  * PATCH save does not carry files — they must be persisted via upload-file first.
  */
@@ -191,6 +307,7 @@ export async function syncPendingRenewalDocuments(
   const fieldKeys = options?.fieldKeys ?? RENEWAL_DOCUMENT_FIELD_KEYS;
 
   for (const fieldKey of fieldKeys) {
+    if (isStagedRenewalDocument(formData[fieldKey])) continue;
     const meta = getDocumentUploadMeta(formData[fieldKey]);
     if (!meta.fileUrl || meta.id) continue;
 
@@ -209,7 +326,8 @@ export async function syncPendingRenewalDocuments(
     options.fieldKeys.includes('specialEvidenceUploaded') ||
     options.fieldKeys.includes('specialEvidenceFiles');
 
-  if (!includeEvidence) {
+  // An unsaved evidence pick is uploaded by commitStagedRenewalDocuments on save.
+  if (!includeEvidence || isStagedRenewalDocument(formData.specialEvidenceUploaded)) {
     return patch;
   }
 
@@ -237,6 +355,7 @@ export async function syncPendingRenewalDocuments(
 /** True when UI shows a file (fileUrl) not yet stored on renewal via upload-file */
 export function hasPendingRenewalDocuments(formData: Record<string, any>): boolean {
   for (const fieldKey of RENEWAL_DOCUMENT_FIELD_KEYS) {
+    if (isStagedRenewalDocument(formData[fieldKey])) continue;
     const meta = getDocumentUploadMeta(formData[fieldKey]);
     if (meta.fileUrl && !meta.id) return true;
   }
@@ -248,6 +367,7 @@ export function hasPendingRenewalDocuments(formData: Record<string, any>): boole
     : [];
 
   return evidenceList.some((file) => {
+    if (isStagedRenewalDocument(file)) return false;
     const meta = getDocumentUploadMeta(file);
     return Boolean(meta.fileUrl && !meta.id);
   });

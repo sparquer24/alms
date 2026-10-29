@@ -172,9 +172,14 @@ interface SidebarProps {
   onTableReload?: (subItem: string) => void;
 }
 
+// Most pages mount their own <Sidebar />, so it remounts on every route change.
+// Only the very first mount needs the SSR-safe "render nothing until hydrated"
+// pass; later mounts can paint immediately instead of blinking out for a frame.
+let sidebarHasHydrated = false;
+
 export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {}) => {
   const { showSidebar } = useLayout();
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(showSidebar);
   const dispatch = useDispatch();
   const router = useRouter();
   const pathname = usePathname();
@@ -186,13 +191,12 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const isMountedRef = useRef(false);
   const isInboxOpen = useSelector((state: any) => state.ui?.isInboxOpen); // moved up so other handlers can read it
 
-  const [hydrated, setHydrated] = useState(false);
+  const [hydrated, setHydrated] = useState(sidebarHasHydrated);
   useEffect(() => {
+    sidebarHasHydrated = true;
     setHydrated(true);
   }, []);
 
-  // avoid reading window/localStorage during render — init blank and sync on client
-  const [activeItem, setActiveItem] = useState<string>('');
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
@@ -252,6 +256,10 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
     return { activeKey: '', inboxType: null };
   }, [pathname, searchParamsKey, cookieRole, userRole]);
+
+  // Seed from the route so the correct item is highlighted on the first paint
+  // after a remount (instead of blank, then highlighted a frame later).
+  const [activeItem, setActiveItem] = useState<string>(() => routeState.activeKey);
 
   // Keep activeItem in sync with the route-derived key. Click handlers set
   // activeItem optimistically before navigating; once the route updates,

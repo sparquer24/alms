@@ -292,13 +292,13 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
         <table className="w-full text-left text-xs border-collapse">
           <thead className="bg-gray-50 text-gray-600 uppercase font-semibold border-b border-gray-200 select-none">
             <tr>
-              <th className="py-3 px-4 w-14">S.No</th>
-              <th className="py-3 px-4">Ack No / License ID</th>
-              <th className="py-3 px-4">Applicant Name</th>
-              <th className="py-3 px-4">Application Type</th>
-              <th className="py-3 px-4">Workflow Status</th>
-              <th className="py-3 px-4">Assigned Reviewer</th>
-              <th className="py-3 px-4">
+              <th className="py-1.5 px-4 w-14">S.No</th>
+              <th className="py-1.5 px-4">Ack No / License ID</th>
+              <th className="py-1.5 px-4">Applicant Name</th>
+              <th className="py-1.5 px-4">Application Type</th>
+              <th className="py-1.5 px-4">Workflow Status</th>
+              <th className="py-1.5 px-4">Assigned Reviewer</th>
+              <th className="py-1.5 px-4">
                 <div
                   className="flex items-center gap-1 cursor-pointer hover:text-gray-900"
                   onClick={() => setSortOrder(sortOrder === '-updatedAt' ? 'updatedAt' : '-updatedAt')}
@@ -307,21 +307,21 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                   <ArrowUpDown className="w-3 h-3" />
                 </div>
               </th>
-              <th className="py-3 px-4 text-right">Action</th>
+              <th className="py-1.5 px-4 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="py-3.5 px-4"><div className="h-3 w-6 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-28 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-32 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-4 w-20 bg-gray-200 rounded-full"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-4 w-24 bg-gray-200 rounded-full"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-24 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4"><div className="h-3.5 w-20 bg-gray-200 rounded"></div></td>
-                  <td className="py-3.5 px-4 text-right"><div className="h-6 w-16 bg-gray-200 rounded ml-auto"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3 w-6 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-28 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-32 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-4 w-20 bg-gray-200 rounded-full"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-4 w-24 bg-gray-200 rounded-full"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-24 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4"><div className="h-3.5 w-20 bg-gray-200 rounded"></div></td>
+                  <td className="py-0.5 px-4 text-right"><div className="h-6 w-16 bg-gray-200 rounded ml-auto"></div></td>
                 </tr>
               ))
             ) : data.length > 0 ? (
@@ -338,12 +338,12 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                 return (
                   <tr key={`${row.applicationId}-${idx}`} className="hover:bg-blue-50/40 transition-colors group">
                     {/* S.No */}
-                    <td className="py-3.5 px-4 text-gray-500 font-mono font-medium">
+                    <td className="py-0.5 px-4 text-gray-500 font-mono font-medium">
                       {rowSNo}
                     </td>
 
                     {/* Ack No / License ID */}
-                    <td className="py-3.5 px-4 font-semibold text-gray-900">
+                    <td className="py-0.5 px-4 font-semibold text-gray-900">
                       <div className="flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5 text-[#0F2D52]" />
                         <span className="font-mono text-xs">{row.licenseId || `APP-${row.applicationId}`}</span>
@@ -351,7 +351,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                     </td>
 
                     {/* Applicant Name */}
-                    <td className="py-3.5 px-4 font-medium text-gray-800">
+                    <td className="py-0.5 px-4 font-medium text-gray-800">
                       <div className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-gray-400" />
                         <span className="capitalize">{row.applicantName || 'Applicant Name Pending'}</span>
@@ -359,14 +359,14 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                     </td>
 
                     {/* Application Type */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${typeCfg.bg} ${typeCfg.text} ${typeCfg.border}`}>
                         {typeCfg.label}
                       </span>
                     </td>
 
                     {/* Status */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-4">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${statusCfg.bg}`}>
                         <StatusIcon className="w-3 h-3" />
                         <span>{statusCfg.label}</span>
@@ -374,7 +374,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                     </td>
 
                     {/* Reviewing Officer & Days in Queue */}
-                    <td className="py-3.5 px-4 text-gray-600">
+                    <td className="py-0.5 px-4 text-gray-600">
                       <div>
                         <div className="font-medium text-gray-900">{row.currentUser?.name || 'Unassigned / Queue'}</div>
                         {row.daysTillToday !== null && row.daysTillToday !== undefined && (
@@ -386,7 +386,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                     </td>
 
                     {/* Last Updated */}
-                    <td className="py-3.5 px-4 text-gray-500 font-mono text-[11px]">
+                    <td className="py-0.5 px-4 text-gray-500 font-mono text-[11px]">
                       {row.actionTakenAt ? (
                         format(new Date(row.actionTakenAt), 'dd MMM yyyy, HH:mm')
                       ) : (
@@ -395,7 +395,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                     </td>
 
                     {/* Action Button */}
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-0.5 px-4 text-right">
                       <button
                         type="button"
                         onClick={() => setSelectedRecord({
@@ -438,7 +438,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
       )}
 
       {/* Bottom Pagination Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-100 mt-3 text-xs text-gray-600">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1.5 border-t border-gray-100 mt-1 text-xs text-gray-600">
         <div>
           Showing {data.length > 0 ? (page - 1) * limit + 1 : 0} to {Math.min(page * limit, totalRecords)} of {totalRecords.toLocaleString()} applications
         </div>
@@ -448,12 +448,12 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
-            className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <span className="px-3 py-1 font-semibold text-gray-800 bg-gray-100 rounded-md">
+          <span className="px-2.5 py-0.5 font-semibold text-gray-800 bg-gray-100 rounded-md">
             {page} / {totalPages}
           </span>
 
@@ -461,7 +461,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages || loading}
-            className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

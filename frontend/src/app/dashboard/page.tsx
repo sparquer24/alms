@@ -143,7 +143,7 @@ export default function UniversalDashboard() {
 
 
   const [mounted, setMounted] = useState<boolean>(false);
-  const [authChecked, setAuthChecked] = useState<boolean>(false);
+  const [authCheckedState, setAuthChecked] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [timeRange, setTimeRange] = useState<string>('all');
   const [appTypeFilter, setAppTypeFilter] = useState<string>('all');
@@ -214,6 +214,14 @@ export default function UniversalDashboard() {
   const effectiveRole = useMemo(() => {
     return normalizeRole(userRole);
   }, [userRole]);
+
+  // Already signed in with a dashboard role (e.g. navigating here from another
+  // page): treat the check as passed on the first render so the page doesn't
+  // flash its loading skeleton on every visit. The effect below still redirects
+  // anyone who isn't allowed.
+  const authChecked =
+    authCheckedState ||
+    (authInitialized && !authLoading && !!token && !!effectiveRole && DASHBOARD_ALLOWED_ROLES.includes(effectiveRole));
 
   const { colors: adminColors } = useAdminTheme();
   const adminBasePath = effectiveRole === 'SUPER_ADMIN' ? '/superAdmin' : '/admin';

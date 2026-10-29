@@ -16,6 +16,10 @@ import { Card } from '../../../components/forms/elements/Card';
 import FormFooter from '../../../components/forms/elements/footer';
 import {
   applyPrefilledDocumentUploads,
+  commitStagedRenewalDocuments,
+  hasStagedRenewalDocuments,
+  pickStagedRenewalDocuments,
+  RENEWAL_DOCUMENT_FIELD_KEYS,
   syncPendingRenewalDocuments,
 } from '../../../utils/renewalFileUpload';
 import { usePrefilledDocumentSync } from '../../../hooks/usePrefilledDocumentSync';
@@ -41,6 +45,7 @@ import {
   validateArea,
 } from '../../../utils/validation/validators';
 import { filterPan, filterDigits, filterArea } from '../../../utils/validation/inputFilters';
+import { normalizeAreaOfValidity } from '../../../utils/areaOfValidity';
 
 // Fields that get their characters restricted in real time as the user types,
 // matching Fresh Application's input filtering (e.g. PAN forced uppercase A-Z0-9,
@@ -137,9 +142,8 @@ type RenewalFormState = {
   applicationType: string;
   armsOptionType: string;
   ammunitionDescription: string;
-  carryAreaDistrict: boolean;
-  carryAreaState: boolean;
-  carryAreaIndia: boolean;
+  /** One of AREA_OF_VALIDITY; decides whether the application can be approved locally */
+  areaOfValidity: string;
   specialConsiderationClaim: string;
   formIVPlaceArea: string;
   formIVWildBeastsSpec: string;
@@ -276,9 +280,7 @@ const initialFormState: RenewalFormState = {
   applicationType: 'Renewal',
   armsOptionType: '',
   ammunitionDescription: '',
-  carryAreaDistrict: false,
-  carryAreaState: false,
-  carryAreaIndia: false,
+  areaOfValidity: '',
   specialConsiderationClaim: '',
   formIVPlaceArea: '',
   formIVWildBeastsSpec: '',
@@ -763,9 +765,7 @@ const LICENSE_HISTORY_EXTRA_KEYS = [
 
 const LICENSE_DETAIL_FORM_KEYS: (keyof RenewalFormState)[] = [
   'armsOptionType',
-  'carryAreaDistrict',
-  'carryAreaState',
-  'carryAreaIndia',
+  'areaOfValidity',
   'ammunitionDescription',
   'specialConsiderationClaim',
   'formIVPlaceArea',
@@ -814,34 +814,6 @@ const mapArmsOptionToCategory = (armsOption?: string): string => {
     return 'RESTRICTED';
   }
   return 'RESTRICTED'; // default to RESTRICTED
-};
-
-const parseCarryAreaFlags = (areaOfValidity?: string) => {
-  const area = String(areaOfValidity || '').trim();
-  if (!area) {
-    return {
-      carryAreaDistrict: false,
-      carryAreaState: false,
-      carryAreaIndia: false,
-    };
-  }
-
-  return {
-    carryAreaDistrict: area.includes('District-wide') || /\bDISTRICT\b/i.test(area),
-    carryAreaState:
-      area.includes('State-wide') || (/\bSTATE\b/i.test(area) && !/Throughout India/i.test(area)),
-    carryAreaIndia: area.includes('Throughout India') || /\bINDIA\b/i.test(area),
-  };
-};
-
-const buildAreaOfValidityPayload = (formData: RenewalFormState) => {
-  const areas = [
-    formData.carryAreaDistrict ? 'District-wide' : '',
-    formData.carryAreaState ? 'State-wide' : '',
-    formData.carryAreaIndia ? 'Throughout India' : '',
-  ].filter(Boolean);
-
-  return areas.length ? areas.join(', ') : undefined;
 };
 
 const BIOMETRIC_FORM_KEYS: (keyof RenewalFormState)[] = [
@@ -975,6 +947,7 @@ const FILE_TYPE_TO_FORM_FIELD: Record<string, string> = {
   CHARACTER_CERTIFICATE: 'characterCertificateUploaded',
   CLAIM_DOCS: 'specialEvidenceUploaded',
   CLAIM_DOCUMENTS: 'specialEvidenceUploaded',
+  REJECTED_LICENSE: 'rejectionDocUploaded',
 };
 
 const normalizeUploadRecord = (file: any) => {
@@ -1123,7 +1096,7 @@ const mergeRenewalStateOverFresh = (
     const partialLicenseKeys: string[] = [];
 
     if (!String(renewalLicense?.areaOfValidity || '').trim()) {
-      partialLicenseKeys.push('carryAreaDistrict', 'carryAreaState', 'carryAreaIndia');
+      partialLicenseKeys.push('areaOfValidity');
     }
     if (!normalizeArmsCategory(renewalLicense?.armsCategory)) {
       partialLicenseKeys.push('armsOptionType', 'licenseType');
@@ -1147,11 +1120,7 @@ const mergeRenewalStateOverFresh = (
         renewalValue === null ||
         renewalValue === undefined ||
         renewalValue === '' ||
-        (Array.isArray(renewalValue) && renewalValue.length === 0) ||
-        (typeof renewalValue === 'boolean' &&
-          key.startsWith('carryArea') &&
-          renewalValue === false &&
-          freshValue === true);
+        (Array.isArray(renewalValue) && renewalValue.length === 0);
       if (renewalEmpty) {
         (merged as Record<string, unknown>)[key] = freshValue;
       }
@@ -1267,7 +1236,7 @@ const mapLicenseDetailFields = (data: any) => {
     armsOptionType: normalizeArmsCategory(
       primary?.armsCategory ?? primary?.armsOption ?? data?.armsOption
     ),
-    ...parseCarryAreaFlags(primary?.areaOfValidity),
+    areaOfValidity: normalizeAreaOfValidity(primary?.areaOfValidity),
     ammunitionDescription: getTextValue(
       primary?.ammunitionDescription,
       data?.ammunitionDescription
@@ -1483,6 +1452,7 @@ const mapDocumentUploadFields = (data: any, renewalFileIds?: ReadonlySet<number>
     existingArmsLicenseUploaded: pickField('existingArmsLicenseUploaded', 'EXISTING_LICENSE'),
     safeCustodyUploaded: pickField('safeCustodyUploaded', 'SAFE_CUSTODY'),
     specialEvidenceUploaded: pickField('specialEvidenceUploaded', 'CLAIM_DOCS', 'CLAIM_DOCUMENTS'),
+    rejectionDocUploaded: pickField('rejectionDocUploaded', 'REJECTED_LICENSE'),
     specialEvidenceFiles: claimFiles.length
       ? claimFiles
       : Array.isArray(data?.specialEvidenceFiles)
@@ -1498,7 +1468,7 @@ const mapDocumentUploadFields = (data: any, renewalFileIds?: ReadonlySet<number>
     mapped.specialEvidenceUploaded = mapped.specialEvidenceFiles[0];
   }
 
-  const hasAnyDocument = DOCUMENT_FORM_KEYS.some(key => {
+  const hasAnyDocument = Boolean(mapped.rejectionDocUploaded) || DOCUMENT_FORM_KEYS.some(key => {
     if (key === 'specialEvidenceFiles') {
       return Array.isArray(mapped.specialEvidenceFiles) && mapped.specialEvidenceFiles.length > 0;
     }
@@ -1734,6 +1704,63 @@ const buildRenewalPayload = (formData: RenewalFormState) => ({
   hasSubmittedTrueInfo: formData.hasSubmittedTrueInfo,
 });
 
+// Values a renewal cannot change: returned by GET /renewal-forms/:id as `renewalLocks`.
+type RenewalLocks = {
+  identity?: Record<string, unknown>;
+  weaponIds?: number[];
+  armsCategory?: string | null;
+};
+
+// Backend identity field -> renewal form key
+const IDENTITY_FORM_KEYS: Record<string, keyof RenewalFormState> = {
+  firstName: 'applicantName',
+  middleName: 'applicantMiddleName',
+  lastName: 'applicantLastName',
+  parentOrSpouseName: 'fatherName',
+  sex: 'applicantGender',
+  dateOfBirth: 'applicantDateOfBirth',
+  placeOfBirth: 'placeOfBirth',
+  aadharNumber: 'aadharNumber',
+  panNumber: 'panNumber',
+};
+
+const getLockedIdentityKeys = (locks?: RenewalLocks | null): Set<string> =>
+  new Set(
+    Object.keys(locks?.identity ?? {})
+      .map(field => IDENTITY_FORM_KEYS[field] as string)
+      .filter(Boolean)
+  );
+
+const toLockedFormValue = (field: string, value: unknown) => {
+  if (field === 'dateOfBirth') return String(value).split('T')[0];
+  if (field === 'sex') return String(value).toUpperCase();
+  return String(value);
+};
+
+/**
+ * Overwrite locked form values with the license's own values. Returns the same
+ * object when nothing differs so it can run on every form change without looping.
+ */
+const applyRenewalLocks = (form: RenewalFormState, locks?: RenewalLocks | null): RenewalFormState => {
+  if (!locks) return form;
+  const patch: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(locks.identity ?? {})) {
+    const key = IDENTITY_FORM_KEYS[field];
+    const lockedValue = toLockedFormValue(field, value);
+    if (key && (form as any)[key] !== lockedValue) patch[key] = lockedValue;
+  }
+  const weaponIds = locks.weaponIds ?? [];
+  const currentIds = Array.isArray(form.requestedWeaponIds) ? form.requestedWeaponIds : [];
+  if (weaponIds.length && currentIds.map(Number).join(',') !== weaponIds.join(',')) {
+    patch.requestedWeaponIds = weaponIds;
+    patch.weaponId = String(weaponIds[0]);
+  }
+  if (locks.armsCategory && form.armsOptionType !== locks.armsCategory) {
+    patch.armsOptionType = locks.armsCategory;
+  }
+  return Object.keys(patch).length ? { ...form, ...patch } : form;
+};
+
 const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   // Build nested structure matching the new API request format
   const payload: Record<string, any> = {};
@@ -1753,6 +1780,8 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   if (formData.dobInWords) personalDetails.dobInWords = formData.dobInWords;
   if (formData.panNumber) personalDetails.panNumber = formData.panNumber;
   if (formData.aadharNumber) personalDetails.aadharNumber = formData.aadharNumber;
+  if (formData.placeOfBirth) personalDetails.placeOfBirth = formData.placeOfBirth;
+  if (formData.filledBy) personalDetails.filledBy = formData.filledBy;
 
   // Address Details (Present Address)
   if (formData.presentAddress) addressDetails.addressLine = formData.presentAddress;
@@ -1774,6 +1803,27 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   if (formData.officeMobile) addressDetails.officeMobileNumber = formData.officeMobile;
   if (formData.alternativeMobile) addressDetails.alternativeMobile = formData.alternativeMobile;
 
+  // Permanent address is saved as its own record; "same as present" reuses the present values
+  const permanentAddressDetails: Record<string, any> = formData.sameAsPresent ? { ...addressDetails } : {};
+  if (!formData.sameAsPresent) {
+    if (formData.permanentAddress) permanentAddressDetails.addressLine = formData.permanentAddress;
+    const permanentIds: Array<[string, unknown]> = [
+      ['stateId', formData.permanentState],
+      ['districtId', formData.permanentDistrict],
+      ['rangeOfficeId', formData.permanentRangeOffice],
+      ['policeStationId', formData.permanentPoliceStation],
+      ['zoneId', formData.permanentZone],
+      ['divisionId', formData.permanentDivision],
+    ];
+    for (const [key, value] of permanentIds) {
+      const id = toNumber(value);
+      if (id !== undefined) permanentAddressDetails[key] = id;
+    }
+    // The form has a single "Residing Since"; the backend requires it on both
+    // address records (same as the Fresh Application payload).
+    if (addressDetails.sinceResiding) permanentAddressDetails.sinceResiding = addressDetails.sinceResiding;
+  }
+
   // Occupation and Business
   if (formData.occupation) occupationAndBusiness.occupation = formData.occupation;
   if (formData.officeBusinessAddress)
@@ -1794,19 +1844,14 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   }
 
   // Map arms category from weaponType or armsOptionType
-  const armsCategory = mapArmsOptionToCategory(formData.weaponType || formData.armsOptionType);
+  // The explicit Restricted/Permissible choice wins over a category guessed from the weapon name
+  const armsCategory = mapArmsOptionToCategory(formData.armsOptionType || formData.weaponType);
   if (armsCategory) {
     licenseDetails.armsCategory = armsCategory;
   }
 
-  // Map area of validity from checkboxes
-  const areaOfValidityParts: string[] = [];
-  if (formData.carryAreaDistrict) areaOfValidityParts.push('DISTRICT');
-  if (formData.carryAreaState) areaOfValidityParts.push('STATE');
-  if (formData.carryAreaIndia) areaOfValidityParts.push('INDIA');
-  if (areaOfValidityParts.length > 0) {
-    licenseDetails.areaOfValidity = areaOfValidityParts.join(', ');
-  }
+  const areaOfValidity = normalizeAreaOfValidity(formData.areaOfValidity);
+  if (areaOfValidity) licenseDetails.areaOfValidity = areaOfValidity;
 
   if (formData.ammunitionDescription)
     licenseDetails.ammunitionDescription = formData.ammunitionDescription;
@@ -1833,7 +1878,11 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
 
   // Add non-empty sections to payload
   if (Object.keys(personalDetails).length > 0) payload.personalDetails = personalDetails;
-  if (Object.keys(addressDetails).length > 0) payload.addressDetails = addressDetails;
+  if (Object.keys(addressDetails).length > 0) {
+    payload.addressDetails = addressDetails;
+    // Always sent with addressDetails so the backend never copies present into permanent
+    payload.permanentAddressDetails = permanentAddressDetails;
+  }
   if (Object.keys(occupationAndBusiness).length > 0)
     payload.occupationAndBusiness = occupationAndBusiness;
   if (Object.keys(licenseDetails).length > 0) payload.licenseDetails = licenseDetails;
@@ -2123,6 +2172,12 @@ const createDraftRenewalFromFreshApplication = async (
     }
 
     createdRenewalIdRef.current = newRenewalId;
+    // Load the saved record so the form knows which values are locked to the license
+    try {
+      setRenewalRecord(extractData(await RenewalService.getRenewalForm(newRenewalId)));
+    } catch {
+      // Locks are still enforced server-side on save
+    }
     const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
       newRenewalId,
       prefilledForm
@@ -2182,6 +2237,13 @@ function RenewalFormPageContent() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [renewalRecord, setRenewalRecord] = useState<any>(null);
   const [formData, setFormData] = useState<RenewalFormState>(initialFormState);
+  const renewalLocks: RenewalLocks | null = renewalRecord?.renewalLocks ?? null;
+  const lockedIdentityKeys = React.useMemo(() => getLockedIdentityKeys(renewalLocks), [renewalLocks]);
+
+  // Keep license-locked values in place whenever the form is rebuilt from a record
+  useEffect(() => {
+    if (renewalLocks) setFormData(prev => applyRenewalLocks(prev, renewalLocks));
+  }, [renewalLocks, formData]);
   const activeRenewalId = renewalId || createdRenewalIdRef.current || '';
 
   // Biometric verification states
@@ -2664,6 +2726,13 @@ function RenewalFormPageContent() {
         return changed ? copy : prevErrs;
       });
     }
+    if (patch.rejectionDocUploaded) {
+      setLicenseHistoryErrors(prevErrs => {
+        if (!prevErrs?.rejectionDocUploaded) return prevErrs;
+        const { rejectionDocUploaded: _cleared, ...rest } = prevErrs;
+        return rest;
+      });
+    }
   };
 
   const scheduleSectionFocus = (
@@ -2705,6 +2774,9 @@ function RenewalFormPageContent() {
   );
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  // Read once: the loader's router.replace calls rewrite the query string.
+  const requestedStepRef = useRef<string | null>(searchParams?.get('step') || null);
+  const [stepRestored, setStepRestored] = useState(false);
 
   const [sectionCompleted, setSectionCompleted] = useState<Record<string, boolean>>({
     personal: false,
@@ -3121,6 +3193,9 @@ function RenewalFormPageContent() {
   function handleFileChange(name: string, file: File | null) {
     if (!file) {
       setFormData(prev => ({ ...prev, [name]: null }));
+      if (name === 'photographUploaded') {
+        setSectionCompleted(prev => ({ ...prev, biometric: false }));
+      }
       return;
     }
 
@@ -3210,13 +3285,22 @@ function RenewalFormPageContent() {
       const v = (data as any)[key];
       if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
     };
+    // Mirrors what the backend needs to store an address record, so an
+    // incomplete address is caught here instead of failing on save.
     requireField('presentAddress', 'Present address');
     requireField('presentState', 'Present state');
     requireField('presentDistrict', 'Present district');
+    requireField('presentZone', 'Present zone');
+    requireField('presentDivision', 'Present division');
+    requireField('presentPoliceStation', 'Present police station');
+    requireField('residingSince', 'Residing since');
     if (!data.sameAsPresent) {
       requireField('permanentAddress', 'Permanent address');
       requireField('permanentState', 'Permanent state');
       requireField('permanentDistrict', 'Permanent district');
+      requireField('permanentZone', 'Permanent zone');
+      requireField('permanentDivision', 'Permanent division');
+      requireField('permanentPoliceStation', 'Permanent police station');
     }
 
     if (!data.residencePhone) {
@@ -3266,8 +3350,8 @@ function RenewalFormPageContent() {
       if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
     };      requireField('weaponReason', 'Need for license (15)');
     requireField('ammunitionDescription', 'Ammunition Description');
-    if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
-      errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
+    if (!normalizeAreaOfValidity(data.areaOfValidity)) {
+      errs['areaOfValidity'] = 'Select the area for carrying arms (17)';
     }
     if (!data.armsOptionType) {
       errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
@@ -3409,6 +3493,8 @@ function RenewalFormPageContent() {
     if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
     if (!data.medicalCertificateUploaded)
       errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
+    if (!data.existingArmsLicenseUploaded)
+      errs['existingArmsLicenseUploaded'] = 'A copy of the license being renewed is required.';
     return errs;
   };
 
@@ -3422,9 +3508,19 @@ function RenewalFormPageContent() {
     return errs;
   };
 
+  // A photograph only counts once it is stored on the renewal (has a server file id);
+  // a locally picked File that has not been uploaded yet does not.
+  const validateBiometric = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const photo = data.photographUploaded as any;
+    const isSaved =
+      !!photo && !(typeof File !== 'undefined' && photo instanceof File) && Boolean(photo.id ?? photo.fileId);
+    if (!isSaved) errs['photograph'] = 'Please upload and submit a photograph before continuing.';
+    return errs;
+  };
+
   // Ordered list of sections used for real-time progress, auto-navigation, and
-  // submit-time validation. `biometric` has no required fields, so it is always
-  // considered complete for progress/navigation purposes.
+  // submit-time validation.
   const SECTION_FLOW_ORDER = [
     'personal',
     'address',
@@ -3443,7 +3539,7 @@ function RenewalFormPageContent() {
     criminal: Object.keys(validateCriminalHistory(data)).length === 0,
     licenseDetails: Object.keys(validateLicenseDetails(data)).length === 0,
     licenseHistory: Object.keys(validateLicenseHistory(data)).length === 0,
-    biometric: true,
+    biometric: Object.keys(validateBiometric(data)).length === 0,
     documents: Object.keys(validateDocumentsUpload(data)).length === 0,
   });
 
@@ -3451,6 +3547,8 @@ function RenewalFormPageContent() {
   const isStepDone = (key: string): boolean => {
     if (key === 'declaration') return false;
     if (key === 'preview') return isStepDone('documents');
+    // The photograph can be deleted after the section was saved, so its live state wins.
+    if (key === 'biometric') return sectionValidity.biometric;
     return (sectionCompleted[key] ?? false) || (sectionValidity[key] ?? false);
   };
   const lockedSteps = new Set<number>();
@@ -3459,6 +3557,50 @@ function RenewalFormPageContent() {
     if (!isStepDone(STEP_KEYS[i - 1])) chainBroken = true;
     if (chainBroken) lockedSteps.add(i);
   }
+
+  // Restore the step named in ?step= once the renewal has loaded, so a page refresh
+  // stays on the same section. A step that is still locked falls back to the
+  // nearest earlier one the user can open.
+  useEffect(() => {
+    if (stepRestored || isLoading || !isVerified) return;
+    if (!(renewalId || createdRenewalIdRef.current)) return;
+    // Right after load the form mirrors the saved record, so every section that is
+    // valid now was already saved — otherwise Submit would send the user back to step 1.
+    setSectionCompleted(prev => {
+      const next = { ...prev };
+      for (const key of SECTION_FLOW_ORDER) if (sectionValidity[key]) next[key] = true;
+      return next;
+    });
+    const requested = STEP_KEYS.indexOf(requestedStepRef.current as (typeof STEP_KEYS)[number]);
+    if (requested > 0) {
+      let target = requested;
+      while (target > 0 && lockedSteps.has(target)) target--;
+      setCurrentStepIndex(target);
+    }
+    setStepRestored(true);
+  }, [stepRestored, isLoading, isVerified, renewalId]);
+
+  // Picked documents live only in memory until saved; warn before a refresh/close loses them.
+  const hasUnsavedDocuments = hasStagedRenewalDocuments(formData);
+  useEffect(() => {
+    if (!hasUnsavedDocuments) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasUnsavedDocuments]);
+
+  // Mirror the current step into the URL without a navigation.
+  useEffect(() => {
+    if (!stepRestored) return;
+    const url = new URL(window.location.href);
+    const key = STEP_KEYS[currentStepIndex];
+    if (url.searchParams.get('step') === key) return;
+    url.searchParams.set('step', key);
+    window.history.replaceState(null, '', url.toString());
+  }, [currentStepIndex, stepRestored]);
 
   const handleStepTabClick = (idx: number) => {
     if (lockedSteps.has(idx)) return;
@@ -3474,7 +3616,9 @@ function RenewalFormPageContent() {
       case 'personal':
         return full.personalDetails ? { personalDetails: full.personalDetails } : {};
       case 'address':
-        return full.addressDetails ? { addressDetails: full.addressDetails } : {};
+        return full.addressDetails
+          ? { addressDetails: full.addressDetails, permanentAddressDetails: full.permanentAddressDetails }
+          : {};
       case 'occupation':
         return full.occupationAndBusiness
           ? { occupationAndBusiness: full.occupationAndBusiness }
@@ -3494,7 +3638,33 @@ function RenewalFormPageContent() {
     }
   };
 
-  const handleSectionComplete = async (sectionKey: string) => {
+  // Files the user picks are only staged in form state; each section uploads its own
+  // when it is saved (Save to Draft / Next).
+  const SECTION_FILE_FIELDS: Partial<Record<string, readonly string[]>> = {
+    licenseDetails: ['specialEvidenceUploaded'],
+    licenseHistory: ['rejectionDocUploaded'],
+    documents: RENEWAL_DOCUMENT_FIELD_KEYS,
+  };
+
+  const commitStagedDocuments = async (
+    activeRenewalId: string,
+    data: RenewalFormState,
+    fieldKeys?: readonly string[]
+  ): Promise<RenewalFormState> => {
+    if (!hasStagedRenewalDocuments(data, fieldKeys)) return data;
+    setStatusMessage('Uploading documents...');
+    const committed = await commitStagedRenewalDocuments(activeRenewalId, data, fieldKeys, patch =>
+      setFormData(prev => ({ ...prev, ...patch }))
+    );
+    return { ...data, ...committed } as RenewalFormState;
+  };
+
+  // Saves one section. Next moves on to the following section; Save to Draft
+  // (navigate: false) stays on the current one.
+  const handleSectionComplete = async (
+    sectionKey: string,
+    { navigate = true }: { navigate?: boolean } = {}
+  ) => {
     const activeRenewalId = renewalId || createdRenewalIdRef.current;
     if (!activeRenewalId) {
       toast.error('Renewal ID not available yet. Please wait for the form to load.');
@@ -3540,6 +3710,9 @@ function RenewalFormPageContent() {
         setLicenseHistoryErrors(sectionErrors);
         scheduleSectionFocus(licenseHistorySectionRef, 'licenseHistory');
       }
+    } else if (sectionKey === 'biometric') {
+      sectionErrors = validateBiometric(formData);
+      if (Object.keys(sectionErrors).length > 0) setBiometricErrors(sectionErrors);
     } else if (sectionKey === 'documents') {
       sectionErrors = validateDocumentsUpload(formData);
       if (Object.keys(sectionErrors).length > 0) {
@@ -3558,7 +3731,11 @@ function RenewalFormPageContent() {
       setIsSaving(true);
       setSavingSection(sectionKey);
       setError(null);
-      const sectionPayload = buildSectionSpecificPayload(sectionKey, formData);
+      const fileFields = SECTION_FILE_FIELDS[sectionKey];
+      const dataToSave = fileFields
+        ? await commitStagedDocuments(activeRenewalId, formData, fileFields)
+        : formData;
+      const sectionPayload = buildSectionSpecificPayload(sectionKey, dataToSave);
       if (Object.keys(sectionPayload).length === 0) {
         toast.warning('No data to save for this section.');
         setSectionCompleted(prev => ({ ...prev, [sectionKey]: true }));
@@ -3566,6 +3743,10 @@ function RenewalFormPageContent() {
       }
       await RenewalService.updateRenewalForm(activeRenewalId, sectionPayload);
       setSectionCompleted(prev => ({ ...prev, [sectionKey]: true }));
+      if (!navigate) {
+        toast.success('Draft saved successfully.');
+        return;
+      }
       toast.success(
         `${sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)} section saved successfully.`
       );
@@ -3673,57 +3854,61 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    // Client-side validation before saving/submitting
-    const preSaveErrors = validatePersonalDetails(formData);
-    if (Object.keys(preSaveErrors).length > 0) {
-      setPersonalErrors(preSaveErrors);
-      scheduleSectionFocus(personalSectionRef, 'personal');
-      setError('Please fix validation errors before continuing.');
-      return false;
-    }
+    // A draft save from Preview/Declaration is only reachable once every section is
+    // complete, so it skips the cross-section checks that would switch the user's step.
+    if (isSubmit) {
+      // Client-side validation before saving/submitting
+      const preSaveErrors = validatePersonalDetails(formData);
+      if (Object.keys(preSaveErrors).length > 0) {
+        setPersonalErrors(preSaveErrors);
+        scheduleSectionFocus(personalSectionRef, 'personal');
+        setError('Please fix validation errors before continuing.');
+        return false;
+      }
 
-    const addressValidationErrors = validateAddressDetails(formData);
-    if (Object.keys(addressValidationErrors).length > 0) {
-      setAddressErrors(addressValidationErrors);
-      scheduleSectionFocus(addressSectionRef, 'address');
-      setError('Please fix validation errors in Address Details before continuing.');
-      return false;
-    }
+      const addressValidationErrors = validateAddressDetails(formData);
+      if (Object.keys(addressValidationErrors).length > 0) {
+        setAddressErrors(addressValidationErrors);
+        scheduleSectionFocus(addressSectionRef, 'address');
+        setError('Please fix validation errors in Address Details before continuing.');
+        return false;
+      }
 
-    const occupationValidationErrors = validateOccupationDetails(formData);
-    if (Object.keys(occupationValidationErrors).length > 0) {
-      setOccupationErrors(occupationValidationErrors);
-      scheduleSectionFocus(occupationSectionRef, 'occupation');
-      setError('Please fix validation errors in Occupation section before continuing.');
-      return false;
-    }
+      const occupationValidationErrors = validateOccupationDetails(formData);
+      if (Object.keys(occupationValidationErrors).length > 0) {
+        setOccupationErrors(occupationValidationErrors);
+        scheduleSectionFocus(occupationSectionRef, 'occupation');
+        setError('Please fix validation errors in Occupation section before continuing.');
+        return false;
+      }
 
-    const criminalValidationErrors = validateCriminalHistory(formData);
-    if (Object.keys(criminalValidationErrors).length > 0) {
-      setError('Please fix validation errors in Criminal History before continuing.');
-      return false;
-    }
+      const criminalValidationErrors = validateCriminalHistory(formData);
+      if (Object.keys(criminalValidationErrors).length > 0) {
+        setError('Please fix validation errors in Criminal History before continuing.');
+        return false;
+      }
 
-    const licenseDetailsValidationErrors = validateLicenseDetails(formData);
-    if (Object.keys(licenseDetailsValidationErrors).length > 0) {
-      setLicenseDetailsErrors(licenseDetailsValidationErrors);
-      scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
-      setError('Please fix validation errors in License Details before continuing.');
-      return false;
-    }
+      const licenseDetailsValidationErrors = validateLicenseDetails(formData);
+      if (Object.keys(licenseDetailsValidationErrors).length > 0) {
+        setLicenseDetailsErrors(licenseDetailsValidationErrors);
+        scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
+        setError('Please fix validation errors in License Details before continuing.');
+        return false;
+      }
 
-    const licenseHistoryValidationErrors = validateLicenseHistory(formData);
-    if (Object.keys(licenseHistoryValidationErrors).length > 0) {
-      setError('Please fix validation errors in License History before continuing.');
-      return false;
-    }
+      const licenseHistoryValidationErrors = validateLicenseHistory(formData);
+      if (Object.keys(licenseHistoryValidationErrors).length > 0) {
+        setError('Please fix validation errors in License History before continuing.');
+        return false;
+      }
 
-    const documentsValidationErrors = validateDocumentsUpload(formData);
-    if (Object.keys(documentsValidationErrors).length > 0) {
-      setDocumentsErrors(documentsValidationErrors);
-      scheduleSectionFocus(documentsSectionRef, 'documents');
-      setError('Please upload required documents before continuing.');
-      return false;
+      const documentsValidationErrors = validateDocumentsUpload(formData);
+      if (Object.keys(documentsValidationErrors).length > 0) {
+        setDocumentsErrors(documentsValidationErrors);
+        scheduleSectionFocus(documentsSectionRef, 'documents');
+        setError('Please upload required documents before continuing.');
+        return false;
+      }
     }
 
     try {
@@ -3731,10 +3916,10 @@ function RenewalFormPageContent() {
       setError(null);
 
       // Documents are stored via POST upload-file, not PATCH — sync prefilled files first
-      let dataToSave = formData;
-      const pendingDocPatch = await syncPendingRenewalDocuments(activeRenewalId, formData);
+      let dataToSave = await commitStagedDocuments(activeRenewalId, formData);
+      const pendingDocPatch = await syncPendingRenewalDocuments(activeRenewalId, dataToSave);
       if (Object.keys(pendingDocPatch).length > 0) {
-        dataToSave = { ...formData, ...pendingDocPatch };
+        dataToSave = { ...dataToSave, ...pendingDocPatch };
         setFormData(dataToSave);
         setStatusMessage('Uploading existing documents to renewal record...');
       }
@@ -3778,12 +3963,46 @@ function RenewalFormPageContent() {
     }
   };
 
+  // Save to Draft saves the section on screen and never moves to another step.
   const saveRenewalDraft = () => {
     if (isReadOnly) {
       setShowReadOnlyModal(true);
       return;
     }
-    persistRenewalForm(false);
+    const key = STEP_KEYS[currentStepIndex];
+    if (key === 'preview' || key === 'declaration') {
+      persistRenewalForm(false);
+      return;
+    }
+    if (key === 'documents') {
+      saveDocumentsDraft();
+      return;
+    }
+    handleSectionComplete(key, { navigate: false });
+  };
+
+  // Documents are saved through upload-file only, and a draft may still be missing
+  // some of the required ones, so this just uploads what the user has added.
+  const saveDocumentsDraft = async () => {
+    const activeRenewalId = renewalId || createdRenewalIdRef.current;
+    if (!activeRenewalId) {
+      toast.error('Renewal ID not available yet. Please wait for the form to load.');
+      return;
+    }
+    if (!hasStagedRenewalDocuments(formData, RENEWAL_DOCUMENT_FIELD_KEYS)) {
+      toast.info('No new documents to save.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      setError(null);
+      await commitStagedDocuments(activeRenewalId, formData, RENEWAL_DOCUMENT_FIELD_KEYS);
+      toast.success('Draft saved successfully.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save documents. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   /**
@@ -3928,7 +4147,8 @@ function RenewalFormPageContent() {
         resolveLicenseId(renewalData, resolvedLicenseId)
       );
       const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, merged);
-      setFormData(syncedForm as RenewalFormState);
+      // Keep documents the user picked but has not saved yet.
+      setFormData(prev => ({ ...(syncedForm as RenewalFormState), ...pickStagedRenewalDocuments(prev) }));
       setStatusMessage(
         `Reloaded renewal data for ID ${getTextValue(renewalData?.id, activeRenewalId)}.`
       );
@@ -4776,6 +4996,7 @@ function RenewalFormPageContent() {
                 {currentStepIndex === 0 && (
                   <PersonalDetailsSection
                     ref={personalSectionRef}
+                    lockedFields={lockedIdentityKeys}
                     formData={formData}
                     onChange={handleChange}
                     errors={personalErrors}
@@ -4812,6 +5033,8 @@ function RenewalFormPageContent() {
                 {currentStepIndex === 4 && (
                   <LicenseDetailsSection
                     formData={formData}
+                    lockedWeaponIds={renewalLocks?.weaponIds ?? []}
+                    lockArmsCategory={Boolean(renewalLocks?.armsCategory)}
                     renewalId={activeRenewalId}
                     isSyncingPrefilled={isSyncingEvidence}
                     onChange={handleChange}
@@ -4885,7 +5108,13 @@ function RenewalFormPageContent() {
               onSubmit={handleRenewalSubmit}
               isLoading={isSaving}
               errors={STEP_ERRORS[currentStepIndex]}
-              disableActions={!(sectionValidity[STEP_KEYS[currentStepIndex]] ?? true)}
+              // Buttons stay enabled: clicking validates the section and highlights
+              // every missing field, instead of silently greying out the buttons.
+              disableSaveDraft={
+                STEP_KEYS[currentStepIndex] === 'documents'
+                  ? !hasStagedRenewalDocuments(formData, RENEWAL_DOCUMENT_FIELD_KEYS)
+                  : undefined
+              }
             />
           </form>
           </div>

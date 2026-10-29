@@ -303,9 +303,11 @@ const CriminalHistory = () => {
 		// Set flag to prevent useEffect from overwriting our data
 		isUpdatingForm.current = true;
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
-		
-		await saveFormData();
-		
+
+		// Pass the fresh data explicitly — `form` inside saveFormData is the
+		// pre-setState closure and would otherwise re-save the old values.
+		await saveFormData(undefined, { ...form, criminalHistories });
+
 		// Reset flag after a delay to allow for data loading
 		setTimeout(() => isUpdatingForm.current = false, 1000);
 	};

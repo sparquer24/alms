@@ -1,24 +1,16 @@
-import StepPage from './CreateRenewalApplicationClient';
+import { redirect } from 'next/navigation';
 
-interface Props {
-  params: Promise<{ step: string }>;
-}
-
-export async function generateStaticParams() {
-  return [
-    { step: 'personal-information' },
-    { step: 'address-details' },
-    { step: 'occupation-business' },
-    { step: 'criminal-history' },
-    { step: 'license-history' },
-    { step: 'license-details' },
-    { step: 'biometric-information' },
-    { step: 'documents-upload' },
-    { step: 'preview' },
-    { step: 'declaration' },
-  ];
-}
-
-export default async function Page({ params }: Props) {
-  return <StepPage params={params} />;
+// The step-per-URL renewal flow was retired: the single-page form at
+// /forms/renewal handles every step. Keep old links (licenseId/renewalId) working.
+export default async function LegacyRenewalStepPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(await searchParams)) {
+    if (typeof value === 'string') query.set(key, value);
+  }
+  const qs = query.toString();
+  redirect(qs ? `/forms/renewal?${qs}` : '/forms/renewal');
 }

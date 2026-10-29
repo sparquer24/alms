@@ -2,6 +2,8 @@ import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { RolesService } from './roles.service';
+import { CacheResponse } from '../../cache/cache.decorators';
+import { CacheKeys, CacheTtl } from '../../cache/cache';
 
 @ApiTags('Public - Roles')
 @ApiBearerAuth('JWT-auth')
@@ -11,6 +13,7 @@ export class PublicRolesController {
     constructor(private readonly rolesService: RolesService) { }
 
     @Get()
+    @CacheResponse(CacheKeys.roles, CacheTtl.reference, 'role')
     @ApiOperation({
         summary: 'Get all roles',
         description: 'Retrieve all available roles with optional filtering and pagination. Query parameters are optional.'

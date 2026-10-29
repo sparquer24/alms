@@ -4,6 +4,42 @@ import * as jwt from 'jsonwebtoken';
 import prisma from '../db/prismaClient';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
+import cache, { CacheKeys } from '../cache/cache';
+
+const AUTH_USER_TTL_SECONDS = 60;
+
+/**
+ * The user fields the guard needs, cached briefly so authenticated requests don't
+ * each pay a users+roles round-trip. Writers to users/roles call invalidateAuthUser().
+ */
+async function loadAuthUser(userId: number) {
+  if (!Number.isFinite(userId)) return null;
+  const key = CacheKeys.authUser(userId);
+  const cached = await cache.get<any>(key);
+  if (cached) return cached;
+
+  const user = await prisma.users.findUnique({
+    where: { id: userId },
+    select: {
+      stateId: true,
+      districtId: true,
+      zoneId: true,
+      divisionId: true,
+      policeStationId: true,
+      rangeOfficeId: true,
+      role: { select: { code: true } },
+    },
+  });
+  // Not-found is deliberately not cached
+  if (user) await cache.set(key, user, AUTH_USER_TTL_SECONDS);
+  return user;
+}
+
+/** Drop cached auth data for one user, or for everyone when no id is given (e.g. a role changed). */
+export async function invalidateAuthUser(userId?: number) {
+  if (userId == null) return cache.delPrefix(CacheKeys.authUserPrefix);
+  return cache.del(CacheKeys.authUser(Number(userId)));
+}
 
 
 @Injectable()
@@ -33,13 +69,7 @@ export class AuthGuard implements CanActivate {
 
     try {
       const decoded = jwt.verify(token, secret) as any;
-      // Fetch user with role and permissions
-      const user = await prisma.users.findUnique({
-        where: { id: Number(decoded.sub) },
-        include: {
-          role: true, // Include role information
-        },
-      });
+      const user = await loadAuthUser(Number(decoded.sub));
       if (!user) {
         throw new UnauthorizedException('User account not found. The user associated with this token may have been deleted.');
       }

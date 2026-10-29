@@ -673,7 +673,7 @@ const LicenseDetails = () => {
             <div className='font-medium mb-1'>
               17. Areas within which applicant wishes to carry arms
             </div>
-            <div className='text-xs text-gray-600 mb-1'>Tick any of the options</div>
+            <div className='text-xs text-gray-600 mb-1'>Select one option</div>
             <div className='flex gap-6'>
               <label className='flex items-center gap-2'>
                 <input
@@ -707,6 +707,12 @@ const LicenseDetails = () => {
               </label>
             </div>
             {fieldErrors.areaOfValidity && <p className="text-red-500 text-xs mt-1">{fieldErrors.areaOfValidity}</p>}
+            {getLicenseDetail().areaOfValidity === 'Throughout India' && (
+              <p className='mt-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs text-yellow-800'>
+                A license valid throughout India cannot be approved locally: the Commissioner of
+                Police can only recommend or not recommend it.
+              </p>
+            )}
           </div>
 
           {/* Ammunition Description */}

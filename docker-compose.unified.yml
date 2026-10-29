@@ -11,9 +11,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3033
+      # REDIS_URL, DB_POOL_SIZE and the cache settings come from .env.prod (env_file above)
     depends_on:
       db:
         condition: service_healthy
+      # service_started, not healthy: the backend falls back to the DB if Redis is down,
+      # so a Redis problem must not block the API from starting
+      redis:
+        condition: service_started
     ports:
       - "3033:3033"  # Expose for system nginx access
     healthcheck:
@@ -89,6 +94,25 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # Cache only - nothing in Redis is the source of truth, so no persistence and an
+  # LRU cap keep it cheap. Not published to the host; only reachable on the compose network.
+  redis:
+    image: redis:7-alpine
+    container_name: alms-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    networks:
+      - alms-unified-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 320M
 
 # ─── UNIFIED NETWORK ──────────────────────────────────────────────────────────
 networks:

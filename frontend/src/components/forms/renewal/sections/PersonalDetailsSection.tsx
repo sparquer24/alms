@@ -5,11 +5,19 @@ import { FormField } from '../../elements/FormField';
 type ErrorsMap = Record<string, string | undefined>;
 
 const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
-  props: { formData: any; onChange: (e: any) => void; errors?: ErrorsMap },
-  ref,
+  props: {
+    formData: any;
+    onChange: (e: any) => void;
+    errors?: ErrorsMap;
+    /** Form keys whose value comes from the license and cannot be changed in a renewal. */
+    lockedFields?: ReadonlySet<string>;
+  },
+  ref
 ) {
-  const { formData, onChange, errors = {} } = props;
+  const { formData, onChange, errors = {}, lockedFields } = props;
   const gender = String(formData.applicantGender || '').toUpperCase();
+  const isLocked = (name: string) => Boolean(lockedFields?.has(name));
+  const genderLocked = isLocked('applicantGender');
 
   useImperativeHandle(ref, () => ({
     focusFirstInvalid: () => {
@@ -18,7 +26,11 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
         const el = document.getElementById(firstKey);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          try { (el as HTMLElement).focus(); } catch { /* ignore focus errors */ }
+          try {
+            (el as HTMLElement).focus();
+          } catch {
+            /* ignore focus errors */
+          }
         }
       }
     },
@@ -26,10 +38,17 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
 
   return (
     <section className=''>
+      {lockedFields && lockedFields.size > 0 && (
+        <p className='mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800'>
+          Greyed-out details come from the existing license and cannot be changed in a renewal.
+          Corrections to the license holder&apos;s identity must go through the licensing authority.
+        </p>
+      )}
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 mb-4'>
         <Input
           label='Applicant First Name'
           name='applicantName'
+          readOnly={isLocked('applicantName')}
           value={formData.applicantName || ''}
           onChange={onChange}
           placeholder='Enter first name'
@@ -40,6 +59,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
         <Input
           label={'Applicant Middle Name (optional)'}
           name='applicantMiddleName'
+          readOnly={isLocked('applicantMiddleName')}
           value={formData.applicantMiddleName || ''}
           onChange={onChange}
           placeholder='Enter middle name'
@@ -49,6 +69,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
         <Input
           label='Applicant Last Name'
           name='applicantLastName'
+          readOnly={isLocked('applicantLastName')}
           value={formData.applicantLastName || ''}
           onChange={onChange}
           placeholder='Enter last name'
@@ -69,6 +90,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
         <Input
           label='Parent/ Spouse Name'
           name='fatherName'
+          readOnly={isLocked('fatherName')}
           value={formData.fatherName || ''}
           onChange={onChange}
           placeholder='Enter parent or spouse name'
@@ -78,7 +100,9 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
 
         <FormField label='Sex' required error={errors['applicantGender']}>
           <div className='flex flex-wrap items-center gap-4 pt-1'>
-            <label className='inline-flex items-center gap-2 cursor-pointer'>
+            <label
+              className={`inline-flex items-center gap-2 ${genderLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+            >
               <input
                 id='applicantGenderMale'
                 type='radio'
@@ -86,11 +110,14 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
                 value='MALE'
                 checked={gender === 'MALE'}
                 onChange={onChange}
+                disabled={genderLocked}
                 className='text-indigo-600 focus:ring-indigo-500'
               />
               <span className='text-sm text-gray-700'>Male</span>
             </label>
-            <label className='inline-flex items-center gap-2 cursor-pointer'>
+            <label
+              className={`inline-flex items-center gap-2 ${genderLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+            >
               <input
                 id='applicantGenderFemale'
                 type='radio'
@@ -98,11 +125,14 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
                 value='FEMALE'
                 checked={gender === 'FEMALE'}
                 onChange={onChange}
+                disabled={genderLocked}
                 className='text-indigo-600 focus:ring-indigo-500'
               />
               <span className='text-sm text-gray-700'>Female</span>
             </label>
-            <label className='inline-flex items-center gap-2 cursor-pointer'>
+            <label
+              className={`inline-flex items-center gap-2 ${genderLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+            >
               <input
                 id='applicantGenderOther'
                 type='radio'
@@ -110,6 +140,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
                 value='OTHER'
                 checked={gender === 'OTHER'}
                 onChange={onChange}
+                disabled={genderLocked}
                 className='text-indigo-600 focus:ring-indigo-500'
               />
               <span className='text-sm text-gray-700'>Other</span>
@@ -120,6 +151,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
         <Input
           label='Place of Birth'
           name='placeOfBirth'
+          readOnly={isLocked('placeOfBirth')}
           value={formData.placeOfBirth || ''}
           onChange={onChange}
           placeholder='Enter place of birth'
@@ -130,17 +162,23 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
         <Input
           label='Date of Birth'
           name='applicantDateOfBirth'
+          readOnly={isLocked('applicantDateOfBirth')}
           type='date'
           value={formData.applicantDateOfBirth || ''}
           onChange={onChange}
           required
           error={errors['applicantDateOfBirth']}
-          max={new Date(new Date().setFullYear(new Date().getFullYear() - 21)).toISOString().split('T')[0]}
+          max={
+            new Date(new Date().setFullYear(new Date().getFullYear() - 21))
+              .toISOString()
+              .split('T')[0]
+          }
         />
 
         <Input
           label='PAN'
           name='panNumber'
+          readOnly={isLocked('panNumber')}
           value={formData.panNumber || ''}
           onChange={onChange}
           placeholder='Enter PAN'
@@ -152,6 +190,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
         <Input
           label='Aadhar Number'
           name='aadharNumber'
+          readOnly={isLocked('aadharNumber')}
           value={formData.aadharNumber || ''}
           onChange={onChange}
           placeholder='Enter Aadhar number'

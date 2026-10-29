@@ -2,6 +2,8 @@ import { Controller, Get, Post, Patch,  Param,  Query, Body } from '@nestjs/comm
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { StatusService } from './status.service';
 import { Statuses } from '@prisma/client';
+import { CacheResponse, InvalidateCache } from '../../cache/cache.decorators';
+import { CacheKeys } from '../../cache/cache';
 
 @ApiTags('Status')
 @Controller('status')
@@ -9,6 +11,7 @@ export class StatusController {
   constructor(private readonly statusService: StatusService) {}
 
   @Post()
+  @InvalidateCache(CacheKeys.statuses)
   @ApiOperation({
     summary: 'Create status',
     description: 'Create a new status entry'
@@ -36,6 +39,7 @@ export class StatusController {
   }
 
   @Get()
+  @CacheResponse(CacheKeys.statuses, 3600)
   @ApiOperation({ 
     summary: 'Get status', 
     description: 'Retrieve the current status of the application'
@@ -57,6 +61,7 @@ export class StatusController {
   }
 
   @Patch(':id')
+  @InvalidateCache(CacheKeys.statuses)
   @ApiOperation({
     summary: 'Update status',
     description: 'Update an existing status entry'

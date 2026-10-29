@@ -9,7 +9,7 @@ import Link from 'next/link';
 
 // Type assertion for Next.js Link to fix React 18 compatibility
 const LinkFixed = Link as any;
-import { PageLayoutSkeleton } from '@/components/Skeleton';
+import { ContentSkeleton } from '@/components/Skeleton';
 
 // Dynamically import charts to avoid SSR issues
 const LineChart = dynamic(() => import('@/components/charts/LineChart'), { ssr: false }) as any;
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
   };
 
   if (isLoading) {
-    return <PageLayoutSkeleton />;
+    return <ContentSkeleton />;
   }
 
   if (error) {
@@ -219,17 +219,17 @@ export default function AdminDashboard() {
         <table className='w-full text-left'>
           <thead>
             <tr>
-              <th className='border-b p-2'>Activity</th>
-              <th className='border-b p-2'>User</th>
-              <th className='border-b p-2'>Date</th>
+              <th className='border-b px-2 py-1.5'>Activity</th>
+              <th className='border-b px-2 py-1.5'>User</th>
+              <th className='border-b px-2 py-1.5'>Date</th>
             </tr>
           </thead>
           <tbody>
             {dashboardData.recentActivities.map((activity, index) => (
               <tr key={index}>
-                <td className='border-b p-2'>{activity.description}</td>
-                <td className='border-b p-2'>{activity.user}</td>
-                <td className='border-b p-2'>{activity.date}</td>
+                <td className='border-b px-2 py-0.5'>{activity.description}</td>
+                <td className='border-b px-2 py-0.5'>{activity.user}</td>
+                <td className='border-b px-2 py-0.5'>{activity.date}</td>
               </tr>
             ))}
           </tbody>

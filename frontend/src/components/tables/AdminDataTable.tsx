@@ -128,7 +128,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
         <div className="animate-pulse p-4 flex-1">
           <div className="h-10 bg-slate-200 rounded-t-lg mb-4"></div>
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-14 bg-slate-100 border-b border-slate-200 mb-2"></div>
+            <div key={i} className="h-[25px] bg-slate-100 border-b border-slate-200 mb-1"></div>
           ))}
         </div>
       </div>
@@ -158,12 +158,12 @@ export function AdminDataTable<T extends { id?: string | number }>({
       )}
 
       {/* Table Container (Scrollable) */}
-      <div className="flex-1 min-h-0 overflow-auto isolate">
+      <div className="flex-initial min-h-0 overflow-auto isolate">
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
             <tr>
               {selectable && (
-                <th className="px-6 py-4 w-12 text-center bg-slate-50">
+                <th className="px-4 py-1.5 w-12 text-center bg-slate-50">
                   <input
                     type="checkbox"
                     checked={selectedRows.size === data.length && data.length > 0}
@@ -175,7 +175,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-6 py-4 font-semibold text-slate-600 text-sm tracking-wider bg-slate-50 ${
+                  className={`px-4 py-1.5 font-semibold text-slate-600 text-sm tracking-wider bg-slate-50 ${
                     column.sortable ? 'cursor-pointer hover:bg-slate-100' : ''
                   } ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}`}
                   onClick={() => column.sortable && handleSort(column.key)}
@@ -192,7 +192,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
                 </th>
               ))}
               {rowActions && rowActions.length > 0 && (
-                <th className="px-6 py-4 font-semibold text-slate-600 text-sm text-right w-24 bg-slate-50">
+                <th className="px-4 py-1.5 font-semibold text-slate-600 text-sm text-right w-24 bg-slate-50">
                   Actions
                 </th>
               )}
@@ -228,12 +228,12 @@ export function AdminDataTable<T extends { id?: string | number }>({
               sortedData.map((row, index) => (
                 <tr
                   key={row.id || index}
-                  className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${
+                  className={`h-[25px] border-b border-slate-100 hover:bg-slate-50 transition-colors ${
                     selectedRows.has(row.id!) ? 'bg-blue-50/50' : ''
                   }`}
                 >
                   {selectable && (
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-4 py-0.5 text-center">
                       <input
                         type="checkbox"
                         checked={selectedRows.has(row.id!)}
@@ -245,7 +245,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
                   {columns.map((column) => (
                     <td 
                       key={column.key} 
-                      className={`px-6 py-4 text-sm text-slate-800 ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}`}
+                      className={`px-4 py-0.5 text-sm text-slate-800 ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}`}
                     >
                       {column.render ? (
                         column.render(row[column.key as keyof T], row)
@@ -262,7 +262,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
                     </td>
                   ))}
                   {rowActions && rowActions.length > 0 && (
-                    <td className="px-6 py-4 text-sm font-medium text-right">
+                    <td className="px-4 py-0.5 text-sm font-medium text-right">
                       <div className="flex space-x-2 justify-end">
                         {rowActions.map((action, actionIndex) => {
                           const isDisabled = action.disabled ? action.disabled(row) : false;
@@ -271,7 +271,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
                               key={actionIndex}
                               onClick={() => !isDisabled && action.onClick(row)}
                               disabled={isDisabled}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              className={`px-2 py-0.5 rounded text-xs leading-4 font-medium transition-all ${
                                 isDisabled 
                                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                   : action.variant === 'danger'
@@ -297,15 +297,15 @@ export function AdminDataTable<T extends { id?: string | number }>({
 
       {/* Pagination Container (Fixed at Bottom) */}
       {pagination && (
-        <div className="px-6 py-4 border-t border-slate-200 bg-white flex-shrink-0 flex items-center justify-between">
-          <div className="text-sm text-slate-500 font-medium">
+        <div className="px-4 py-1.5 border-t border-slate-200 bg-white flex-shrink-0 flex items-center justify-between gap-3">
+          <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
             Showing <span className="text-slate-800 font-semibold">{Math.min((pagination.currentPage - 1) * pagination.pageSize + 1, pagination.totalItems)}</span> to <span className="text-slate-800 font-semibold">{Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems)}</span> of <span className="text-slate-800 font-semibold">{pagination.totalItems}</span> entries
           </div>
-          <div className="flex space-x-1.5">
+          <div className="flex space-x-1">
             <button
               onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
               disabled={pagination.currentPage === 1}
-              className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
@@ -327,7 +327,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
                   <button
                     key={i}
                     onClick={() => pagination.onPageChange(i)}
-                    className={`min-w-[32px] px-2 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    className={`min-w-[28px] px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                       i === pagination.currentPage
                         ? 'bg-[#001F54] text-white border border-[#001F54]'
                         : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800'
@@ -343,7 +343,7 @@ export function AdminDataTable<T extends { id?: string | number }>({
             <button
               onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
               disabled={pagination.currentPage === pagination.totalPages}
-              className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>

@@ -8,6 +8,14 @@ import { GetRenewalApplicationsDto } from './dto/get-applications.dto';
 import { UpdateRenewalWorkflowStatusDto } from './dto/update-workflow-status.dto';
 import { ACTION_CODES } from '../../constants/workflow-actions';
 import { v4 as uuidv4 } from 'uuid';
+import { AREA_OF_VALIDITY, normalizeAreaOfValidity } from '../../constants/area-of-validity';
+import {
+  NON_RENEWABLE_STATUSES,
+  buildRenewalLocks,
+  computeRenewedValidTill,
+  pickLockedIdentity,
+  statusAfterRenewal,
+} from './renewal-rules';
 
 @Injectable()
 export class RenewalFormService {
@@ -30,10 +38,10 @@ export class RenewalFormService {
         throw new NotFoundException('License not found. Cannot create renewal without a valid license.');
       }
 
-      // 1a. Check if the license has been CANCELLED
-      if (licenseRecord.status === 'CANCELLED') {
+      // 1a. Cancelled or revoked licenses cannot be renewed
+      if (NON_RENEWABLE_STATUSES.has(licenseRecord.status)) {
         throw new BadRequestException(
-          'Cannot create a renewal application for a cancelled license. This license has been permanently cancelled and no further actions are allowed.',
+          `Cannot create a renewal application for a ${licenseRecord.status.toLowerCase()} license. No further actions are allowed on this license.`,
         );
       }
 
@@ -129,10 +137,35 @@ export class RenewalFormService {
               },
             });
             presentAddressId = copiedAddress.id;
-            // Reuse same address for permanent if it matches
-            permanentAddressId = copiedAddress.id;
           } catch (addrErr: any) {
             console.error('Error copying address from last approved renewal:', addrErr.message);
+          }
+        }
+
+        // The permanent address gets its own row: sharing the present address row
+        // would make every later edit of one overwrite the other.
+        if (sourceRenewalData?.permanentAddress && sourceRenewalData.permanentAddress.addressLine) {
+          try {
+            const src = sourceRenewalData.permanentAddress;
+            const copiedPermanent = await tx.renewalAddressesAndContactDetails.create({
+              data: {
+                addressLine: src.addressLine,
+                stateId: src.stateId,
+                districtId: src.districtId,
+                policeStationId: src.policeStationId,
+                sinceResiding: src.sinceResiding ? new Date(src.sinceResiding) : undefined,
+                divisionId: src.divisionId,
+                zoneId: src.zoneId,
+                rangeOfficeId: src.rangeOfficeId || null,
+                telephoneOffice: src.telephoneOffice || null,
+                telephoneResidence: src.telephoneResidence || null,
+                officeMobileNumber: src.officeMobileNumber || null,
+                alternativeMobile: src.alternativeMobile || null,
+              },
+            });
+            permanentAddressId = copiedPermanent.id;
+          } catch (addrErr: any) {
+            console.error('Error copying permanent address from last approved renewal:', addrErr.message);
           }
         }
 
@@ -176,6 +209,8 @@ export class RenewalFormService {
             panNumber: sourceRenewalData?.panNumber || createRequest.panNumber,
             aadharNumber: sourceRenewalData?.aadharNumber || createRequest.aadharNumber,
             placeOfBirth: sourceRenewalData?.placeOfBirth || createRequest.placeOfBirth,
+            // Identity the license already holds cannot be changed by a renewal
+            ...pickLockedIdentity(licenseRecord),
             filledBy: createRequest.filledBy,
             currentUserId,
             workflowStatusId: draftStatus.id,
@@ -272,6 +307,20 @@ export class RenewalFormService {
         throw new NotFoundException('Renewal application not found.');
       }
 
+      // A renewal is for an existing license, so a copy of it must be on file
+      // before submission. Checked before any writes so a rejected submit
+      // leaves the draft untouched.
+      if (patchData.isSubmit === true) {
+        const existingLicenseCopies = await prisma.renewalFileUploads.count({
+          where: { applicationId, fileType: 'EXISTING_LICENSE' },
+        });
+        if (existingLicenseCopies === 0) {
+          throw new BadRequestException(
+            'Upload a copy of the license being renewed (Existing Arms License) before submitting.',
+          );
+        }
+      }
+
       const statusMap = statuses.reduce((map: Record<string, number>, status: any) => {
         map[status.code] = status.id;
         return map;
@@ -279,24 +328,48 @@ export class RenewalFormService {
       const initiateStatusId = statusMap['INITIATED'] ?? statusMap['INITIATE'] ?? statusMap['FORWARD'];
 
       // Pre-parse dates and format data outside transaction to reduce lock time
-      const parsedAddressData: any = patchData.addressDetails ? {
-        addressLine: patchData.addressDetails.addressLine,
-        stateId: patchData.addressDetails.stateId,
-        districtId: patchData.addressDetails.districtId,
-        rangeOfficeId: patchData.addressDetails.rangeOfficeId,
-        policeStationId: patchData.addressDetails.policeStationId,
-        zoneId: patchData.addressDetails.zoneId,
-        divisionId: patchData.addressDetails.divisionId,
-        sinceResiding: patchData.addressDetails.sinceResiding ? new Date(patchData.addressDetails.sinceResiding) : undefined,
-        telephoneOffice: patchData.addressDetails.telephoneOffice,
-        telephoneResidence: patchData.addressDetails.telephoneResidence,
-        officeMobileNumber: patchData.addressDetails.officeMobileNumber,
-        alternativeMobile: patchData.addressDetails.alternativeMobile,
+      const parseAddress = (address: any) => address ? {
+        addressLine: address.addressLine,
+        stateId: address.stateId,
+        districtId: address.districtId,
+        rangeOfficeId: address.rangeOfficeId,
+        policeStationId: address.policeStationId,
+        zoneId: address.zoneId,
+        divisionId: address.divisionId,
+        sinceResiding: address.sinceResiding ? new Date(address.sinceResiding) : undefined,
+        telephoneOffice: address.telephoneOffice,
+        telephoneResidence: address.telephoneResidence,
+        officeMobileNumber: address.officeMobileNumber,
+        alternativeMobile: address.alternativeMobile,
       } : null;
+      const parsedAddressData: any = parseAddress(patchData.addressDetails);
+      // Older clients send only addressDetails; it then applies to both addresses.
+      const parsedPermanentAddressData: any = parseAddress(patchData.permanentAddressDetails) ?? parsedAddressData;
 
-      const weaponConnections = patchData.licenseDetails?.requestedWeaponIds?.map((id) => ({ id }));
+      // Identity and endorsed weapons already on the license override whatever
+      // the renewal submits — a renewal cannot change the holder or the weapons.
+      const locks = (patchData.personalDetails || patchData.licenseDetails) && application.licenseId
+        ? buildRenewalLocks(await prisma.licenses.findUnique({
+            where: { id: application.licenseId },
+            include: { endorsedWeapons: { select: { id: true } } },
+          }))
+        : null;
 
-      let updateData: any = patchData.personalDetails ? { ...patchData.personalDetails } : {};
+      // Store one canonical area of validity; it drives which actions officers get
+      if (patchData.licenseDetails?.areaOfValidity) {
+        const area = normalizeAreaOfValidity(patchData.licenseDetails.areaOfValidity);
+        if (!area) {
+          throw new BadRequestException(
+            `Invalid area of validity '${patchData.licenseDetails.areaOfValidity}'. Choose one of: ${Object.values(AREA_OF_VALIDITY).join(', ')}.`,
+          );
+        }
+        patchData.licenseDetails.areaOfValidity = area;
+      }
+
+      const weaponIds = locks?.weaponIds.length ? locks.weaponIds : patchData.licenseDetails?.requestedWeaponIds;
+      const weaponConnections = weaponIds?.map((id) => ({ id }));
+
+      let updateData: any = patchData.personalDetails ? { ...patchData.personalDetails, ...locks?.identity } : {};
       if (updateData.dateOfBirth) {
         updateData.dateOfBirth = new Date(updateData.dateOfBirth);
       }
@@ -311,30 +384,33 @@ export class RenewalFormService {
       const relationUpdates: Promise<void>[] = [];
 
       // Handle addresses in parallel if provided
-      if (parsedAddressData) {
-        const addressData = parsedAddressData;
+      if (parsedAddressData || parsedPermanentAddressData) {
         relationUpdates.push((async () => {
+          // Older drafts share one row for both addresses; split them so editing
+          // the permanent address no longer overwrites the present one.
+          const permanentSharesPresentRow =
+            !!application.permanentAddressId && application.permanentAddressId === application.presentAddressId;
           const [presentAddress, permanentAddress] = await Promise.all([
-            application.presentAddressId
-              ? prisma.renewalAddressesAndContactDetails.update({
-                  where: { id: application.presentAddressId },
-                  data: addressData,
-                })
-              : prisma.renewalAddressesAndContactDetails.create({
-                  data: addressData,
-                }),
-            application.permanentAddressId
-              ? prisma.renewalAddressesAndContactDetails.update({
-                  where: { id: application.permanentAddressId },
-                  data: addressData,
-                })
-              : prisma.renewalAddressesAndContactDetails.create({
-                  data: addressData,
-                }),
+            parsedAddressData
+              ? application.presentAddressId
+                ? prisma.renewalAddressesAndContactDetails.update({
+                    where: { id: application.presentAddressId },
+                    data: parsedAddressData,
+                  })
+                : prisma.renewalAddressesAndContactDetails.create({ data: parsedAddressData })
+              : null,
+            parsedPermanentAddressData
+              ? application.permanentAddressId && !permanentSharesPresentRow
+                ? prisma.renewalAddressesAndContactDetails.update({
+                    where: { id: application.permanentAddressId },
+                    data: parsedPermanentAddressData,
+                  })
+                : prisma.renewalAddressesAndContactDetails.create({ data: parsedPermanentAddressData })
+              : null,
           ]);
 
-          updateData.presentAddressId = presentAddress.id;
-          updateData.permanentAddressId = permanentAddress.id;
+          if (presentAddress) updateData.presentAddressId = presentAddress.id;
+          if (permanentAddress) updateData.permanentAddressId = permanentAddress.id;
         })());
       }
 
@@ -368,7 +444,7 @@ export class RenewalFormService {
             // Combine all updates into a single database call for efficiency
             const licenseUpdateData: any = {
               needForLicense: licenseDetails.needForLicense as any,
-              armsCategory: licenseDetails.armsCategory as any,
+              armsCategory: (locks?.armsCategory ?? licenseDetails.armsCategory) as any,
               areaOfValidity: licenseDetails.areaOfValidity,
               ammunitionDescription: licenseDetails.ammunitionDescription,
               specialConsiderationReason: licenseDetails.specialConsiderationReason,
@@ -392,7 +468,7 @@ export class RenewalFormService {
               data: {
                 applicationId,
                 needForLicense: licenseDetails.needForLicense as any,
-                armsCategory: licenseDetails.armsCategory as any,
+                armsCategory: (locks?.armsCategory ?? licenseDetails.armsCategory) as any,
                 areaOfValidity: licenseDetails.areaOfValidity,
                 ammunitionDescription: licenseDetails.ammunitionDescription,
                 specialConsiderationReason:
@@ -893,9 +969,18 @@ export class RenewalFormService {
         }
       }
 
+      // Tell the form which values come from the license and cannot be edited
+      const license = application.licenseId
+        ? await prisma.licenses.findUnique({
+            where: { id: application.licenseId },
+            include: { endorsedWeapons: { select: { id: true } } },
+          })
+        : null;
+
       return {
         ...application,
         freshApplicationId: freshApplicationId,
+        renewalLocks: buildRenewalLocks(license),
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -1370,8 +1455,7 @@ export class RenewalFormService {
             throw new Error(`Master license not found for ID: ${targetLicenseId}`);
           }
 
-          const newValidTill = new Date(existingLicense.validTill || new Date());
-          newValidTill.setFullYear(newValidTill.getFullYear() + 2);
+          const newValidTill = computeRenewedValidTill(existingLicense.validTill);
 
           const licenseDetail = freshLicense.licenseDetails?.[0];
 
@@ -1379,7 +1463,7 @@ export class RenewalFormService {
             where: { id: existingLicense.id },
             data: {
               validTill: newValidTill,
-              status: 'ACTIVE',
+              status: statusAfterRenewal(existingLicense.status),
               armsCategory: licenseDetail?.armsCategory,
               areaOfValidity: licenseDetail?.areaOfValidity,
               ammunitionDescription: licenseDetail?.ammunitionDescription,

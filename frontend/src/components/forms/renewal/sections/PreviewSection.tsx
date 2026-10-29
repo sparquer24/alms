@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { WeaponsService, Weapon } from '../../../../services/weapons';
 import { getDocumentUploadMeta } from '../../../../utils/renewalFileUpload';
 import { openDocumentFile } from '../../../../services/fileHandler';
+import { areaOfValidityLabel } from '../../../../utils/areaOfValidity';
 
 const NOT_PROVIDED = 'Not Provided';
 
@@ -376,15 +377,7 @@ const PreviewSection: React.FC<{ formData: any; onEditStep?: (index: number) => 
         <Field label='Need for license' value={WEAPON_REASON_LABELS[data.weaponReason] || dash(data.weaponReason)} />
         <Field
           label='Areas to carry arms'
-          value={
-            [
-              data.carryAreaDistrict && 'District',
-              data.carryAreaState && 'State',
-              data.carryAreaIndia && 'Throughout India',
-            ]
-              .filter(Boolean)
-              .join(', ') || NOT_PROVIDED
-          }
+          value={areaOfValidityLabel(data.areaOfValidity) || NOT_PROVIDED}
         />
         <Field
           label='Restricted / Permissible'

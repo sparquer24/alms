@@ -4,6 +4,8 @@ import { UserService } from './user.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
 import { Roles } from '../../decorators/roles.decorator';
 import { CreateUsersDto } from './dto/create-users.dto';
+import { InvalidateCache } from '../../cache/cache.decorators';
+import { CacheKeys } from '../../cache/cache';
 
 @ApiTags('Users')
 @Controller('users')
@@ -11,6 +13,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
+  @InvalidateCache(CacheKeys.authUserPrefix)
   @UseGuards(AuthGuard)
   @Roles('ADMIN', 'SUPER_ADMIN')
   @ApiBearerAuth('JWT-auth')
@@ -150,6 +153,7 @@ export class UserController {
   }
 
   @Put(':id')
+  @InvalidateCache(CacheKeys.authUserPrefix)
   @UseGuards(AuthGuard)
   @Roles('ADMIN', 'SUPER_ADMIN')
   @ApiBearerAuth('JWT-auth')
@@ -198,6 +202,7 @@ export class UserController {
   }
 
   @Delete(':id')
+  @InvalidateCache(CacheKeys.authUserPrefix)
   @UseGuards(AuthGuard)
   @Roles('ADMIN', 'SUPER_ADMIN')
   @ApiBearerAuth('JWT-auth')

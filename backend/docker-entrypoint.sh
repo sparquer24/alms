@@ -10,7 +10,7 @@ fi
 
 if [ -n "$DATABASE_URL" ] && command -v npx >/dev/null 2>&1; then
   echo "[entrypoint] applying pending prisma migrations (prisma migrate deploy)..."
-  RETRIES=10
+  RETRIES=3
   until npx prisma migrate deploy || [ $RETRIES -eq 0 ]; do
     RETRIES=$((RETRIES - 1))
     echo "[entrypoint] migrate deploy failed, retrying in 5s... ($RETRIES retries left)"

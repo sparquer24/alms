@@ -45,6 +45,7 @@ export async function preloadAdminPage(key: string): Promise<void> {
         const pathMap: Record<string, () => Promise<any>> = {
             'userManagement': () => import('@/components/UserManagement/UserManagementContent'),
             'flowMapping': () => import('@/components/UserManagement/FlowMappingContent'),
+            'approvalRules': () => import('@/components/UserManagement/ApprovalRulesContent'),
             'locationsManagement': () => import('@/components/UserManagement/LocationsManagementContent'),
             'actionMapping': () => import('@/components/UserManagement/ActionMappingContent'),
         };
