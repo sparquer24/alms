@@ -20,9 +20,9 @@ const data = landingData as unknown as LandingPageData;
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen font-[family-name:var(--font-geist-sans)]">
-      {/* Sticky Header */}
-      <LandingHeader navLinks={data.navigation} />
+    <div className="w-full max-w-full overflow-x-hidden min-h-screen font-[family-name:var(--font-geist-sans)]">
+      {/* Sticky Header with Government Top Ribbon & Gazette Ticker */}
+      <LandingHeader navLinks={data.navigation} announcements={data.announcements} />
 
       {/* Hero Section */}
       <HeroSection hero={data.hero} />

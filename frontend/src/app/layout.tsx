@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: any }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <div className='w-full'>
+        <div className='w-full max-w-full overflow-x-hidden'>
           <PersistentHeroVideo />
           <OfflineIndicator />
           {/* RootProviders is a client component that contains all context/providers */}

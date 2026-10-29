@@ -40,7 +40,16 @@ function ShellFrame({ sidebar = true, sidebarFallback, headerFallback, children 
   const useRealChrome = initialized && isAuthenticated;
 
   return (
-    <div className='flex h-screen w-full bg-[#F4F6F9] font-sans antialiased overflow-hidden'>
+    <div className='flex h-screen w-full bg-[#F4F6F9] font-sans antialiased overflow-hidden relative'>
+      {/* Indian National Tricolor Animated Top Flag Loader (Runs simultaneously with skeleton) */}
+      <div className='absolute top-0 inset-x-0 h-[3px] z-50 pointer-events-none overflow-hidden bg-slate-200/50'>
+        <div className='absolute inset-0 flex opacity-40'>
+          <div className='w-1/3 bg-[#FF9933]' />
+          <div className='w-1/3 bg-[#FFFFFF]' />
+          <div className='w-1/3 bg-[#138808]' />
+        </div>
+        <div className='absolute inset-0 flag-runner-bar' />
+      </div>
       {sidebar &&
         (useRealChrome ? (
           <Suspense fallback={sidebarFallback}>

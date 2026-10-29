@@ -1,5 +1,4 @@
 import React from 'react';
-import { Spinner } from './Spinner';
 
 interface FormSkeletonProps {
   title?: string;
@@ -8,30 +7,56 @@ interface FormSkeletonProps {
 
 export const FormSkeleton: React.FC<FormSkeletonProps> = ({ title, rows = 4 }) => {
   return (
-    <div className="p-6 animate-pulse">
-      {title && <h2 className="text-xl font-bold mb-6 text-gray-800">{title}</h2>}
-      
-      <div className="mb-4 p-3 bg-gray-100 border border-gray-200 rounded h-16 w-full max-w-md"></div>
-      
-      <div className="space-y-6 mt-8">
-        {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col gap-2">
-              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-              <div className="h-10 bg-gray-100 border-b-2 border-gray-200 w-full"></div>
+    <div className="space-y-6">
+      {title ? (
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-slate-800 tracking-tight">{title}</h2>
+            <div className="h-3.5 w-48 rounded flag-skeleton-shimmer" />
+          </div>
+          <div className="h-6 w-24 rounded-full flag-skeleton-shimmer" />
+        </div>
+      ) : (
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl flag-skeleton-shimmer" />
+            <div className="space-y-1">
+              <div className="h-5 w-44 rounded-md flag-skeleton-shimmer" />
+              <div className="h-3 w-32 rounded flag-skeleton-shimmer opacity-70" />
             </div>
-            <div className="flex flex-col gap-2">
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-10 bg-gray-100 border-b-2 border-gray-200 w-full"></div>
+          </div>
+          <div className="h-6 w-20 rounded-full flag-skeleton-shimmer" />
+        </div>
+      )}
+
+      {/* Info notice strip */}
+      <div className="p-3.5 rounded-xl border border-blue-100/80 bg-blue-50/40 flex items-center gap-3">
+        <div className="h-5 w-5 rounded-md flag-skeleton-shimmer shrink-0" />
+        <div className="h-3.5 flex-1 rounded flag-skeleton-shimmer" />
+      </div>
+
+      {/* Form Fields Grid */}
+      <div className="space-y-5 pt-2">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <div className="h-3.5 w-28 rounded flag-skeleton-shimmer" />
+              <div className="h-10 w-full rounded-xl flag-skeleton-shimmer" />
+            </div>
+            <div className="space-y-1.5">
+              <div className="h-3.5 w-32 rounded flag-skeleton-shimmer" />
+              <div className="h-10 w-full rounded-xl flag-skeleton-shimmer" />
             </div>
           </div>
         ))}
       </div>
-      
-      <div className="flex justify-center items-center py-12">
-        <div className="flex flex-col items-center gap-4 text-gray-500">
-          <Spinner size="lg" color="text-blue-600" />
-          <span className="text-sm font-medium">Loading form data...</span>
+
+      {/* Action Buttons */}
+      <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-between">
+        <div className="h-10 w-24 rounded-xl flag-skeleton-shimmer" />
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-28 rounded-xl flag-skeleton-shimmer" />
+          <div className="h-10 w-36 rounded-xl flag-skeleton-shimmer" />
         </div>
       </div>
     </div>

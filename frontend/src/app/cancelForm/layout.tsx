@@ -6,6 +6,7 @@ import Footer from '../../components/Footer';
 import { useAuth } from '../../hooks/useAuth';
 import { useLayout } from '../../config/layoutContext';
 import { useIsomorphicLayoutEffect } from '../../hooks/useIsomorphicLayoutEffect';
+import { PageLayoutSkeleton, ContentSkeleton } from '../../components/Skeleton';
 
 /**
  * Layout for all /cancelForm/* routes.
@@ -40,12 +41,12 @@ export default function CancelFormLayout({ children }: { children: React.ReactNo
 
   if (!initialized || isLoading || !checked) {
     return (
-      <div className='min-h-screen bg-[#F3F5F8] flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-[#0B1F3A] mx-auto mb-4'></div>
-          <p className='text-sm text-gray-600 font-medium'>Loading...</p>
-        </div>
-      </div>
+      <PageLayoutSkeleton sidebar={false}><ContentSkeleton /></PageLayoutSkeleton>
+
+
+
+
+
     );
   }
 

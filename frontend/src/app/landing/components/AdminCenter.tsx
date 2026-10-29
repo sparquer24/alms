@@ -54,22 +54,26 @@ const featureIcons: Record<string, React.ReactNode> = {
 
 export default function AdminCenter({ title, description, features, badges }: AdminCenterProps) {
   return (
-    <section className="py-20 bg-gradient-to-br from-[#0F2D52]/5 via-white to-[#B8860B]/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="inline-block px-3 py-1 text-xs font-semibold text-[#B8860B] bg-[#B8860B]/10 rounded-full uppercase tracking-wider mb-4">
-            Administration
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#0F2D52] mb-4">{title}</h2>
-          <p className="text-gray-600 leading-relaxed">{description}</p>
+    <section id="admin" className="py-24 bg-[#F8FAFC] border-b border-gray-200">
+      <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="text-center max-w-3xl mx-auto mb-14">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 text-xs font-bold text-[#0F2D52] bg-[#0F2D52]/10 rounded-full uppercase tracking-wider mb-3">
+            <span className="w-2 h-2 rounded-full bg-[#138808]" />
+            State Administrative Controls
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-black text-[#0B1F3A] tracking-tight mb-3">
+            {title}
+          </h2>
+          <div className="mx-auto h-[2.5px] w-24 rounded-full bg-gradient-to-r from-[#FF9933] via-[#D4AF37] to-[#138808] mb-4" />
+          <p className="text-sm sm:text-base text-gray-600 leading-relaxed">{description}</p>
         </div>
 
         {/* Badges ribbon */}
-        <div className="flex flex-wrap justify-center gap-3 mb-12">
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-12">
           {badges.map((badge) => (
             <span
               key={badge}
-              className="px-4 py-1.5 text-xs font-semibold bg-[#0F2D52]/5 text-[#0F2D52] border border-[#0F2D52]/10 rounded-full"
+              className="px-3.5 py-1.5 text-xs font-semibold bg-white text-[#0F2D52] border border-gray-200/90 rounded-full shadow-xs"
             >
               {badge}
             </span>
@@ -81,26 +85,31 @@ export default function AdminCenter({ title, description, features, badges }: Ad
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group bg-white/50 backdrop-blur-sm border border-white/60 rounded-xl p-6 shadow-sm hover:bg-[#0F2D52] hover:border-[#0F2D52] hover:text-white transition-all duration-300 hover:shadow-xl"
+              className="group bg-white rounded-2xl border border-gray-200/90 p-6 shadow-sm hover:shadow-xl hover:border-[#D4AF37]/80 transition-all duration-300 relative overflow-hidden flex flex-col justify-between"
             >
-              <div className="text-[#B8860B] mb-4 group-hover:text-[#B8860B] transition-colors">
-                {featureIcons[feature.title] || (
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                )}
+              {/* Top Accent Strip on Hover */}
+              <div className="absolute top-0 inset-x-0 h-1 bg-transparent group-hover:bg-gradient-to-r group-hover:from-[#0F2D52] group-hover:via-[#D4AF37] group-hover:to-[#0F2D52] transition-colors" />
+
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-[#0F2D52]/5 text-[#0F2D52] flex items-center justify-center group-hover:bg-[#0F2D52] group-hover:text-white transition-colors duration-300 shadow-sm mb-4">
+                  {featureIcons[feature.title] || (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                </div>
+                <h3 className="text-base font-bold text-[#0B1F3A] mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                  {feature.description}
+                </p>
               </div>
-              <h3 className="text-base font-bold text-[#0F2D52] mb-2 group-hover:text-white transition-colors">
-                {feature.title}
-              </h3>
-              <p className="text-xs text-gray-500 leading-relaxed mb-4 group-hover:text-gray-300 transition-colors">
-                {feature.description}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 pt-3 border-t border-gray-100">
                 {feature.highlights.map((h) => (
                   <span
                     key={h}
-                    className="px-2 py-0.5 text-[10px] font-medium bg-white rounded border border-gray-200 text-gray-600 group-hover:bg-white/10 group-hover:border-white/20 group-hover:text-gray-200 transition-colors"
+                    className="px-2 py-0.5 text-[10px] font-medium bg-slate-50 text-slate-700 rounded border border-slate-200"
                   >
                     {h}
                   </span>

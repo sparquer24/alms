@@ -121,11 +121,15 @@ export function AdminDataTable<T extends { id?: string | number }>({
 
   if (loading) {
     return (
-      <div className={`flex flex-col flex-1 min-h-0 bg-white border border-slate-200 rounded-lg shadow-sm ${className}`}>
-        <div className="animate-pulse p-4 flex-1">
-          <div className="h-10 bg-slate-100 rounded-md mb-4"></div>
+      <div className={`flex flex-col flex-1 min-h-0 bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden ${className}`}>
+        <div className="p-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
+          <div className="h-9 w-64 rounded-lg flag-skeleton-shimmer" />
+          <div className="h-9 w-28 rounded-lg flag-skeleton-shimmer" />
+        </div>
+        <div className="p-4 flex-1 space-y-3">
+          <div className="h-10 rounded-xl flag-skeleton-shimmer mb-4"></div>
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-8 bg-slate-50 border-b border-slate-100 mb-1.5 rounded"></div>
+            <div key={i} className="h-9 rounded-xl flag-skeleton-shimmer"></div>
           ))}
         </div>
       </div>

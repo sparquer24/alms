@@ -8,6 +8,7 @@ import { InboxProvider } from '../../context/InboxContext';
 import InboxBootloaderClient from '../../components/InboxBootloaderClient';
 import { useAuth } from '../../hooks/useAuth';
 import { useLayout } from '../../config/layoutContext';
+import { PageLayoutSkeleton, ContentSkeleton } from '../../components/Skeleton';
 
 function InboxMainContent({ children }: { children: React.ReactNode }) {
   const { sidebarCollapsed, headerHeight } = useLayout();
@@ -44,12 +45,9 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
 
   if (!initialized || isLoading || !checked) {
     return (
-      <div className='min-h-screen bg-[#F3F5F8] flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-[#0B1F3A] mx-auto mb-4'></div>
-          <p className='text-sm text-gray-600 font-medium'>Authenticating...</p>
-        </div>
-      </div>
+      <PageLayoutSkeleton>
+        <ContentSkeleton />
+      </PageLayoutSkeleton>
     );
   }
 

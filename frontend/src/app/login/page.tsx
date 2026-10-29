@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import Footer from '../../components/Footer';
+import IndianFlag from '../../components/IndianFlag';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 
 const ImageFixed = Image as any;
@@ -91,20 +91,9 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
 );
 
 const LoadingSpinner: React.FC = () => (
-  <svg
-    className='animate-spin -ml-1 mr-3 h-5 w-5 text-[#0F2D52]'
-    xmlns='http://www.w3.org/2000/svg'
-    fill='none'
-    viewBox='0 0 24 24'
-    aria-hidden='true'
-  >
-    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-    <path
-      className='opacity-75'
-      fill='currentColor'
-      d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-    />
-  </svg>
+  <div className='relative w-4 h-4 mr-2.5 shrink-0 inline-block'>
+    <div className='w-4 h-4 rounded-full border-2 border-white/20 animate-spin border-t-[#FF9933] border-r-white border-b-[#138808] border-l-[#D4AF37]' />
+  </div>
 );
 
 const FormInput: React.FC<{
@@ -326,7 +315,7 @@ function LoginContent() {
       <FormInput
         id='username'
         type='text'
-        placeholder='Username or Email'
+        placeholder='Enter Username'
         value={formData.username}
         onChange={value => updateField('username', value)}
         disabled={isLoading}
@@ -364,13 +353,29 @@ function LoginContent() {
       className='min-h-screen flex flex-col relative overflow-hidden'
       role='main'
     >
+      {/* Background Gradient Layer over PersistentHeroVideo */}
       <div
-        className='absolute inset-0 bg-gradient-to-b from-[#0F2D52]/70 via-[#0F2D52]/50 to-[#0F2D52]/80'
+        className='absolute inset-0 bg-gradient-to-b from-[#071527]/85 via-[#0B1F3A]/75 to-[#071527]/90'
         aria-hidden='true'
       />
-      <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
-        <div className={`relative max-w-md w-full bg-white/10 p-8 sm:p-10 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-sm border border-white/25 transition-all duration-300 ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}>
-          <div className='absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#B8860B] via-[#D4AF37] to-[#B8860B]' />
+
+      {/* Indian National Tricolor Apex Ribbon */}
+      <div className='relative z-20 h-[3px] w-full flex shadow-[0_1px_4px_rgba(0,0,0,0.4)]'>
+        <div className='w-1/3 bg-[#FF9933]' />
+        <div className='w-1/3 bg-[#FFFFFF]' />
+        <div className='w-1/3 bg-[#138808]' />
+      </div>
+
+      {/* Main Login Card Container: Simple, Clean & Centered */}
+      <div className='relative z-10 flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
+        <div className={`relative max-w-md w-full bg-white/10 p-8 sm:p-10 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl border border-white/20 transition-all duration-300 ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}>
+          {/* Official Indian National Tricolor Ribbon across card top */}
+          <div className='absolute top-0 inset-x-0 h-1.5 flex shadow-sm'>
+            <div className='w-1/3 bg-[#FF9933]' />
+            <div className='w-1/3 bg-[#FFFFFF]' />
+            <div className='w-1/3 bg-[#138808]' />
+          </div>
+
           <div
             className='pointer-events-none absolute inset-0 rounded-2xl'
             style={{
@@ -380,43 +385,67 @@ function LoginContent() {
           />
 
           <div className='relative flex flex-col items-center'>
-            <div className='mb-5 h-20 w-20 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-lg ring-1 ring-white/30 ring-offset-2 ring-offset-transparent'>
+            {/* Government of Telangana Badge with Tiranga Flag */}
+            <div className='inline-flex items-center gap-2 px-3.5 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/25 mb-4 shadow-sm'>
+              <IndianFlag width={18} height={12} />
+              <span className='text-[10px] font-bold text-[#FFD700] tracking-wider uppercase'>
+                Government of Telangana
+              </span>
+            </div>
+
+            {/* Crest with Gold Accent Ring */}
+            <div className='mb-3 h-20 w-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center shadow-xl ring-2 ring-[#D4AF37]/50 ring-offset-2 ring-offset-transparent border border-white/30'>
               <ImageFixed
                 src={LOGO_IMAGE}
-                alt='ALMS Logo'
+                alt='Telangana ALMS Crest'
                 width={52}
                 height={52}
                 className='h-auto'
                 priority
               />
             </div>
-            <h1 className='text-center text-2xl sm:text-3xl font-bold text-white leading-tight drop-shadow-sm'>
+
+            <h1 className='text-center text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-md'>
               Arms License Management System
             </h1>
-            <p className='mt-2 text-center text-sm text-gray-200'>
-              Sign in to access your dashboard
+            <p className='mt-1 text-center text-xs text-gray-200 font-medium'>
+              Home (Police) Department • Officer Sign In
             </p>
+
+            {/* Indian National Tricolor Accent Hairline */}
+            <div className='my-3.5 h-[2px] w-24 mx-auto rounded-full bg-gradient-to-r from-[#FF9933] via-white to-[#138808] shadow-[0_0_8px_rgba(255,153,51,0.5)]' />
           </div>
 
           {error && (
-            <div className='relative mt-6'>
+            <div className='relative mt-4'>
               <ErrorMessage message={error} />
             </div>
           )}
 
-          <form className='relative mt-8 space-y-4' onSubmit={handleSubmit} noValidate>
-            {usernameInput}
-            {passwordInput}
+          <form className='relative mt-6 space-y-4' onSubmit={handleSubmit} noValidate>
+            <div>
+              <label htmlFor="username" className="block text-xs font-semibold text-gray-200 mb-1.5 uppercase tracking-wide">
+                Officer Username
+              </label>
+              {usernameInput}
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-xs font-semibold text-gray-200 mb-1.5 uppercase tracking-wide">
+                Password
+              </label>
+              {passwordInput}
+            </div>
 
             <div className='pt-2'>
               <button
                 type='submit'
                 disabled={isLoading || !isFormValid}
-                className='group relative w-full flex justify-center items-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-[#0F2D52] bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all duration-200'
+                className='group relative w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-extrabold text-[#0B1F3A] bg-gradient-to-r from-[#D4AF37] via-[#C4A02F] to-[#B8860B] hover:from-[#E5BE48] hover:to-[#A0750A] shadow-xl hover:shadow-2xl transition-all duration-200 border border-[#FFE58F]/50 disabled:opacity-50 disabled:cursor-not-allowed'
                 aria-describedby={!isFormValid ? 'form-validation' : undefined}
               >
                 {isLoading && <LoadingSpinner />}
-                <span>{isLoading ? 'Signing in...' : 'Sign in'}</span>
+                <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
               </button>
               {!isFormValid && (
                 <div id='form-validation' className='sr-only'>
@@ -426,17 +455,37 @@ function LoginContent() {
             </div>
           </form>
 
-          <div className='relative mt-6 text-center'>
+          {/* Simple Back Link & Access Notice */}
+          <div className='relative mt-6 pt-4 border-t border-white/15 flex flex-col items-center gap-2 text-center'>
             <Link
               href="/"
-              className="text-sm text-gray-300 hover:text-white transition-colors"
+              className="text-xs text-gray-300 hover:text-white transition-colors"
             >
-              ← Back to Home
+              &larr; Back to Portal Home
             </Link>
+            <p className='text-[10px] text-gray-400'>
+              Authorized Police &amp; Magisterial Personnel Access Only
+            </p>
           </div>
         </div>
       </div>
-      <Footer variant='dark' className='relative z-10' />
+
+      {/* Official Telangana State Police Footer with Indian Flag */}
+      <footer className='relative z-20 w-full bg-[#071324]/95 backdrop-blur-md border-t border-white/10 py-3 text-xs text-gray-300'>
+        <div className='max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left'>
+          <div className='flex items-center gap-2 justify-center sm:justify-start'>
+            <IndianFlag width={18} height={12} />
+            <span>&copy; {new Date().getFullYear()} <strong className='text-white'>Government of Telangana</strong> • Home (Police) Department</span>
+          </div>
+          <div className='flex items-center gap-3 text-[11px] text-gray-400 justify-center sm:justify-end'>
+            <span>The Arms Act, 1959</span>
+            <span>•</span>
+            <span>The Arms Rules, 2016</span>
+            <span>•</span>
+            <span className='font-mono text-[#D4AF37]'>State Secure Portal</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -28,7 +28,7 @@ const stepToSlug = (name: string) =>
 function LayoutSkeleton() {
   return (
     <div className='relative min-h-screen flex flex-col overflow-x-hidden bg-[#eef2f9]'>
-      {/* Background image with soft opacity veil so the form card stays readable on any screen/zoom */}
+      {/* Background image with soft opacity veil */}
       <div className='fixed inset-0 z-0' aria-hidden='true'>
         <div
           className='absolute inset-0 bg-cover bg-center'
@@ -39,15 +39,60 @@ function LayoutSkeleton() {
         />
         <div className='absolute inset-0 bg-white/70' />
       </div>
+
+      {/* Indian National Tricolor Apex Ribbon with Active Flag Loader Runner */}
+      <div className='fixed top-0 inset-x-0 h-[3px] z-50 pointer-events-none overflow-hidden bg-slate-200/50'>
+        <div className='absolute inset-0 flex opacity-40'>
+          <div className='w-1/3 bg-[#FF9933]' />
+          <div className='w-1/3 bg-[#FFFFFF]' />
+          <div className='w-1/3 bg-[#138808]' />
+        </div>
+        <div className='absolute inset-0 flag-runner-bar' />
+      </div>
+
       <div
-        className='relative z-10 flex-1 flex justify-center w-full px-4 sm:px-6 lg:px-8'
-        style={{ paddingTop: 100, paddingBottom: 48 }}
+        className='relative z-10 flex-1 flex flex-col items-center w-full px-4 sm:px-6 lg:px-8'
+        style={{ paddingTop: 20, paddingBottom: 48 }}
       >
-        <div className='rounded-2xl bg-white border border-blue-100 shadow-xl w-full max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] p-6 animate-pulse'>
-          <div className='h-3 w-40 bg-gray-200 rounded mx-auto mb-8'></div>
-          <div className='space-y-4'>
-            <div className='h-8 bg-gray-200 rounded w-full'></div>
-            <div className='h-32 bg-gray-200 rounded w-full'></div>
+        {/* Title Badge with Navy Blue & Gold styling */}
+        <div className='w-full flex items-center justify-center mt-3 mb-2'>
+          <div className='inline-flex items-center gap-2.5 px-6 py-1.5 rounded-full bg-[#0B1F3A] text-white shadow-md border border-[#1D3C68]'>
+            <span className='w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse' />
+            <span className='text-xs sm:text-sm font-black tracking-widest uppercase text-white'>
+              FRESH APPLICATION FORM
+            </span>
+          </div>
+        </div>
+
+        {/* Step Navigation Bar Skeleton */}
+        <div className='w-full max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] rounded-2xl shadow-lg px-3 py-2 bg-[#0B1F3A] border-2 border-[#15325B] mb-4 flex items-center gap-3 overflow-x-auto'>
+          <div className='h-8 w-8 rounded-full bg-white/20 shrink-0' />
+          <div className='flex items-center gap-4 flex-1 justify-center min-w-[700px]'>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className='flex flex-col items-center gap-1'>
+                <div className={`h-6 w-6 rounded-full ${i === 0 ? 'bg-[#D4AF37]' : 'bg-white/20'}`} />
+                <div className='h-2 w-14 rounded bg-white/25' />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Form Card Skeleton */}
+        <div className='rounded-2xl bg-white border border-slate-200/80 shadow-xl w-full max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] p-6 sm:p-8 space-y-6'>
+          <div className='flex items-center justify-between pb-4 border-b border-slate-100'>
+            <div className='flex items-center gap-3'>
+              <div className='h-10 w-10 rounded-xl flag-skeleton-shimmer' />
+              <div className='h-5 w-48 rounded-md flag-skeleton-shimmer' />
+            </div>
+            <div className='h-6 w-24 rounded-full flag-skeleton-shimmer' />
+          </div>
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className='space-y-2'>
+                <div className='h-3.5 w-28 rounded flag-skeleton-shimmer' />
+                <div className='h-10 w-full rounded-xl flag-skeleton-shimmer' />
+              </div>
+            ))}
           </div>
         </div>
       </div>

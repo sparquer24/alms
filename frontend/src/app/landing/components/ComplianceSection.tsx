@@ -85,42 +85,52 @@ export default function ComplianceSection({ title, description, items }: Complia
   }, {});
 
   return (
-    <section className="py-20 bg-gradient-to-br from-[#0F2D52]/5 via-[#F8F9FA] to-[#B8860B]/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="compliance" className="py-24 bg-white border-b border-gray-200">
+      <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="inline-block px-3 py-1 text-xs font-semibold text-[#B8860B] bg-[#B8860B]/10 rounded-full uppercase tracking-wider mb-4">
-            Compliance
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#0F2D52] mb-4">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 text-xs font-bold text-[#0F2D52] bg-[#0F2D52]/10 rounded-full uppercase tracking-wider mb-3">
+            <span className="w-2 h-2 rounded-full bg-[#138808]" />
+            Statutory Inquiries & Checks
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-black text-[#0B1F3A] tracking-tight mb-3">
             {title}
           </h2>
-          <p className="text-gray-600 leading-relaxed">{description}</p>
+          <div className="mx-auto h-[2.5px] w-24 rounded-full bg-gradient-to-r from-[#FF9933] via-[#D4AF37] to-[#138808] mb-4" />
+          <p className="text-sm sm:text-base text-gray-600 leading-relaxed">{description}</p>
         </div>
 
         <div className="space-y-8">
           {Object.entries(grouped).map(([category, categoryItems]) => {
             const colors = categoryColors[category] || categoryColors.Compliance;
             return (
-              <div key={category}>
-                <div className="flex items-center gap-3 mb-4">
-                  <span className={`px-3 py-1 text-xs font-semibold rounded-full ${colors.bg} ${colors.text} ${colors.border} border`}>
-                    {category}
+              <div key={category} className="bg-[#F8FAFC] rounded-2xl border border-gray-200/90 p-5 sm:p-6 shadow-xs">
+                <div className="flex items-center gap-3 mb-5">
+                  <span className={`px-3 py-1 text-xs font-bold rounded-full ${colors.bg} ${colors.text} ${colors.border} border tracking-wide uppercase`}>
+                    {category} Verification
                   </span>
+                  <div className="h-px flex-1 bg-gray-200" />
                 </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {categoryItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-4 bg-white/50 backdrop-blur-sm rounded-lg border border-white/60 p-4 shadow-sm hover:shadow-md hover:bg-white/70 hover:border-[#B8860B]/20 transition-all duration-200"
+                      className="group flex items-start gap-3.5 bg-white rounded-xl border border-gray-200/90 p-4 shadow-xs hover:shadow-md hover:border-[#D4AF37]/60 transition-all duration-200"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-[#0F2D52]/5 text-[#0F2D52] flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-lg bg-[#0F2D52]/5 text-[#0F2D52] flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-[#0F2D52] group-hover:text-white transition-colors duration-200">
                         {complianceIcons[item.title] || (
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4" />
                           </svg>
                         )}
                       </div>
-                      <span className="text-sm font-medium text-gray-800">{item.title}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-bold text-[#0B1F3A] block leading-snug">{item.title}</span>
+                        {item.statutoryBasis && (
+                          <span className="text-[11px] text-[#0F2D52] font-semibold block mt-1">
+                            {item.statutoryBasis}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

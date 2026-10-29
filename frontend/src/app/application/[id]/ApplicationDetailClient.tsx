@@ -1035,31 +1035,31 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             <>
               {/* Tab Loading Skeleton — shown when the Origin tab data is being fetched */}
               {isRenewalView && activeTab === 'original' && originalLicenseLoading ? (
-                <div className='p-6 lg:p-8 bg-slate-50/30 transition-opacity duration-300 animate-pulse'>
+                <div className='p-6 lg:p-8 bg-slate-50/30 transition-opacity duration-300'>
                   {/* Application Information Section Skeleton */}
-                  <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8'>
+                  <div className='bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 mb-8'>
                     <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-6'>
                       <div className='flex items-center gap-3'>
-                        <div className='h-10 w-10 rounded-lg bg-gray-200'></div>
-                        <div className='h-6 w-48 bg-gray-200 rounded'></div>
+                        <div className='h-10 w-10 rounded-xl flag-skeleton-shimmer'></div>
+                        <div className='h-6 w-48 rounded flag-skeleton-shimmer'></div>
                       </div>
                       <div className='flex gap-2'>
-                        <div className='h-10 w-32 bg-gray-200 rounded-xl'></div>
-                        <div className='h-10 w-32 bg-gray-200 rounded-xl hidden sm:block'></div>
+                        <div className='h-10 w-32 rounded-xl flag-skeleton-shimmer'></div>
+                        <div className='h-10 w-32 rounded-xl flag-skeleton-shimmer hidden sm:block'></div>
                       </div>
                     </div>
                     <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
                       <div className='lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6'>
                         {[...Array(8)].map((_, i) => (
                           <div key={i} className={`space-y-2 ${i === 0 ? 'md:col-span-2' : ''}`}>
-                            <div className='h-4 w-24 bg-gray-200 rounded'></div>
-                            <div className='h-5 w-48 max-w-full bg-gray-200 rounded'></div>
+                            <div className='h-4 w-24 rounded flag-skeleton-shimmer'></div>
+                            <div className='h-5 w-48 max-w-full rounded flag-skeleton-shimmer'></div>
                           </div>
                         ))}
                       </div>
                       <div className='space-y-6'>
-                        <div className='h-48 w-full bg-gray-200 rounded-2xl'></div>
-                        <div className='h-64 w-full bg-gray-200 rounded-2xl'></div>
+                        <div className='h-48 w-full rounded-2xl flag-skeleton-shimmer'></div>
+                        <div className='h-64 w-full rounded-2xl flag-skeleton-shimmer'></div>
                       </div>
                     </div>
                   </div>
@@ -1068,17 +1068,17 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     {[...Array(3)].map((_, i) => (
                       <div
                         key={i}
-                        className='bg-white rounded-xl border border-slate-200 shadow-sm p-5 h-[400px]'
+                        className='bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 h-[400px]'
                       >
                         <div className='flex items-center gap-3 mb-6'>
-                          <div className='h-10 w-10 rounded-lg bg-gray-200'></div>
-                          <div className='h-5 w-32 bg-gray-200 rounded'></div>
+                          <div className='h-10 w-10 rounded-xl flag-skeleton-shimmer'></div>
+                          <div className='h-5 w-32 rounded flag-skeleton-shimmer'></div>
                         </div>
                         <div className='space-y-5'>
                           {[...Array(5)].map((_, j) => (
                             <div key={j} className='space-y-2'>
-                              <div className='h-3 w-20 bg-gray-200 rounded'></div>
-                              <div className='h-4 w-full bg-gray-200 rounded'></div>
+                              <div className='h-3 w-20 rounded flag-skeleton-shimmer'></div>
+                              <div className='h-4 w-full rounded flag-skeleton-shimmer'></div>
                             </div>
                           ))}
                         </div>
@@ -1087,7 +1087,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   </div>
                   {/* Loading indicator */}
                   <div className='flex flex-col items-center justify-center py-8 text-center'>
-                    <div className='w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4'></div>
+                    <div className='w-10 h-10 border-4 border-slate-200 border-t-[#0B1F3A] rounded-full animate-spin mb-4'></div>
                     <p className='text-sm font-medium text-slate-500'>
                       Loading original license details...
                     </p>
