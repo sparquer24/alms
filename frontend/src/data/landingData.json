@@ -1,234 +1,352 @@
 {
   "platform": {
-    "name": "Arms License Management System",
-    "tagline": "Digital Arms Governance &amp; Licensing Platform",
-    "description": "A comprehensive digital platform for managing the complete arms licensing ecosystem through configurable workflows, role-based approvals, compliance monitoring, audit tracking, and lifecycle management.",
-    "governingBody": "Arms License Management System"
+    "name": "Telangana Arms License Management System (ALMS)",
+    "tagline": "Official Arms Licensing, Regulation & Enforcement Portal — Government of Telangana",
+    "description": "The official digital governance platform of the Government of Telangana for regulating arms and ammunition licensing, renewals, jurisdiction transfers, and enforcement monitoring under the statutory provisions of The Arms Act, 1959, The Arms Rules, 2016, and the Telangana Police regulatory framework.",
+    "governingBody": "Home (Police) Department, Government of Telangana",
+    "stateJurisdiction": "State of Telangana (All Police Commissionerates & District Magistracies)",
+    "actReference": "The Arms Act, 1959, The Arms Rules, 2016 & Hyderabad City Police Act"
   },
   "navigation": [
     { "label": "Home", "href": "#hero" },
-    { "label": "License Services", "href": "#services" },
-    { "label": "Workflow Process", "href": "#workflow" },
-    { "label": "Reports", "href": "#ecosystem" },
-    { "label": "Help", "href": "#footer" }
+    { "label": "State Services", "href": "#services" },
+    { "label": "Approval Workflow", "href": "#workflow" },
+    { "label": "License Lifecycle", "href": "#lifecycle" },
+    { "label": "Ecosystem", "href": "#ecosystem" },
+    { "label": "State Administration", "href": "#admin" },
+    { "label": "Verification & Rules", "href": "#compliance" },
+    { "label": "Security Standards", "href": "#security" }
+  ],
+  "announcements": [
+    "GOVERNMENT OF TELANGANA DIRECTIVE: Mandatory biometric enrollment (Iris Scan, Live Photograph & Digital Signature) active at Hyderabad, Cyberabad, Rachakonda, and all district police headquarters.",
+    "ELECTION ARMORY DEPOSIT PROTOCOL: Under Telangana State Police orders, all licensed firearms must be deposited with local police station armories or authorized gun houses during statutory election periods.",
+    "DUAL VERIFICATION MANDATE: In Telangana, all fresh arms applications undergo simultaneous independent inquiries by the local Police Station (SHO) and the Special Branch (SB).",
+    "APPELLATE AUTHORITY: Under Section 18 of The Arms Act, appeals against orders of the Commissioner of Police or District Magistrate lie before the Principal Secretary to Government, Home Department, Telangana Secretariat."
   ],
   "hero": {
-    "title": "Secure, Transparent &amp; Workflow-Driven <span class=\"text-[#D4AF37]\">Arms License Governance</span>",
-    "subtitle": "A comprehensive digital platform for managing the complete arms licensing ecosystem through configurable workflows, role-based approvals, compliance monitoring, audit tracking, and lifecycle management.",
-    "primaryCta": { "label": "officer ", "href": "/login" },
-    "secondaryCta": { "label": "Track Application", "href": "/login" },
-    "tertiaryCta": { "label": "Login", "href": "/login" },
+    "title": "Telangana State Portal for <span class=\"text-[#D4AF37]\">Arms License Regulation</span> & Enforcement Workflow",
+    "subtitle": "The official digital governance platform of the Government of Telangana regulating arms and ammunition possession, renewal, area validity extension, and enforcement monitoring across all Police Commissionerates and District Magistracies under The Arms Act, 1959 and The Arms Rules, 2016.",
+    "primaryCta": { "label": "Officer / Authority Sign In", "href": "/login" },
+    "secondaryCta": { "label": "State Services & Modules", "href": "#services" },
+    "tertiaryCta": { "label": "Police Verification Hierarchy", "href": "#workflow" },
     "workflowHierarchy": [
-      "Applicant",
-      "SHO",
-      "ACP",
-      "DCP",
-      "JTCP",
-      "CP",
-      "Arms Superintendent",
-      "License Issued"
+      "Citizen Application",
+      "Local Police Inquiry (SHO)",
+      "Special Branch (SB)",
+      "Sub-Division (ACP/SDPO)",
+      "District Scrutiny (DCP/SP)",
+      "Licensing Authority (CP/DM)",
+      "FLAF Issuance & UIN"
+    ],
+    "stats": [
+      { "label": "Telangana State", "value": "All Districts", "desc": "Commissionerates & District Magistracies" },
+      { "label": "Dual Inquiry", "value": "SHO + SB", "desc": "Local police station and Special Branch scrutiny" },
+      { "label": "State Appellate", "value": "Section 18", "desc": "Home Dept, Telangana Secretariat" },
+      { "label": "Arms Rules 2016", "value": "Rule 11 & 24", "desc": "Biometric enrollment & 90-day renewal cycle" },
+      { "label": "Election Protocol", "value": "Armory Safe", "desc": "Statutory deposit & safe custody tracking" }
     ]
   },
   "serviceModules": [
     {
       "id": "fresh",
-      "title": "Fresh Application",
-      "description": "Apply for a new arms license through a structured digital form with personal details, address, occupation, criminal history, biometric data, and document uploads — all validated in real time.",
-      "icon": "new-license"
+      "title": "Fresh Arms License",
+      "statutoryForm": "Statutory Form II & III",
+      "description": "Apply for a fresh individual self-defense, crop protection, or sports shooting arms license in Telangana. Undergoes dual background verification by the local Police Station (SHO) and Special Branch (SB), accredited firing training, and resident gun safe verification.",
+      "icon": "new-license",
+      "sla": "Citizen Charter Timeline (30-60 Days)",
+      "badge": "Section 13, Arms Act"
     },
     {
       "id": "renewal",
-      "title": "License Renewal",
-      "description": "Renew existing licenses with a streamlined process that pre-fills approved application data, supports license merging, and maintains complete audit history across renewals.",
-      "icon": "renewal"
+      "title": "License Renewal & Re-validation",
+      "statutoryForm": "Statutory Form III-A",
+      "description": "Renew existing arms licenses within the statutory 90-day window under Rule 24. Conducts automated police NOC re-verification, weapon physical inspection, and updated medical certification (Form 1-A) by a Telangana Government Gazetted Medical Officer.",
+      "icon": "renewal",
+      "sla": "90-Day Renewal Window (Rule 24)",
+      "badge": "Rule 24 Compliant"
     },
     {
       "id": "transfer",
-      "title": "License Transfer",
-      "description": "Facilitate ownership and authority transfers through a configurable workflow that ensures proper verification, approval, and documentation at every transfer stage.",
-      "icon": "transfer"
+      "title": "Area Validity & Jurisdiction Transfer",
+      "statutoryForm": "Statutory Form IV & V",
+      "description": "Apply for area validity extension (District to Telangana State-wide, or recommendation for All-India validity) or transfer of jurisdiction upon relocation between Telangana Commissionerates (Hyderabad, Cyberabad, Rachakonda, Warangal) or revenue districts.",
+      "icon": "transfer",
+      "sla": "State Licensing Authority Review",
+      "badge": "State / Inter-District Endorsement"
     },
     {
       "id": "cancellation",
-      "title": "License Cancellation",
-      "description": "Process license cancellations with proper authorization chain, reason documentation, and automatic archival of all related records for future reference.",
-      "icon": "cancel"
+      "title": "Revocation, Surrender & Election Deposit",
+      "statutoryForm": "Section 17 & Election Protocols",
+      "description": "Process statutory suspensions or revocations under Section 17, voluntary license surrender, or record mandatory temporary weapon deposits in police station armories or authorized gun dealers during General and State Assembly Elections.",
+      "icon": "cancel",
+      "sla": "Statutory Executive Proceedings",
+      "badge": "Section 17 & Election Protocols"
     }
   ],
   "workflowGovernance": {
-    "title": "Workflow Governance",
-    "description": "A configurable multi-level approval system that ensures transparency, accountability, and compliance at every step of the licensing process.",
+    "title": "Telangana Law Enforcement & Magisterial Workflow",
+    "description": "A rigorously enforced multi-tiered approval hierarchy structured under the Telangana Police and revenue magistracy administrative framework to ensure independent scrutiny, intelligence clearance, and judicial accountability.",
     "chain": [
-      "Application Submission",
-      "Verification",
-      "SHO Review",
-      "ACP Review",
-      "DCP Review",
-      "Authority Approval",
-      "License Issuance"
+      "Digital Application Filing & Identity e-KYC",
+      "Local Police Station Ground Inquiry & CCTNS Check (SHO)",
+      "Special Branch Security & Intelligence Scrutiny (SB)",
+      "Sub-Divisional Supervisory Review (ACP / SDPO)",
+      "District Police Scrutiny & Endorsement (DCP / SP)",
+      "Licensing Authority Adjudication (CP / District Magistrate)",
+      "FLAF Generation, UIN Allocation & Digital QR Issuance"
     ],
     "highlights": [
-      "Role Mapping — Assign specific roles to each workflow step",
-      "Action Mapping — Define permissible actions per role (Forward, Approve, Reject, Return)",
-      "Status Tracking — Real-time status codes track every transition",
-      "Multi-Level Approval Chain — Up to 7 authority tiers",
-      "Audit History — Immutable action logs with timestamps",
-      "Workflow Transparency — Complete visibility into process stage"
+      "Dual Police Inquiry System — Simultaneous independent field checks by the local Law & Order Police Station (SHO) and the Special Branch (SB)",
+      "Commissioner of Police Jurisdiction — Direct statutory licensing powers exercised by the Commissioner of Police across Hyderabad, Cyberabad, Rachakonda, Warangal, and other Commissionerates",
+      "District Magistrate Jurisdiction — Collector & District Magistrate acts as the Licensing Authority in revenue districts, assisted by the Superintendent of Police (SP)",
+      "State Appellate Remedy — Appeals against adverse orders of the Licensing Authority lie before the Principal Secretary, Home Department, Telangana Secretariat (Section 18)",
+      "Election Custody Monitoring — Integrated digital tracking of weapon deposits in police station armories during statutory election periods",
+      "Immutable Audit Ledger — Cryptographic action logging recording officer username, designation, police station, IP address, and timestamp"
     ]
   },
   "ecosystem": [
     {
+      "role": "citizen",
+      "title": "Citizens & License Holders",
+      "designation": "Telangana Resident & Sports Applicants",
+      "capabilities": [
+        "Online Application Submission & Document Upload",
+        "Biometric Appointment Scheduling at Police HQ",
+        "Telangana Cyber Treasury Fee e-Payment",
+        "Real-Time Application Status Tracking",
+        "Digital FLAF License & QR Verification"
+      ]
+    },
+    {
       "role": "officer",
-      "title": "Field Officer",
-      "title": "Field Officer",
-      "capabilities": ["Review Applications", "Verify Documents", "Forward to Authority", "Generate Ground Reports", "Criminal History Check"]
+      "title": "Station House Officers (SHO) & SB",
+      "designation": "Field Verification Authorities",
+      "capabilities": [
+        "Physical Residence & Gun Safe Inspection",
+        "CCTNS Telangana Criminal Record Verification",
+        "Special Branch Intelligence & Character Scrutiny",
+        "Ground Assessment & Neighbor Inquiries",
+        "Digital Proceedings Endorsement to ACP / SDPO"
+      ]
     },
     {
       "role": "authority",
-      "title": "Licensing Authority",
-      "capabilities": ["Approve Licenses", "Dispose Applications", "Monitor Workflow", "Generate Reports", "Audit Trail Access"]
+      "title": "Licensing Authorities (CP / DM)",
+      "designation": "Statutory Adjudicating Authorities",
+      "capabilities": [
+        "Adjudication under Sections 13 and 14 of The Arms Act",
+        "Grant / Rejection Speaking Orders",
+        "Area Validity Endorsements across Telangana State",
+        "Election Weapons Deposit & Safe Custody Orders",
+        "District Arms Register Administration"
+      ]
     },
     {
       "role": "admin",
-      "title": "Administrator",
-      "capabilities": ["Configure Workflows", "Manage Users & Roles", "Audit All Activities", "Flow Mapping", "Master Data Management"]
+      "title": "Home Department & System Admins",
+      "designation": "State Governance & Oversight",
+      "capabilities": [
+        "Telangana Jurisdictional & Police Station Hierarchy",
+        "26-Permission RBAC Matrix Management",
+        "Statewide MIS Analytics & Pendency Monitoring",
+        "Section 18 Appellate Case File Tracking",
+        "Cryptographic Audit Vault Administration"
+      ]
     }
   ],
   "adminControlCenter": {
-    "title": "Administrative Control Center",
-    "description": "The backbone of the ALMS platform — comprehensive administrative tools for managing the entire governance ecosystem.",
+    "title": "Telangana State Administrative Control Center",
+    "description": "Executive command and oversight infrastructure for the Home (Police) Department, Police Commissioners, and District Magistrates managing arms governance across Telangana.",
     "features": [
       {
-        "title": "User Management",
-        "description": "Create, update, and manage users with role assignments, location hierarchy mapping, and activity status control.",
-        "highlights": ["26 Permissions", "Role-Based Access", "Soft-Delete Support"]
+        "title": "Telangana Police Jurisdiction Hierarchy",
+        "description": "Manage master records across all Commissionerates (Hyderabad, Cyberabad, Rachakonda, Warangal, Nizamabad, Karimnagar, etc.) and Revenue Districts down to local Police Stations.",
+        "highlights": ["Commissionerates & Districts", "Sub-Divisions & Police Stations", "Special Branch Units"]
       },
       {
-        "title": "Role Management",
-        "description": "Define and configure roles with granular permissions across 3 categories — complete CRUD with soft-delete capability.",
-        "highlights": ["Custom Roles", "Permission Matrix", "Hierarchy Config"]
+        "title": "Role & Statutory Authority Mapping",
+        "description": "Configure roles from SHO and Special Branch Inspectors to ACP, DCP, Commissioner of Police, and District Magistrate with role separation under the Arms Rules.",
+        "highlights": ["Statutory Authority Binding", "Separation of Powers", "Delegated Permissions"]
       },
       {
-        "title": "Workflow Configuration",
-        "description": "Configure status transitions between roles using PostgreSQL array-based next role configuration with validation.",
-        "highlights": ["Status Mapping", "Role Transitions", "Action Configuration"]
+        "title": "Statewide Workflow Routing Engine",
+        "description": "Automate file routing between Police Stations, Special Branch, Sub-Divisions, and Licensing Desks with policy-based conditional branches for PB and NPB firearms.",
+        "highlights": ["SHO + SB Dual Routing", "PB / NPB Weapon Rules", "Next-Officer Trees"]
       },
       {
-        "title": "Flow Mapping",
-        "description": "Visual workflow designer with DFS-based circular dependency detection and comprehensive role connection mapping.",
-        "highlights": ["Visual Canvas", "Circular Detection", "Role Connections"]
+        "title": "Visual Flow Designer & Deadlock Shield",
+        "description": "Visual canvas with Depth-First Search (DFS) validation preventing circular forwarding or administrative deadlocks across departments.",
+        "highlights": ["Visual Workflow Canvas", "Deadlock Prevention", "Role Connectors"]
       },
       {
-        "title": "Analytics Dashboard",
-        "description": "Real-time statistics and trends with charts for applications by week, role load distribution, and status breakdowns.",
-        "highlights": ["Real-Time Stats", "Trend Charts", "Role Load Analysis"]
+        "title": "Executive MIS Dashboard & Pendency Tracking",
+        "description": "Real-time telemetries for the Director General of Police (DGP), Commissioners, and District Collectors showing application pendency, disposal rate, and SLA compliance.",
+        "highlights": ["Officer Pendency Heatmap", "Disposal Velocity", "SLA Escalation Alerts"]
       },
       {
-        "title": "Reports System",
-        "description": "Exportable reports for oversight with filtering by date range, status, role, and location hierarchy.",
-        "highlights": ["Exportable Data", "Filtering", "Scheduled Reports"]
+        "title": "Election Weapons Deposit System",
+        "description": "Special module for monitoring mandatory firearm deposits in police armories and authorized dealers during State and Parliamentary Elections.",
+        "highlights": ["Armory Deposit Receipts", "Dealer Stock Verification", "Post-Election Return Logs"]
       },
       {
-        "title": "Audit Trails",
-        "description": "Complete action history with timestamps, user tracking, and merge audit logs for all system activities.",
-        "highlights": ["Immutable Logs", "User Tracking", "Activity History"]
+        "title": "Cryptographic Audit Vault",
+        "description": "Tamper-evident, non-repudiable audit ledger recording every file movement, police remark, and magisterial decision with cryptographic timestamps.",
+        "highlights": ["SHA-256 Checksums", "Non-Repudiation Proof", "Full File Movement History"]
       },
       {
-        "title": "Master Data Management",
-        "description": "Manage locations (State/District/Zone/Division/Police Station), weapon types, document types, and other reference data.",
-        "highlights": ["Location Hierarchy", "Weapon Catalog", "Document Types"]
+        "title": "State Reports & Gazette MIS",
+        "description": "Generate auditable government reports filterable by police jurisdiction, weapon bore category, status, and timeline, with digitally signed PDF and Excel exports.",
+        "highlights": ["State Return Exports", "Gazette Format Logs", "Audit-Ready Reports"]
       }
     ],
-    "badges": ["26 Permissions", "Role-Based Access Control", "Workflow Configuration", "Approval Hierarchies"]
+    "badges": ["Telangana State Police", "26 Permissions", "Role-Based Access Control", "Dual Verification Engine", "Election Armory Tracking", "Audit Ready"]
   },
   "compliance": {
-    "title": "Compliance &amp; Verification Framework",
-    "description": "Multi-layered verification and compliance checks ensuring only eligible applicants receive licenses through thorough background validation.",
+    "title": "Telangana State Arms Verification Framework",
+    "description": "Multi-tiered statutory compliance and security checks ensuring that arms licenses are granted exclusively to vetted, lawful, and eligible citizens across Telangana.",
     "items": [
-      { "id": "criminal", "title": "Criminal History Verification", "category": "Background" },
-      { "id": "fir", "title": "FIR Verification", "category": "Background" },
-      { "id": "conviction", "title": "Conviction Tracking", "category": "Background" },
-      { "id": "aadhaar", "title": "Aadhaar Verification", "category": "Identity" },
-      { "id": "pan", "title": "PAN Verification", "category": "Identity" },
-      { "id": "training", "title": "Training Certificate Verification", "category": "Document" },
-      { "id": "medical", "title": "Medical &amp; Fitness Verification", "category": "Document" },
-      { "id": "ground", "title": "Ground Reports", "category": "Inspection" },
-      { "id": "biometric", "title": "Biometric Verification", "category": "Identity" },
-      { "id": "legal", "title": "Legal Declarations", "category": "Compliance" },
-      { "id": "audit", "title": "Audit Logs &amp; Tracking", "category": "Compliance" }
+      { "id": "cctns", "title": "CCTNS Telangana Criminal Record Clearance", "category": "Background", "statutoryBasis": "State Police Crime Databases & FIRs" },
+      { "id": "sb", "title": "Special Branch (SB) Security Clearance", "category": "Background", "statutoryBasis": "State Intelligence & Character Scrutiny" },
+      { "id": "fir", "title": "Local Police Station Crime Register Inquiry", "category": "Background", "statutoryBasis": "Police Station Crime Records" },
+      { "id": "conviction", "title": "Court Conviction & Bail Order Verification", "category": "Background", "statutoryBasis": "Judicial Trial & Pending Case Check" },
+      { "id": "aadhaar", "title": "UIDAI Aadhaar e-KYC Verification", "category": "Identity", "statutoryBasis": "Identity & Telangana Address Authenticity" },
+      { "id": "pan", "title": "PAN & Financial Standing Declaration", "category": "Identity", "statutoryBasis": "Income Tax & Financial Authenticity" },
+      { "id": "training", "title": "Certified Weapon Safety Training", "category": "Document", "statutoryBasis": "Telangana Rifle Association / Accredited Range" },
+      { "id": "medical", "title": "Medical Fitness Certificate (Form 1-A)", "category": "Document", "statutoryBasis": "Telangana Govt Gazetted Medical Officer" },
+      { "id": "safe", "title": "Resident Gun Safe Physical Inspection", "category": "Inspection", "statutoryBasis": "SHO Safe Custody Verification Report" },
+      { "id": "biometric", "title": "Multi-Modal Biometric Capture", "category": "Identity", "statutoryBasis": "Iris, Live Photo & Digital Signature" },
+      { "id": "election", "title": "Election Armory Deposit Compliance", "category": "Compliance", "statutoryBasis": "Telangana State Police Election Orders" },
+      { "id": "quota", "title": "Statutory 2-Weapon Limit Adherence", "category": "Compliance", "statutoryBasis": "The Arms (Amendment) Act, 2019" }
     ]
   },
   "lifecycle": {
-    "title": "Complete License Lifecycle",
-    "description": "End-to-end lifecycle management from initial application through final disposition — every stage tracked, audited, and transparent.",
+    "title": "Telangana Arms License Lifecycle Management",
+    "description": "End-to-end digital lifecycle tracking from citizen submission through local police scrutiny, Special Branch clearance, magisterial order, renewal, and armory deposit.",
     "stages": [
       {
-        "stage": "Application",
-        "description": "Submit personal details, address, occupation information, criminal history declaration, and required documents."
+        "stage": "Application Filing",
+        "description": "Citizen submits Form II/III with personal details, weapon specifications, justification, Aadhaar verification, and supporting documents.",
+        "statutoryRef": "Form II / III"
       },
       {
-        "stage": "Verification",
-        "description": "Document verification, criminal history checks, identity validation, and initial eligibility assessment."
+        "stage": "Registry Scrutiny",
+        "description": "Licensing branch checks document completeness, identity verification, fee payment receipt, and initiates police verification.",
+        "statutoryRef": "Initial Registry"
       },
       {
-        "stage": "Inspection",
-        "description": "Biometric capture (signature, iris, photograph), ground report generation, and field-level verification by local authorities."
+        "stage": "Local Police (SHO) Check",
+        "description": "Station House Officer inspects residence, checks gun safe, examines crime records, and records neighbor statements.",
+        "statutoryRef": "SHO Ground Inquiry"
       },
       {
-        "stage": "Approval",
-        "description": "Multi-level workflow approvals through SHO, ACP, DCP, JTCP, CP, and Arms Superintendent with configurable authority chains."
+        "stage": "Special Branch (SB) Inquiry",
+        "description": "Special Branch conducts independent intelligence verification for criminal antecedents and threat assessment.",
+        "statutoryRef": "SB Intelligence Clearance"
       },
       {
-        "stage": "License Issuance",
-        "description": "FLAF generation, license number assignment, QR code generation, and official issuance documentation."
+        "stage": "Biometric Enrollment",
+        "description": "Applicant attends biometric enrollment (Iris, Live Photograph, and Digital Signature) at designated Police Commissionerate/HQ.",
+        "statutoryRef": "Biometric Vault"
       },
       {
-        "stage": "Monitoring",
-        "description": "Continuous license monitoring, renewal notifications, compliance tracking, and activity logging throughout license validity."
+        "stage": "Sub-Division & District Review",
+        "description": "ACP and DCP review both SHO and Special Branch reports, assess threat perception, and record formal recommendations.",
+        "statutoryRef": "ACP / DCP Clearance"
       },
       {
-        "stage": "Renewal",
-        "description": "Pre-filled renewal process with approved application data, license merge system, and streamlined re-verification workflow."
+        "stage": "Licensing Order (CP / DM)",
+        "description": "Commissioner of Police or District Magistrate evaluates findings and passes a speaking order under Sections 13 and 14.",
+        "statutoryRef": "Section 13/14 Order"
       },
       {
-        "stage": "Transfer",
-        "description": "Authority transfer workflow with verification, documentation, and approval chain for ownership or jurisdictional changes."
+        "stage": "FLAF & UIN Issuance",
+        "description": "System generates Form of License (FLAF), allocates a permanent Unique Identification Number (UIN), and issues digital QR license.",
+        "statutoryRef": "Digital FLAF"
       },
       {
-        "stage": "Cancellation",
-        "description": "License cancellation with proper authorization, reason documentation, evidence archival, and final disposition recording."
+        "stage": "Periodic Renewal & Custody",
+        "description": "Triennial renewal within 90 days, periodic re-verification, and mandatory firearm deposit tracking during election periods.",
+        "statutoryRef": "Rule 24 & Election Rules"
       }
     ]
   },
   "security": {
-    "title": "Security &amp; Governance",
-    "description": "Enterprise-grade security infrastructure protecting sensitive data with multiple layers of access control, encryption, and audit capabilities.",
+    "title": "State Cybersecurity & Law Enforcement Data Governance",
+    "description": "Enterprise-grade government cybersecurity architecture protecting sensitive police intelligence and citizen records under Indian Cyber Security Guidelines.",
     "features": [
-      { "title": "RBAC", "description": "Fine-grained Role-Based Access Control with 26 permissions across all system modules.", "category": "Access" },
-      { "title": "JWT Authentication", "description": "Secure token-based authentication with automatic refresh and session management.", "category": "Access" },
-      { "title": "Audit Logging", "description": "Immutable timestamps and complete action history for every system operation.", "category": "Audit" },
-      { "title": "Encrypted Storage", "description": "AES-256 encryption for sensitive documents and personally identifiable information at rest.", "category": "Data" },
-      { "title": "Document Security", "description": "Encrypted file storage with access control, version tracking, and secure download URLs.", "category": "Data" },
-      { "title": "Biometric Protection", "description": "Encrypted storage and secure transmission for biometric data including signatures, iris scans, and photographs.", "category": "Data" },
-      { "title": "Soft Delete Strategy", "description": "Data preservation with soft-delete patterns ensuring no permanent data loss and complete recovery capability.", "category": "Data" },
-      { "title": "Activity Tracking", "description": "Real-time monitoring of all user activities with detailed logs for security analysis and compliance.", "category": "Audit" }
+      {
+        "title": "Fine-Grained RBAC",
+        "description": "Strict Role-Based Access Control implementing the principle of least privilege across 26 granular permissions.",
+        "category": "Access",
+        "standard": "ISO/IEC 27001"
+      },
+      {
+        "title": "Secure Police Authentication",
+        "description": "Token-based cryptographic authentication with automatic session timeout, device binding, and brute-force protection.",
+        "category": "Access",
+        "standard": "CERT-In Best Practice"
+      },
+      {
+        "title": "Cryptographic Audit Ledger",
+        "description": "Non-repudiable audit logs recording officer ID, designation, police station, IP address, and cryptographic timestamp for every action.",
+        "category": "Audit",
+        "standard": "IT Act, 2000 Section 65B"
+      },
+      {
+        "title": "AES-256 Data Encryption",
+        "description": "State security-grade AES-256 encryption for data at rest and TLS 1.3 encryption for all communications in transit.",
+        "category": "Data",
+        "standard": "FIPS 140-2 Validated"
+      },
+      {
+        "title": "Document Vault Security",
+        "description": "Encrypted file storage system with role-restricted access URLs, watermarking, and tamper detection.",
+        "category": "Data",
+        "standard": "MeitY Cloud Guidelines"
+      },
+      {
+        "title": "Biometric Vault Protection",
+        "description": "Dedicated secure hardware-isolated vault storing biometric iris scans, photos, and digital signatures.",
+        "category": "Data",
+        "standard": "UIDAI Security Standard"
+      },
+      {
+        "title": "Statutory Archival Pattern",
+        "description": "Permanent data preservation with soft-delete strategy ensuring complete historical and legal auditability.",
+        "category": "Data",
+        "standard": "Public Records Act"
+      },
+      {
+        "title": "Real-Time Threat Monitoring",
+        "description": "Continuous security logging and anomaly detection safeguarding state government servers against unauthorized access.",
+        "category": "Audit",
+        "standard": "GIGW 3.0 Standard"
+      }
     ]
   },
   "footer": {
-    "governingBody": "ALMS",
-    "systemName": "Arms License Management System (ALMS)",
+    "governingBody": "Government of Telangana | Home (Police) Department",
+    "systemName": "Telangana Arms License Management System (ALMS)",
     "links": [
-      { "label": "Privacy Policy", "href": "/privacy" },
-      { "label": "Terms &amp; Conditions", "href": "/terms" },
-      { "label": "Help Desk", "href": "/help" },
-      { "label": "Contact", "href": "/contact" }
+      { "label": "Citizen Charter", "href": "#services" },
+      { "label": "Right to Information (RTI)", "href": "#compliance" },
+      { "label": "State Police Guidelines", "href": "#workflow" },
+      { "label": "Terms & Conditions", "href": "#security" },
+      { "label": "Privacy & Data Policy", "href": "#security" },
+      { "label": "Helpdesk & Support", "href": "#footer" }
     ],
-    "securityNotice": "All activities are monitored and audited for security and compliance purposes.",
-    "contact": "Help Desk: support@alms.internal | Internal: XXXX"
+    "securityNotice": "OFFICIAL STATE GOVERNMENT PORTAL: Unauthorized access, tampering, or misuse of this system is strictly prohibited and is punishable under Sections 43, 66, and 72 of the Information Technology Act, 2000 and the Indian Penal Code.",
+    "contact": "Telangana State Police Arms Nodal Desk: arms-nodal@telangana.gov.in | Police Control Room: 100 / 112 | Working Hours: 10:00 AM to 05:00 PM (IST)",
+    "helpline": "Telangana Citizen Helpline: 1800-425-0000 | Emergency Police: 100 / 112 | Cyber Crime Helpline: 1930",
+    "emergencyContact": "Police Control Room: 100 / 112"
   },
   "loginContext": [
-    { "role": "Officer", "context": "Review and process applications" },
-    { "role": "Licensing Authority", "context": "Approve/dispose licenses, monitor workflows" },
-    { "role": "Administrator", "context": "Manage system configuration, users, and audits" }
+    { "role": "Station House Officer (SHO)", "context": "Field verification, crime register check, and safe custody report" },
+    { "role": "Special Branch Inspector (SB)", "context": "Intelligence verification, antecedent check, and security clearance" },
+    { "role": "Supervisory Police Officers (ACP / DCP)", "context": "Supervisory review, recommendation, and crime clearance" },
+    { "role": "Licensing Authority (CP / District Magistrate)", "context": "Adjudicate applications, grant/reject licenses under Arms Act" },
+    { "role": "Arms Section / Registry", "context": "FLAF license generation, UIN allocation, and register maintenance" },
+    { "role": "Home Department Administrator", "context": "Statewide configuration, Section 18 appeals, and audit oversight" }
   ]
 }

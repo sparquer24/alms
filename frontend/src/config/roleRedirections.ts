@@ -6,8 +6,6 @@
 import { RoleTypes } from './roles';
 import { normalizeRole } from '../utils/roleUtils';
 
-export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'SUPER_ADMIN' | 'ARMS_SUPDT' | 'SHO' | 'ZS' | 'APPLICANT' | 'ADO' | 'CADO' | 'AS';
-
 /**
  * Configuration for role-based redirections
  * Maps each role to its default landing page path
@@ -31,22 +29,6 @@ const ROLE_REDIRECT_CONFIG: Record<string, string> = {
 };
 
 /**
- * Officer roles that should redirect to inbox pattern
- */
-const OFFICER_ROLES = new Set<string>([
-  RoleTypes.ARMS_SUPDT,
-  RoleTypes.SHO,
-  RoleTypes.ZS,
-  RoleTypes.ADO,
-  RoleTypes.CADO,
-  RoleTypes.DCP,
-  RoleTypes.ACP,
-  RoleTypes.CP,
-  RoleTypes.JTCP,
-  RoleTypes.AS,
-]);
-
-/**
  * Get the default redirect path for a user based on their role
  * Uses centralized configuration instead of hardcoded switch statements
  */
@@ -54,9 +36,6 @@ export function getRoleBasedRedirectPath(userRole?: any): string {
   // Use the centralized normalizeRole utility which handles both string and object roles
   const normalizedRole = normalizeRole(userRole);
   
-  // Enhanced debugging - always log for SUPER_ADMIN issues
-  const shouldLog = typeof window !== 'undefined' && 
-    (process.env.NODE_ENV !== 'production' || normalizedRole === 'SUPER_ADMIN');
 
   if (!normalizedRole) {
     return '/inbox?type=all'; // Fallback default
@@ -107,14 +86,6 @@ export function shouldRedirectOnStartup(userRole?: any, currentPath?: string): s
 }
 
 /**
- * Check if a role is an officer role (non-admin, non-applicant)
- */
-export function isOfficerRole(userRole?: any): boolean {
-  const normalizedRole = normalizeRole(userRole);
-  return normalizedRole ? OFFICER_ROLES.has(normalizedRole) : false;
-}
-
-/**
  * Check if a role is an admin role
  * @deprecated Use isAdminRole from ../utils/roleUtils instead
  */
@@ -123,10 +94,3 @@ export function isAdminRole(userRole?: any): boolean {
   return normalizedRole === RoleTypes.ADMIN || normalizedRole === RoleTypes.SUPER_ADMIN;
 }
 
-/**
- * Check if a role is an applicant role
- */
-export function isApplicantRole(userRole?: any): boolean {
-  const normalizedRole = normalizeRole(userRole);
-  return normalizedRole === RoleTypes.APPLICANT;
-}

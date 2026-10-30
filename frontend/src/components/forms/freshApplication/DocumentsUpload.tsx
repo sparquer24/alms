@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FormSkeleton } from '../elements/FormSkeleton';
-import { Input, TextArea } from '../elements/Input';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import FormFooter from '../elements/footer';
 import { FileUploadService } from '../../../api/fileUploadService';
 import { getFileTypeFromDisplayName, validateFileForDocumentType, DOCUMENT_TYPE_MAPPING } from '../../../config/documentTypes';
@@ -28,8 +28,6 @@ const DocumentsUpload = () => {
    
    // Use the application form hook for proper state management and navigation
    const {
-       form,
-       setForm,
        applicantId,
 		almsLicenseId,
        isSubmitting,
@@ -78,11 +76,9 @@ const DocumentsUpload = () => {
 			 if (!applicationId) return;
 			 try {
 				 const serverFiles = await FileUploadService.getFiles(applicationId);
-				 console.debug('[DocumentsUpload] loaded server files:', serverFiles);
 				 const grouped: { [key: string]: UploadedFile[] } = {};
 				 (serverFiles || []).forEach((f: any) => {
 					 const displayName = fileTypeToDisplay[f.fileType] || f.fileType || 'Other';
-					 console.debug('[DocumentsUpload] mapping server file', f.id, 'type:', f.fileType, '->', displayName);
 					 // create a lightweight File for UI display (empty blob)
 					 const blob = new Blob([], { type: f.contentType || 'application/octet-stream' });
 					 const fileObj = new File([blob], f.fileName || `file-${f.id}`, { type: f.contentType || 'application/octet-stream' });
@@ -98,7 +94,7 @@ const DocumentsUpload = () => {
 
 				 // Merge server-side files with any local (unsaved) files; local wins
 				 setFiles(prev => ({ ...grouped, ...prev }));
-			 } catch (err) {
+			 } catch {
 				 // swallow errors for now - could set a file loading error state
 			 }
 		 };
@@ -106,10 +102,6 @@ const DocumentsUpload = () => {
 		 loadUploadedFiles();
 	 }, [applicationId]);
 
-   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-	   const { name, value } = e.target;
-	   setForm((prev: any) => ({ ...prev, [name]: value }));
-   };
 
    // Generate preview URL using FileReader API
    const generatePreviewUrl = (file: File): Promise<string> => {
@@ -247,7 +239,7 @@ const DocumentsUpload = () => {
 			   if (!isNaN(parsedId)) {
 				   await FileUploadService.deleteFile(parsedId);
 			   }
-		   } catch (error) {
+		   } catch {
 			   // Continue with local removal even if server deletion fails
 		   }
 	   }
@@ -285,7 +277,6 @@ const DocumentsUpload = () => {
 
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.PREVIEW, savedApplicantId);
-		} else {
 		}
 	};
 
@@ -305,10 +296,19 @@ const DocumentsUpload = () => {
 
 	return (
 		<form className="p-6">
-			<h2 className="text-xl font-bold mb-4">Documents Upload</h2>
+			<FormStepHeader
+				title="Documents Upload"
+				subtitle="Upload all required supporting documents (Identity Proof, Address Proof, Age Proof, Medical Certificate, etc.)."
+				stepNumber={8}
+				totalSteps={10}
+				applicationId={applicationId}
+				acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+				onRefresh={typeof loadExistingData === 'function' && applicationId ? () => loadExistingData(applicationId) : undefined}
+				isRefreshing={isLoading}
+			/>
 			
 		{/* Display Application ID and License ID if available */}
-		{(applicationId || almsLicenseId) && (
+		{false && (applicationId || almsLicenseId) && (
 			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 				<div className="flex flex-col">
 					{/* <strong>Application ID: {applicationId ?? '—'}</strong> */}</div>

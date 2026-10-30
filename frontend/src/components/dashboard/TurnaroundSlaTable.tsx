@@ -13,7 +13,6 @@ import {
   FileText,
   Eye,
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
 import { analyticsService, ApplicationRecord } from '@/services/analyticsService';
 import { RecordInspectionModal, InspectionTarget } from './RecordInspectionModal';
 
@@ -25,7 +24,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [slaFilter, setSlaFilter] = useState<'ALL' | 'MET' | 'STANDARD' | 'DELAYED'>('ALL');
   const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(10);
+  const [limit] = useState<number>(10);
   const [selectedRecord, setSelectedRecord] = useState<InspectionTarget | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<ApplicationRecord[]>([]);
@@ -65,7 +64,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
   }, [fetchTurnaroundData]);
 
   // Compute SLA badge for a record
-  const getSlaInfo = (days: number, isApproved: boolean, isRejected: boolean) => {
+  const getSlaInfo = (days: number) => {
     if (days <= 14) {
       return {
         label: 'Fast-Track SLA (<15d)',
@@ -90,7 +89,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
   const filteredData = data.filter((row) => {
     if (slaFilter === 'ALL') return true;
     const days = row.daysTillToday ?? 0;
-    const info = getSlaInfo(days, row.status === 'APPROVED', row.status === 'REJECTED');
+    const info = getSlaInfo(days);
     return info.type === slaFilter;
   });
 
@@ -145,7 +144,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
               onClick={() => setSlaFilter(tab.key as any)}
               className={`px-3 py-1.5 rounded-md transition-all ${
                 slaFilter === tab.key
-                  ? 'bg-[#0F2D52] text-white shadow-xs'
+                  ? 'bg-[#0B1F3A] text-white shadow-xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
@@ -163,7 +162,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search Ack No, License ID..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F2D52]/20 focus:border-[#0F2D52]"
+              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0B1F3A]/20 focus:border-[#0B1F3A]"
             />
           </div>
 
@@ -171,7 +170,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
             type="button"
             onClick={fetchTurnaroundData}
             disabled={loading}
-            className="p-2 text-gray-600 hover:text-[#0F2D52] bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="p-2 text-gray-600 hover:text-[#0B1F3A] bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -210,7 +209,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
             ) : filteredData.length > 0 ? (
               filteredData.map((row, idx) => {
                 const days = row.daysTillToday ?? 0;
-                const slaInfo = getSlaInfo(days, row.status === 'APPROVED', row.status === 'REJECTED');
+                const slaInfo = getSlaInfo(days);
                 const sNo = (page - 1) * limit + (idx + 1);
 
                 return (
@@ -219,7 +218,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
 
                     <td className="py-0.5 px-4 font-semibold text-gray-900">
                       <div className="flex items-center gap-1.5 font-mono text-xs">
-                        <FileText className="w-3.5 h-3.5 text-[#0F2D52]" />
+                        <FileText className="w-3.5 h-3.5 text-[#0B1F3A]" />
                         <span>{row.licenseId || `APP-${row.applicationId}`}</span>
                       </div>
                     </td>
@@ -266,7 +265,7 @@ export const TurnaroundSlaTable: React.FC<TurnaroundSlaTableProps> = ({ embedded
                           appType: row.applicationType,
                           initialData: row,
                         })}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0F2D52] text-white hover:bg-[#1E3A8A] transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0B1F3A] text-white hover:bg-[#1E3A8A] transition-colors cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Inspect</span>

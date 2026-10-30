@@ -19,10 +19,6 @@ export interface FileUploadResponse {
   uploadedAt: string;
 }
 
-export interface FileUploadWithFile extends Omit<FileUploadRequest, 'fileUrl'> {
-  file: File;
-}
-
 /**
  * Service for handling file uploads in the fresh application form
  */
@@ -36,15 +32,11 @@ export class FileUploadService {
     applicationId: number,
     uploadData: FileUploadRequest
   ): Promise<FileUploadResponse> {
-    try {
-      const response = await apiClient.post(
-        `/application-form/${applicationId}/upload-file`,
-        uploadData
-      );
-      return (response as unknown as ApiResponse<FileUploadResponse>).data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await apiClient.post(
+      `/application-form/${applicationId}/upload-file`,
+      uploadData
+    );
+    return (response as unknown as ApiResponse<FileUploadResponse>).data;
   }
 
   /**
@@ -54,28 +46,22 @@ export class FileUploadService {
     applicationId: number,
     uploads: FileUploadRequest[]
   ): Promise<FileUploadResponse[]> {
-    try {
-      const results = await Promise.allSettled(
-        uploads.map(upload => this.uploadFile(applicationId, upload))
-      );
+    const results = await Promise.allSettled(
+      uploads.map(upload => this.uploadFile(applicationId, upload))
+    );
 
-      const successful: FileUploadResponse[] = [];
-      const failed: string[] = [];
+    const successful: FileUploadResponse[] = [];
+    const failed: string[] = [];
 
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          successful.push(result.value);
-        } else {
-          failed.push(`File ${index + 1}: ${result.reason?.message || 'Unknown error'}`);
-        }
-      });
-
-      if (failed.length > 0) {
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successful.push(result.value);
+      } else {
+        failed.push(`File ${index + 1}: ${result.reason?.message || 'Unknown error'}`);
       }
-      return successful;
-    } catch (error) {
-      throw error;
-    }
+    });
+
+    return successful;
   }
 
   /**
@@ -89,22 +75,18 @@ export class FileUploadService {
     fileType: string,
     description?: string
   ): Promise<FileUploadResponse> {
-    try {
-      // Convert the file to a base64 data URL so it can be rendered inline
-      const base64Url = await this.fileToBase64(file);
+    // Convert the file to a base64 data URL so it can be rendered inline
+    const base64Url = await this.fileToBase64(file);
 
-      const uploadData: FileUploadRequest = {
-        fileType,
-        fileUrl: base64Url,
-        fileName: file.name,
-        fileSize: file.size,
-        description
-      };
+    const uploadData: FileUploadRequest = {
+      fileType,
+      fileUrl: base64Url,
+      fileName: file.name,
+      fileSize: file.size,
+      description
+    };
 
-      return await this.uploadFile(applicationId, uploadData);
-    } catch (error) {
-      throw error;
-    }
+    return await this.uploadFile(applicationId, uploadData);
   }
 
   /**
@@ -152,24 +134,16 @@ export class FileUploadService {
    * Calls DELETE /api/application-form/file/{id}
    */
   static async deleteFile(fileId: number): Promise<void> {
-    try {
-      await apiClient.delete(`/application-form/file/${fileId}`);
-    } catch (error) {
-      throw error;
-    }
+    await apiClient.delete(`/application-form/file/${fileId}`);
   }
 
   /**
    * Get uploaded files for an application (if needed)
    */
   static async getUploadedFiles(applicationId: number): Promise<FileUploadResponse[]> {
-    try {
-      // This endpoint might not exist yet, but included for completeness
-      const response = await apiClient.get(`/application-form/${applicationId}/files`);
-      return (response as unknown as ApiResponse<FileUploadResponse[]>).data;
-    } catch (error) {
-      throw error;
-    }
+    // This endpoint might not exist yet, but included for completeness
+    const response = await apiClient.get(`/application-form/${applicationId}/files`);
+    return (response as unknown as ApiResponse<FileUploadResponse[]>).data;
   }
 }
 

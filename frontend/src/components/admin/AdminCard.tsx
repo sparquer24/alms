@@ -1,16 +1,14 @@
 import React from 'react';
 import { useAdminTheme } from '../../context/AdminThemeContext';
 import {
-  AdminColors,
   AdminLayout,
   AdminBorderRadius,
   AdminShadows,
   AdminSpacing,
-  AdminTransitions,
 } from '../../styles/admin-design-system';
 
 interface AdminCardProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   title?: string;
   description?: string;
   className?: string;

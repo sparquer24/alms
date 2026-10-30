@@ -12,7 +12,7 @@ import { formatStatusLabel } from '@/utils/formatters';
 import { truncateFilename } from '@/utils/string';
 import { openAttachment } from '@/utils/attachmentViewer';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
-import { History, Clock, ChevronDown, FileText, Shield, Home } from 'lucide-react';
+import { History, Clock, ChevronDown, FileText, Home } from 'lucide-react';
 
 const ClockIcon = Clock as any;
 const ChevronDownIcon = ChevronDown as any;
@@ -183,7 +183,7 @@ export default function CancelFormDetailClient() {
     };
   }, [id, request, router, setHeaderOptions]);
 
-  const handleProceedingsSuccess = (message?: string) => {
+  const handleProceedingsSuccess = () => {
     fetchCancelInfo({ replaceRequestOnly: true }); // Reload details
     // Give the user a moment to see the success confirmation before returning to inbox
     setTimeout(() => {
@@ -264,7 +264,7 @@ export default function CancelFormDetailClient() {
               <div className='p-4 lg:p-4 border-t border-gray-100'>
                 <div
                   ref={containerRef}
-                  className='flex h-[600px] items-stretch gap-0 relative w-full overflow-hidden'
+                  className='flex items-start gap-0 relative w-full'
                   style={{
                     display: 'flex',
                   }}
@@ -272,7 +272,7 @@ export default function CancelFormDetailClient() {
                   {showApplicationProcessingSection && (
                     <>
                       <div
-                        className='flex flex-col h-full overflow-hidden pr-4'
+                        className='flex flex-col pr-4'
                         style={{
                           width: `${dividerPosition}%`,
                           transition: isDragging ? 'none' : 'width 0.1s ease',
@@ -280,7 +280,7 @@ export default function CancelFormDetailClient() {
                       >
                           <div className='pb-4 border-b border-gray-100 mb-4'>
                             <h3 className='text-xl font-bold text-gray-900 flex items-center'>
-                              <div className='w-1 h-6 bg-red-600 rounded-full mr-3'></div>
+                              <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
                               Application Processing
                             </h3>
                           </div>
@@ -315,8 +315,31 @@ export default function CancelFormDetailClient() {
                               </div>
                             );
                           }
+
+                          const isDraft =
+                            request?.isSubmit === false ||
+                            String(rawStatusCode).toUpperCase() === 'DRAFT' ||
+                            String(rawStatusName).toLowerCase() === 'draft';
+
+                          if (isDraft) {
+                            return (
+                              <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
+                                <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
+                                  <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <h4 className='text-sm font-bold text-amber-900 mb-1'>Workflow Status: Draft</h4>
+                                  <p className='text-sm text-amber-800'>
+                                    Application Processing cannot be performed while the cancellation request is in Draft status. It must be submitted before processing can begin.
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }
                           return canTakeAction ? (
-                            <div className='flex-1 bg-white overflow-y-auto'>
+                            <div className='bg-white'>
                               <ProceedingsForm
                                 applicationId={String(id)}
                                 onSuccess={handleProceedingsSuccess}
@@ -363,7 +386,7 @@ export default function CancelFormDetailClient() {
                       <div
                         ref={dividerRef}
                         onMouseDown={handleDividerMouseDown}
-                        className='w-1 bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-red-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
+                        className='w-1 self-stretch bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-red-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
                         style={{
                           cursor: 'col-resize',
                           userSelect: 'none',
@@ -375,7 +398,7 @@ export default function CancelFormDetailClient() {
                   )}
 
                   <div
-                    className={`flex flex-col h-full overflow-hidden ${showApplicationProcessingSection ? 'pl-4' : ''}`}
+                    className={`flex flex-col ${showApplicationProcessingSection ? 'pl-4' : ''}`}
                     style={{
                       width: showApplicationProcessingSection
                         ? `${100 - dividerPosition}%`
@@ -385,13 +408,13 @@ export default function CancelFormDetailClient() {
                   >
                     <div className='flex items-center justify-between mb-4'>
                       <h3 className='text-lg font-semibold text-gray-900 flex items-center'>
-                        <div className='w-1 h-5 bg-red-600 rounded-full mr-3'></div>
+                        <div className='w-1 h-5 bg-green-600 rounded-full mr-3'></div>
                         Application History
                       </h3>
                     </div>
 
-                    <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
-                      <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
+                    <div className='bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden'>
+                      <div className='overflow-y-auto p-6 custom-scrollbar max-h-[600px]'>
                         {request.cancelWorkflowHistories &&
                         request.cancelWorkflowHistories.length > 0 ? (
                           <div className='space-y-5'>
@@ -404,7 +427,9 @@ export default function CancelFormDetailClient() {
                               const hasAttachments =
                                 Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
                               const hasRemarks = !!h.remarks;
-                              const hasDetails = hasAttachments || hasRemarks;
+                              // System-generated text on older entries, kept apart from the officer's remarks.
+                              const systemNote = typeof h.systemNote === 'string' ? h.systemNote.trim() : '';
+                              const hasDetails = hasAttachments || hasRemarks || !!systemNote;
                               const isExpanded = !!expandedHistory[idx];
                               const historyDate = h.createdAt ? new Date(h.createdAt) : new Date();
                               const formattedDate = historyDate.toLocaleDateString('en-IN', {
@@ -481,10 +506,15 @@ export default function CancelFormDetailClient() {
                                       </button>
                                     )}
                                   </div>
+                                  {systemNote && isExpanded && (
+                                    <p className='mt-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-500'>
+                                      <span className='font-semibold uppercase tracking-wide'>System</span> · {systemNote}
+                                    </p>
+                                  )}
                                   {hasRemarks && isExpanded && (
                                     <div className='mt-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm'>
                                       <div className='text-base font-semibold text-gray-800 mb-3'>
-                                        Remarks
+                                        Officer Remarks
                                       </div>
                                       <div className='flex text-sm text-gray-700 leading-relaxed whitespace-pre-line'>
                                         <RichTextDisplay content={h.remarks} />
@@ -499,19 +529,48 @@ export default function CancelFormDetailClient() {
                                       <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
                                         {attachmentsArr.map((att: any, aidx: number) => {
                                           const displayName = truncateFilename(
-                                            att?.name || 'Attachment',
+                                            att?.name || att?.fileName || 'Attachment',
                                             10
                                           );
+                                          const contentType = String(att?.contentType || att?.type || '').toLowerCase();
+                                          const fileLower = String(att?.name || att?.fileName || '').toLowerCase();
+                                          const isPdf = contentType.includes('pdf') || fileLower.endsWith('.pdf');
+                                          const isImage = contentType.startsWith('image/') || /\.(png|jpe?g|gif|svg|webp)$/.test(fileLower);
+                                          const iconColor = isPdf ? 'text-red-500' : isImage ? 'text-emerald-500' : 'text-blue-500';
+
                                           return (
                                             <div
                                               key={aidx}
                                               className='flex items-center text-xs text-blue-700 min-w-0'
                                             >
+                                              <svg
+                                                className={`w-5 h-5 mr-2 ${iconColor} flex-shrink-0`}
+                                                fill='none'
+                                                stroke='currentColor'
+                                                viewBox='0 0 24 24'
+                                              >
+                                                {isImage ? (
+                                                  <path
+                                                    strokeLinecap='round'
+                                                    strokeLinejoin='round'
+                                                    strokeWidth={2}
+                                                    d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'
+                                                  />
+                                                ) : (
+                                                  <path
+                                                    strokeLinecap='round'
+                                                    strokeLinejoin='round'
+                                                    strokeWidth={2}
+                                                    d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+                                                  />
+                                                )}
+                                              </svg>
                                               <button
+                                                type='button'
                                                 onClick={() => openAttachment(att)}
                                                 className='hover:underline font-medium text-left truncate flex items-center gap-1.5'
+                                                title={att?.name || att?.fileName}
                                               >
-                                                <FileText className='w-4 h-4 text-rose-500' />
                                                 {displayName}
                                               </button>
                                             </div>

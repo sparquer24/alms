@@ -10,7 +10,7 @@ export function getAuthTokenFromCookie(): string | null {
         // Try parse JSON that contains token
         const parsed = JSON.parse(cookie);
         return parsed?.token ?? parsed?.accessToken ?? cookie;
-      } catch (_e) {
+      } catch {
         // not JSON, return as-is
         return cookie;
       }
@@ -39,46 +39,9 @@ export function getUserFromCookie(): any | null {
       }
     }
     return cookie;
-  } catch (error) {
+  } catch {
     return null;
   }
 
 }
 
-export function isAuthCookieValid(): boolean {
-  try {
-    const token = getAuthTokenFromCookie();
-    const user = getUserFromCookie();
-    const role = getCookie('role');
-
-    if (!token) return false;
-
-    // If token looks like a JWT, try to validate expiry
-    try {
-      const parts = (token as string).split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]));
-        if (payload?.exp && typeof payload.exp === 'number') {
-          const now = Math.floor(Date.now() / 1000);
-          if (payload.exp < now) return false;
-        }
-      }
-    } catch {
-      // ignore token decode errors - presence of token is minimal requirement
-    }
-
-    // Require user and role to be present for a fully valid cookie set
-    if (!user) return false;
-    if (!role) return false;
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export default {
-  getAuthTokenFromCookie,
-  getUserFromCookie,
-  isAuthCookieValid,
-};

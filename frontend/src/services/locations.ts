@@ -78,25 +78,17 @@ export const LocationService = {
         const res: any = await apiClient.get('/locations/stations', params);
         const list = normalizeList(res);
         if (list.length) return list;
-      } catch (e) {
+      } catch {
         // fall through to legacy
       }
 
       try {
         const legacy: any = await apiClient.get('/locations/police-stations', params as any);
         return normalizeList(legacy);
-      } catch (e) {
+      } catch {
         return [];
       }
     });
   },
 };
 
-export type LocationSelection = {
-  state?: BasicItem | null;
-  district?: BasicItem | null;
-  rangeOffice?: BasicItem | null;
-  zone?: BasicItem | null;
-  division?: BasicItem | null;
-  station?: BasicItem | null;
-};

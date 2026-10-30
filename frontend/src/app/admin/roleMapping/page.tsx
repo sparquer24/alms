@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, RefreshCw } from 'lucide-react';
 import {
@@ -14,8 +14,6 @@ import {
   RoleFormModal,
   PermissionMatrix,
   ConfirmationDialog,
-  AdminToolbar,
-  AdminFilter,
   AdminErrorAlert,
   AdminErrorBoundary,
   AdminTableSkeleton,
@@ -23,7 +21,7 @@ import {
 import type { ConfirmationDialogConfig } from '../../../components/admin/ConfirmationDialog';
 import { AdminRoleService } from '@/services/admin/roles';
 import { useAdminTheme } from '@/context/AdminThemeContext';
-import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
+import { AdminSpacing, AdminBorderRadius } from '@/styles/admin-design-system';
 
 interface Role {
   id?: number;
@@ -187,7 +185,6 @@ export default function RoleMappingPage() {
   const toggleStatusMutation = useMutation({
     mutationFn: async (role: Role) => {
       if (!role.id) throw new Error('Role ID is required');
-      const endpoint = role.is_active ? 'deactivate' : 'activate';
       const response = await AdminRoleService.updateRole(String(role.id), {
         isActive: !role.is_active,
       });

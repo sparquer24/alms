@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { Award, AlertTriangle, Loader2 } from 'lucide-react';
@@ -26,8 +26,8 @@ export default function LicenseExpiryBucketsSection({ buckets, loading, onBucket
   const totalAtRisk = buckets.reduce((s, b) => s + b.count, 0);
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-      <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+    <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+      <div className="flex items-center justify-between pb-5 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
             <Award className="w-4 h-4 text-amber-600" />
@@ -48,7 +48,7 @@ export default function LicenseExpiryBucketsSection({ buckets, loading, onBucket
           <Loader2 className="w-4 h-4 animate-spin" />Loading expiry data...
         </div>
       ) : (
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-4">
           {buckets.map((bucket, idx) => {
             const cfg = BUCKET_CONFIG[idx] ?? BUCKET_CONFIG[3];
             return (
@@ -57,11 +57,11 @@ export default function LicenseExpiryBucketsSection({ buckets, loading, onBucket
                 type="button"
                 onClick={() => onBucketClick?.(bucket.days, bucket.label)}
                 disabled={bucket.count === 0}
-                className={`${cfg.bg} border rounded-xl p-3 text-left transition-all group ${
+                className={`${cfg.bg} border rounded-xl p-4 text-left transition-all group ${
                   bucket.count > 0 ? `${cfg.hover} cursor-pointer` : 'opacity-50 cursor-default'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <span className={`w-2.5 h-2.5 rounded-full ${cfg.color}`} />
                   {bucket.days > 0 ? (
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{bucket.days}d</span>

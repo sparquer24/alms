@@ -72,7 +72,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             <div className="flex flex-col items-center">
               <p className="text-xs text-green-700 truncate mb-2">{fileName}</p>
               <span
-                className={`cursor-pointer inline-flex items-center px-3 py-1 text-sm ${disabled ? 'text-gray-400 cursor-not-allowed pointer-events-none' : 'text-blue-700 hover:text-blue-900 border border-blue-300 rounded hover:bg-blue-50 transition-colors'}`}
+                className={`cursor-pointer inline-flex items-center px-3 py-1 text-sm ${disabled ? 'text-gray-400 cursor-not-allowed pointer-events-none' : 'text-[#0B1F3A] hover:text-[#15325B] border border-[#0B1F3A] rounded hover:bg-slate-50 transition-colors font-medium'}`}
                 onClick={handleBrowseClick}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

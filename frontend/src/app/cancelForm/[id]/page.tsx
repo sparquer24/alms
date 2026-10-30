@@ -1,17 +1,13 @@
 import React, { Suspense } from 'react';
 import CancelFormDetailClient from './CancelFormDetailClient';
 
-interface Props {
-  params: Promise<{ id: string }>;
-}
-
 // Pre-renders IDs 1-1000 as static shells for output: 'export'.
 // The actual ID is resolved client-side via useParams() in CancelFormDetailClient.
 export async function generateStaticParams() {
   return Array.from({ length: 1000 }, (_, i) => ({ id: String(i + 1) }));
 }
 
-export default async function CancelFormDetailPage({ params }: Props) {
+export default async function CancelFormDetailPage() {
   return (
     <Suspense fallback={
       <div className="flex justify-center items-center h-screen bg-slate-50">

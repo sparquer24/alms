@@ -1,12 +1,6 @@
 import { useState, useEffect } from 'react';
 import { locationAPI, toSelectOptions } from '../api/locationApi';
 import {
-  State,
-  District,
-  RangeOffice,
-  Zone,
-  Division,
-  PoliceStation,
   LocationHierarchyState
 } from '../types/location';
 
@@ -72,14 +66,12 @@ const initialState: LocationHierarchyState = {
   error: null,
 };
 
-export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [LocationHierarchyState, LocationHierarchyActions] => {
+export const useLocationHierarchy = (): [LocationHierarchyState, LocationHierarchyActions] => {
   const [state, setState] = useState<LocationHierarchyState>(initialState);
-  const isRenewal = options?.isRenewal;
 
   // Load states on component mount
   useEffect(() => {
     loadStates();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadStates = async () => {

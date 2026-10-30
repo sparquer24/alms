@@ -117,6 +117,10 @@ const guessMimeFromName = (fileName?: string) => {
       return 'image/gif';
     case 'webp':
       return 'image/webp';
+    case 'svg':
+      return 'image/svg+xml';
+    case 'bmp':
+      return 'image/bmp';
     case 'txt':
       return 'text/plain';
     case 'doc':
@@ -143,24 +147,122 @@ const blobFromBase64 = (data: string, mime?: string) => {
   return new Blob([byteArray], { type: mime || 'application/octet-stream' });
 };
 
+const renderImageViewerHtml = (src: string, title: string) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0b0f19;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background: rgba(15, 23, 42, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      max-width: 60%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .actions { display: flex; gap: 10px; align-items: center; }
+    .btn {
+      background: #2563eb;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    img {
+      max-width: 100%;
+      max-height: calc(100vh - 120px);
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">${title}</div>
+    <div class="actions">
+      <a class="btn" href="${src}" download="${title}">Download</a>
+    </div>
+  </div>
+  <div class="content">
+    <img src="${src}" alt="${title}" />
+  </div>
+</body>
+</html>`;
+
 const openPdfBlob = (blob: Blob, fileName?: string) => {
-  // Blob URLs are scoped to the window that creates them.
-  // Using document.write() in a new window to embed the blob URL causes a blank page
-  // because the new window cannot access the parent's blob URL.
-  // Opening the blob URL directly avoids this cross-window scoping issue.
   const blobUrl = window.URL.createObjectURL(blob);
-  window.open(blobUrl, '_blank', 'noopener,noreferrer');
-  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
+  const title = fileName || 'PDF Document';
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>${title}</title>
+  <style>html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#111; }</style>
+</head>
+<body>
+  <iframe src="${blobUrl}" style="width:100%; height:100%; border:none;"></iframe>
+</body>
+</html>`);
+    win.document.close();
+  } else {
+    window.open(blobUrl, '_blank');
+  }
+  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 120_000);
 };
 
 const openImageBlob = (blob: Blob, fileName?: string) => {
-  // Blob URLs are scoped to the window that creates them.
-  // Using document.write() in a new window to embed the blob URL causes a blank page
-  // because the new window cannot access the parent's blob URL.
-  // Opening the blob URL directly avoids this cross-window scoping issue.
-  const blobUrl = window.URL.createObjectURL(blob);
-  window.open(blobUrl, '_blank', 'noopener,noreferrer');
-  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
+  const title = fileName || 'Image Preview';
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    const dataUrl = reader.result as string;
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(renderImageViewerHtml(dataUrl, title));
+      win.document.close();
+    } else {
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
+    }
+  };
+  reader.readAsDataURL(blob);
 };
 
 const downloadBlob = (blob: Blob, fileName?: string) => {
@@ -187,9 +289,7 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
 
   try {
     // 0) Blob URLs (local file preview before/without server upload)
-    // These can usually be opened directly, but we check mime type for consistency
     if (trimmed.startsWith('blob:')) {
-      // Try to fetch the blob to check its type, fall back to direct open if it fails
       try {
         const response = await fetch(trimmed);
         if (response.ok) {
@@ -200,80 +300,49 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
           } else if (mime.startsWith('image/')) {
             openImageBlob(blob, fileName);
           } else {
-            window.open(trimmed, '_blank', 'noopener,noreferrer');
+            window.open(trimmed, '_blank');
           }
         } else {
-          // Response not OK, fall back to direct open
-          window.open(trimmed, '_blank', 'noopener,noreferrer');
+          window.open(trimmed, '_blank');
         }
       } catch {
-        // Fallback: blob URLs can be opened directly in most cases
-        window.open(trimmed, '_blank', 'noopener,noreferrer');
+        window.open(trimmed, '_blank');
       }
       return;
     }
 
-    // 1) Plain HTTP(S): resolve relative paths and open
-    if (isHttpLike(trimmed)) {
-      // For relative HTTP URLs, resolve against API server
-      if (trimmed.startsWith('//')) {
-        window.open(trimmed, '_blank', 'noopener,noreferrer');
-        return;
-      }
-      // For absolute HTTP(S) URLs, fetch and preview to handle auth and proper rendering
-      const href = resolveFileHref(trimmed);
-      if (!href) {
-        toast.error('Unable to resolve file URL');
-        return;
-      }
-      try {
-        const headers: Record<string, string> = {};
-        const token = getAuthToken();
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-        const response = await fetch(href, {
-          method: 'GET',
-          credentials: 'include',
-          headers,
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
-        }
-        const blob = await response.blob();
-        const mime = blob.type || guessMimeFromName(fileName);
-        if (mime.includes('pdf')) {
-          openPdfBlob(blob, fileName);
-        } else if (mime.startsWith('image/')) {
-          openImageBlob(blob, fileName);
-        } else {
-          window.open(href, '_blank', 'noopener,noreferrer');
-        }
-      } catch (fetchError: any) {
-        console.error('Failed to fetch document, falling back to direct open:', fetchError);
-        // Fallback: try direct open (may fail for auth-protected files)
-        window.open(href, '_blank', 'noopener,noreferrer');
-      }
-      return;
-    }
-
-    // 2) Data URL: convert to blob and preview properly (direct window.open often fails for PDFs)
+    // 1) Data URL
     if (isDataUrl(trimmed)) {
-      const mime = guessMimeFromName(fileName);
-      const blob = blobFromBase64(trimmed, mime);
-      if (mime === 'application/pdf') {
+      const mimeMatch = trimmed.match(/^data:([^;]+);/i);
+      const mimeFromData = mimeMatch ? mimeMatch[1].toLowerCase() : '';
+      const mime = (mimeFromData && mimeFromData !== 'application/octet-stream') ? mimeFromData : guessMimeFromName(fileName);
+      if (mime.includes('pdf')) {
+        const blob = blobFromBase64(trimmed, mime);
         openPdfBlob(blob, fileName);
       } else if (mime.startsWith('image/')) {
-        openImageBlob(blob, fileName);
+        const title = fileName || 'Image Preview';
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(renderImageViewerHtml(trimmed, title));
+          win.document.close();
+        } else {
+          window.open(trimmed, '_blank');
+        }
       } else {
+        const blob = blobFromBase64(trimmed, mime);
         downloadBlob(blob, fileName);
       }
       return;
     }
 
-    // 3) Raw Base64: convert safely to blob and preview
+    // 2) Raw Base64
     if (isProbablyBase64(trimmed)) {
-      const mime = guessMimeFromName(fileName);
+      let mime = guessMimeFromName(fileName);
+      // Auto-detect common signatures
+      if (trimmed.startsWith('/9j/')) mime = 'image/jpeg';
+      else if (trimmed.startsWith('iVBORw0KGgo')) mime = 'image/png';
+      else if (trimmed.startsWith('JVBERi0')) mime = 'application/pdf';
+
       const blob = blobFromBase64(trimmed, mime);
       if (mime === 'application/pdf') {
         openPdfBlob(blob, fileName);
@@ -285,7 +354,7 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
       return;
     }
 
-    // 4) Everything else: treat as relative/path and fetch with auth
+    // 3) HTTP(S) or server paths
     const href = resolveFileHref(trimmed);
     if (!href) {
       toast.error('Unable to resolve file URL');
@@ -298,29 +367,34 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch(href, {
-      method: 'GET',
-      credentials: 'include',
-      headers,
-    });
+    try {
+      const response = await fetch(href, {
+        method: 'GET',
+        credentials: 'include',
+        headers,
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+      }
 
-    const blob = await response.blob();
-    const mime = blob.type || guessMimeFromName(fileName);
+      const blob = await response.blob();
+      const contentType = response.headers.get('content-type') || '';
+      const mime = (contentType && contentType !== 'application/octet-stream') ? contentType : (blob.type || guessMimeFromName(fileName));
 
-    if (mime.includes('pdf')) {
-      openPdfBlob(blob, fileName);
-    } else if (mime.startsWith('image/')) {
-      openImageBlob(blob, fileName);
-    } else {
-      downloadBlob(blob, fileName);
+      if (mime.includes('pdf')) {
+        openPdfBlob(blob, fileName);
+      } else if (mime.startsWith('image/')) {
+        openImageBlob(blob, fileName);
+      } else {
+        downloadBlob(blob, fileName);
+      }
+    } catch (fetchError: any) {
+      console.warn('Fetch failed, falling back to direct open:', fetchError);
+      window.open(href, '_blank');
     }
   } catch (error: any) {
     console.error('Failed to open document:', error);
     toast.error(`Failed to open document: ${error.message}`);
   }
 };
-

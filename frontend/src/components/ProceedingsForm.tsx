@@ -9,10 +9,12 @@ import styles from './ProceedingsForm.module.css';
 import { fetchData, postData, setAuthToken } from '../api/axiosConfig';
 import { TiptapRichTextEditor } from './TiptapRichTextEditor';
 import ConfirmationModal from './ConfirmationModal';
+import { getFileSizeError } from '../utils/fileValidation';
 import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
 
 import { ApplicationData } from '../types';
+import { isRoleIn } from '../utils/roleUtils';
 
 // Approval rule for the application (GET /approval-rules/application): who
 // makes the final decision here, and whether they approve or only recommend.
@@ -195,20 +197,16 @@ export default function ProceedingsForm({
   const [actionsLoading, setActionsLoading] = useState<boolean>(true);
   const [actionsError, setActionsError] = useState<string | null>(null);
   const [selectedAction, setSelectedAction] = useState<ActionOption | null>(null);
-  // Legacy derived string (for conditional UI messages)
-  const actionType = selectedAction?.code?.toLowerCase() || '';
 
   const [nextUser, setNextUser] = useState<UserOption | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [remarks, setRemarks] = useState('');
-  const [remarksVisible, setRemarksVisible] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftLetter, setDraftLetter] = useState('');
-  const [showProceedingsForm, setShowProceedingsForm] = useState(true);
   const [showGroundReportEditor, setShowGroundReportEditor] = useState(false);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
@@ -226,7 +224,6 @@ export default function ProceedingsForm({
   const remarksRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useRef<HTMLDivElement | null>(null);
   const nextUserRef = useRef<HTMLDivElement | null>(null);
-  const formContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Track missing fields to show inline messages
   const [missingFields, setMissingFields] = useState<Record<string, string>>({});
@@ -278,6 +275,8 @@ export default function ProceedingsForm({
   }, [applicationId, workflowApplicationType]);
 
   const currentRole = roleFromCookie || userRole;
+  // Only the deciding ranks see who makes the final decision on this application.
+  const showApprovalRule = isRoleIn(currentRole, ['CP', 'DCP']);
 
   const currentZSUserOption = useMemo(() => {
     try {
@@ -291,7 +290,7 @@ export default function ProceedingsForm({
           };
         }
       }
-    } catch (e) {}
+    } catch {}
     return null;
   }, [currentRole]);
 
@@ -322,14 +321,7 @@ export default function ProceedingsForm({
         try {
           const cookieAuth = getCookie('auth');
           if (cookieAuth) setAuthToken(cookieAuth);
-          if (process.env.NODE_ENV !== 'production') {
-            try {
-              const t = String(cookieAuth || '');
-              const masked = t.length > 8 ? `${t.slice(0, 4)}...${t.slice(-4)}` : t;
-               
-            } catch (e) {}
-          }
-        } catch (e) {}
+        } catch {}
 
         // Build query params: always include applicationType for role-scoped action filtering
         const actionParams = new URLSearchParams();
@@ -399,7 +391,7 @@ export default function ProceedingsForm({
       const cookieVal = getCookie('role') as any;
       const str = cookieVal == null ? null : String(cookieVal).trim().toUpperCase();
       setRoleFromCookie(str);
-    } catch (e) {
+    } catch {
       // ignore cookie read errors; role remains null
     }
   }, []);
@@ -521,7 +513,7 @@ export default function ProceedingsForm({
           url: `data:application/pdf;base64,${base64Pdf}`,
         });
         payload.isGroundReportGenerated = true;
-      } catch (err) {
+      } catch {
         // Fallback: send as HTML if DOC generation fails
         const base64Html = btoa(unescape(encodeURIComponent(draftLetter.trim())));
         payload.attachments.push({
@@ -559,8 +551,10 @@ export default function ProceedingsForm({
             url: dataUrl,
           });
         });
-      } catch (err) {
-        setError('Failed to process selected attachments. Please try again.');
+      } catch {
+        setError(
+          'Could not read one of the selected attachments. Remove it and select the file again, then submit.'
+        );
         return;
       }
     }
@@ -598,6 +592,8 @@ export default function ProceedingsForm({
       setSelectedAction(null);
       setNextUser(null);
       setRemarks('');
+      setAttachmentFiles([]);
+      setAttachmentError(null);
 
       if (onSuccess) onSuccess();
     } catch (err: any) {
@@ -624,8 +620,9 @@ export default function ProceedingsForm({
 
     const valid: File[] = [];
     for (const f of files) {
-      if (f.size > MAX_SIZE) {
-        setAttachmentError(`File too large: (max 1MB)`);
+      const sizeError = getFileSizeError(f, MAX_SIZE);
+      if (sizeError) {
+        setAttachmentError(sizeError);
         e.target.value = '' as any;
         return;
       }
@@ -667,7 +664,7 @@ export default function ProceedingsForm({
       window.open(url, '_blank', 'noopener');
       // Revoke after a short delay to allow the new tab to load
       setTimeout(() => URL.revokeObjectURL(url), 10000);
-    } catch (e) {
+    } catch {
       setError('Unable to open file preview.');
     }
   };
@@ -714,29 +711,7 @@ export default function ProceedingsForm({
     return text;
   };
 
-  const formatContentForExport = (content: string) => {
-    // Check if content is already HTML (contains HTML tags)
-    const isHtml = /<[^>]*>/.test(content);
-
-    if (isHtml) {
-      // Already HTML from Tiptap - convert to plain text then re-format for display
-      const plainText = htmlToPlainText(content);
-      return plainText
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/__(.*)__/g, '<u>$1</u>')
-        .replace(/\n/g, '<br/>');
-    } else {
-      // Markdown-style content - convert to HTML
-      return content
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/__(.*)__/g, '<u>$1</u>')
-        .replace(/\n/g, '<br/>');
-    }
-  };
-
-  const downloadAsPDF = async (content: string, filename: string) => {
+  const downloadAsPDF = async (content: string) => {
     try {
       // Create a new window for printing
       const printWindow = window.open('', '_blank');
@@ -884,30 +859,14 @@ export default function ProceedingsForm({
       };
 
       setSuccess('PDF download initiated - please check your downloads folder');
-    } catch (error) {
+    } catch {
       setError('Failed to generate PDF. Please try again.');
     }
   };
 
   const downloadAsWord = (content: string, filename: string) => {
     try {
-      // Create proper Office Open XML format for Word
-      const htmlContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
-            xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
-            xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
-            xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing">
-<w:body>
-<w:sectPr>
-<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
-<w:pgSz w:w="12240" w:h="15840"/>
-</w:sectPr>
-</w:body>
-</w:document>`;
-
-      // Alternative: Use a simpler, more compatible HTML format
+      // A simple HTML document, which Word opens as a .doc
       const simpleHtmlContent = `<!DOCTYPE html>
 <html>
 <head>
@@ -1015,7 +974,7 @@ ${content}
       a.click();
       URL.revokeObjectURL(url);
       setSuccess('Word document downloaded successfully!');
-    } catch (error) {
+    } catch {
       setError('Failed to generate Word document. Please try again.');
     }
   };
@@ -1105,13 +1064,11 @@ ${content}
 
     switch (format) {
       case 'pdf':
-        downloadAsPDF(draftLetter, baseFilename);
+        downloadAsPDF(draftLetter);
         break;
       case 'word':
         downloadAsWord(draftLetter, baseFilename);
         break;
-      case 'txt':
-        // Strip all formatting and HTML tags for plain text
       default:
         setError('Unsupported download format');
     }
@@ -1275,7 +1232,7 @@ ${content}
                     }}
                   />
                 </div>
-                {approvalRule && (
+                {approvalRule && showApprovalRule && (
                   <p
                     className={`mt-1 rounded-md border px-2 py-1 text-xs ${
                       approvalRule.decision === 'RECOMMEND'
@@ -1589,7 +1546,8 @@ ${content}
                       className='block w-full text-xs text-gray-900 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
                     />
                     <p className='text-xs text-gray-500 mt-1'>
-                      Max 4 files, each up to 1MB. Allowed: PDF, images, Word.
+                      Max 4 files, each up to 1MB. Allowed: PDF, images, Word. Files are uploaded
+                      when you click Submit Action.
                     </p>
                     {attachmentError && (
                       <p className='text-xs text-red-600 mt-1' role='alert'>
@@ -1689,44 +1647,83 @@ ${content}
           code.includes(k)
         );
         const recipient = isCloseAction ? currentZSUserOption?.label : nextUser?.label;
-        const attachmentCount = attachmentFiles.length + (roleFromCookie === 'SHO' && draftLetter.trim() ? 1 : 0);
+        const hasGroundReport = roleFromCookie === 'SHO' && !!draftLetter.trim();
+        const attachmentNames = [
+          ...(hasGroundReport ? ['Ground report (generated PDF)'] : []),
+          ...attachmentFiles.map(f => `${f.name} (${Math.max(1, Math.round(f.size / 1024))} KB)`),
+        ];
+        const remarksText = remarks
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        const applicationRef = applicationData?.acknowledgementNo || `#${applicationId}`;
+        const row = (label: string, value: React.ReactNode) => (
+          <div className='grid grid-cols-[7.5rem_1fr] gap-3 px-3 py-2'>
+            <dt className='text-gray-500'>{label}</dt>
+            <dd className='min-w-0 break-words font-medium text-gray-900'>{value}</dd>
+          </div>
+        );
         return (
           <ConfirmationModal
             isOpen={showConfirm}
             onClose={() => setShowConfirm(false)}
             onConfirm={submitAction}
-            title={`Confirm: ${selectedAction?.label || 'Action'}`}
+            tone={isFinalDecision ? 'danger' : 'default'}
+            title={`${selectedAction?.label || 'Submit action'}?`}
+            subtitle={`Application ${applicationRef}`}
             actionButtonText={selectedAction?.label ? `Yes, ${selectedAction.label}` : 'Confirm'}
-            actionButtonColor={
-              isFinalDecision ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
-            }
+            cancelButtonText='Go back'
             message={
               <div className='space-y-3 text-sm'>
-                <dl className='grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5'>
-                  <dt className='text-gray-500'>Action</dt>
-                  <dd className='font-semibold text-gray-900'>{selectedAction?.label}</dd>
-                  {recipient && (
-                    <>
-                      <dt className='text-gray-500'>Forward to</dt>
-                      <dd className='font-semibold text-gray-900'>{recipient}</dd>
-                    </>
+                <p className='text-gray-600'>Please review the details before you submit.</p>
+                <dl className='divide-y divide-gray-100 rounded-lg border border-gray-200'>
+                  {row('Action', selectedAction?.label)}
+                  {recipient && row(isCloseAction ? 'Closed by' : 'Forward to', recipient)}
+                  {selectedAction?.code === 'SCHEDULE_HEARING' &&
+                    hearingDate &&
+                    row(
+                      'Hearing',
+                      `${new Date(hearingDate).toLocaleString('en-IN', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}${hearingLocation ? ` · ${hearingLocation}` : ''}`
+                    )}
+                  {row(
+                    'Remarks',
+                    <span className='line-clamp-3 font-normal text-gray-700' title={remarksText}>
+                      {remarksText || '—'}
+                    </span>
                   )}
-                  {selectedAction?.code === 'SCHEDULE_HEARING' && hearingDate && (
-                    <>
-                      <dt className='text-gray-500'>Hearing</dt>
-                      <dd className='font-semibold text-gray-900'>
-                        {new Date(hearingDate).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                      </dd>
-                    </>
+                  {row(
+                    'Attachments',
+                    attachmentNames.length ? (
+                      <ul className='space-y-0.5 font-normal text-gray-700'>
+                        {attachmentNames.map(name => (
+                          <li key={name} className='truncate' title={name}>
+                            📎 {name}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className='font-normal text-gray-500'>None</span>
+                    )
                   )}
-                  <dt className='text-gray-500'>Attachments</dt>
-                  <dd className='text-gray-900'>{attachmentCount || 'None'}</dd>
                 </dl>
-                <p className={isFinalDecision ? 'font-medium text-red-700' : 'text-gray-600'}>
-                  {isFinalDecision
-                    ? 'This is a final decision on the application and cannot be undone.'
-                    : 'Once submitted, this action cannot be undone.'}
-                </p>
+                <div
+                  className={`flex items-start gap-2 rounded-lg px-3 py-2 ${
+                    isFinalDecision
+                      ? 'bg-red-50 text-red-800'
+                      : 'bg-amber-50 text-amber-800'
+                  }`}
+                >
+                  <span aria-hidden='true'>⚠</span>
+                  <p className={isFinalDecision ? 'font-medium' : ''}>
+                    {isFinalDecision
+                      ? 'This is a final decision on the application and cannot be undone.'
+                      : 'Once submitted, this action cannot be undone.'}
+                  </p>
+                </div>
               </div>
             }
           />

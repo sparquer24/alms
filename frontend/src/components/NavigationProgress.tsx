@@ -47,13 +47,12 @@ export default function NavigationProgress() {
     const start = () => {
       clearTimers();
       activeRef.current = true;
-      setProgress(8);
-      // Skip the bar entirely for navigations that resolve almost instantly
-      // (prefetched routes) so it doesn't flicker.
-      showDelayRef.current = window.setTimeout(() => setVisible(true), 120);
+      setProgress(15);
+      // Start immediately without delay so flag loader runs simultaneously with skeletons
+      setVisible(true);
       trickleRef.current = window.setInterval(() => {
         setProgress(p => (p >= 90 ? p : p + (90 - p) * 0.12));
-      }, 200);
+      }, 150);
       // Never leave the bar stuck if a navigation is cancelled or fails.
       safetyRef.current = window.setTimeout(finish, 15000);
     };
@@ -74,16 +73,25 @@ export default function NavigationProgress() {
   return (
     <div
       aria-hidden='true'
-      className='pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[3px]'
+      className='pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[3.5px]'
       style={{ opacity: visible ? 1 : 0, transition: 'opacity 200ms ease' }}
     >
       <div
-        className='h-full bg-[#0F2D52] shadow-[0_0_8px_rgba(15,45,82,0.5)]'
+        className='h-full relative overflow-hidden'
         style={{
           width: `${progress}%`,
+          background:
+            'linear-gradient(90deg, #FF9933 0%, #FF9933 30%, #FFFFFF 50%, #138808 70%, #138808 100%)',
+          boxShadow:
+            '0 0 12px rgba(255, 153, 51, 0.8), 0 0 6px rgba(19, 136, 8, 0.8), 0 1px 2px rgba(0, 0, 0, 0.2)',
           transition: progress === 0 ? 'none' : 'width 200ms ease-out',
         }}
-      />
+      >
+        {/* Leading-edge glowing spark */}
+        <div
+          className='absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent via-white/80 to-white shadow-[0_0_8px_#ffffff]'
+        />
+      </div>
     </div>
   );
 }

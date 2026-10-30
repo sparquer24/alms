@@ -1,12 +1,11 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException, NotFoundException, } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { CreateRenewalFormRequest, RenewalFormResponse, RenewalFiltersDto, } from '../../request/renewal-form';
+import { RenewalFormResponse } from '../../request/renewal-form';
 import { CreateRenewalPersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchRenewalApplicationDetailsDto } from './dto/patch-application-details.dto';
 import { UploadRenewalFileDto, UploadRenewalFileResponseDto } from './dto/upload-file.dto';
 import { GetRenewalApplicationsDto } from './dto/get-applications.dto';
-import { UpdateRenewalWorkflowStatusDto } from './dto/update-workflow-status.dto';
-import { ACTION_CODES } from '../../constants/workflow-actions';
+import { ACTION_CODES, EXCLUDE_CANCEL_MIRROR_HISTORY } from '../../constants/workflow-actions';
 import { v4 as uuidv4 } from 'uuid';
 import { AREA_OF_VALIDITY, normalizeAreaOfValidity } from '../../constants/area-of-validity';
 import {
@@ -268,7 +267,6 @@ export class RenewalFormService {
       }
 
       const shouldHandleSubmit = patchData.isSubmit !== undefined;
-      const shouldCreateWorkflowHistory = patchData.isSubmit === true && !!currentUserId;
 
       // Pre-fetch required data in parallel to reduce latency
       const result = await Promise.all([
@@ -293,31 +291,44 @@ export class RenewalFormService {
             where: { code: { in: ['FORWARD', 'DRAFT', 'INITIATE', 'INITIATED'] } },
           })
           : Promise.resolve([]),
-        // Pre-validate user if currentUserId provided
-        shouldCreateWorkflowHistory
-          ? prisma.users.findUnique({ where: { id: currentUserId } })
-          : Promise.resolve(null),
       ]);
 
       const application: any = result[0];
       const statuses: any = result[1];
-      const userExists: any = result[2];
 
       if (!application) {
         throw new NotFoundException('Renewal application not found.');
       }
 
-      // A renewal is for an existing license, so a copy of it must be on file
-      // before submission. Checked before any writes so a rejected submit
-      // leaves the draft untouched.
-      if (patchData.isSubmit === true) {
-        const existingLicenseCopies = await prisma.renewalFileUploads.count({
-          where: { applicationId, fileType: 'EXISTING_LICENSE' },
+      // A draft raised before its license was cancelled or revoked can no longer proceed.
+      if (application.licenseId) {
+        const license = await prisma.licenses.findUnique({
+          where: { id: application.licenseId },
+          select: { status: true },
         });
-        if (existingLicenseCopies === 0) {
+        if (license && NON_RENEWABLE_STATUSES.has(license.status)) {
           throw new BadRequestException(
-            'Upload a copy of the license being renewed (Existing Arms License) before submitting.',
+            `This license is ${license.status.toLowerCase()}. Its renewal application can no longer be edited or submitted.`,
           );
+        }
+      }
+
+      // Aadhar Card and PAN Card are the only mandatory renewal documents; they
+      // must be on file before submission. Checked before any writes so a
+      // rejected submit leaves the draft untouched.
+      if (patchData.isSubmit === true) {
+        const uploadedTypes = await prisma.renewalFileUploads.findMany({
+          where: { applicationId, fileType: { in: ['AADHAR_CARD', 'PAN_CARD'] } },
+          select: { fileType: true },
+          distinct: ['fileType'],
+        });
+        const present = new Set(uploadedTypes.map(file => file.fileType));
+        const missing = [
+          !present.has('AADHAR_CARD') && 'Aadhar Card',
+          !present.has('PAN_CARD') && 'PAN Card',
+        ].filter(Boolean);
+        if (missing.length > 0) {
+          throw new BadRequestException(`Upload the ${missing.join(' and ')} before submitting.`);
         }
       }
 
@@ -689,6 +700,7 @@ export class RenewalFormService {
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
+            where: EXCLUDE_CANCEL_MIRROR_HISTORY,
             take: 10,
             orderBy: { createdAt: 'desc' },
             include: {
@@ -937,6 +949,7 @@ export class RenewalFormService {
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
+            where: EXCLUDE_CANCEL_MIRROR_HISTORY,
             orderBy: { createdAt: 'desc' },
             include: {
               nextUser: {
@@ -1113,6 +1126,7 @@ export class RenewalFormService {
             },
           },
           workflowHistories: {
+            where: EXCLUDE_CANCEL_MIRROR_HISTORY,
             orderBy: { createdAt: 'desc' },
             include: {
               nextUser: {
@@ -1134,7 +1148,7 @@ export class RenewalFormService {
         data: applications,
         total,
       };
-    } catch (error) {
+    } catch {
       throw new InternalServerErrorException(
         'An error occurred while retrieving renewal applications.',
       );
@@ -1490,14 +1504,14 @@ export class RenewalFormService {
           });
 
           mergedFields.push('licenseUpdated');
-        } catch (createLicenseError: any) {
+        } catch {
           // If license update fails, continue to create audit log but transaction will rollback on error propagation
           createdLicense = null;
         }
 
         // Create merge audit log
         try {
-          const mergeLog = await tx.LicensesMergeAuditLog.create({
+          await tx.LicensesMergeAuditLog.create({
             data: {
               mergeId,
               freshLicenseId: licenseId,
@@ -1509,7 +1523,7 @@ export class RenewalFormService {
               remarks: `Merged renewal license ${renewalLicenseId} into fresh license ${licenseId}`,
             },
           });
-        } catch (auditLogError: any) {
+        } catch {
           
         }
 
@@ -1657,252 +1671,6 @@ export class RenewalFormService {
       }
       throw new InternalServerErrorException(
         `Failed to retrieve merge audit log: ${error?.message || 'Unknown error'}`,
-      );
-    }
-  }
-
-  /**
-   * Copy renewal form details from a FreshLicenseApplicationPersonalDetails record
-   * Creates a new RenewalFormPersonalDetails entry with the same data
-   */
-  async copyFromFreshLicense(
-    freshLicenseId: number,
-    currentUserId?: number,
-  ): Promise<RenewalFormResponse> {
-    try {
-      // 1. Find the Licenses record that has this freshApplicationId
-      const licenseRecord = await prisma.licenses.findFirst({
-        where: { freshApplicationId: freshLicenseId },
-      });
-
-      if (!licenseRecord) {
-        throw new NotFoundException(
-          'No License record found for this fresh application. Create a license first.',
-        );
-      }
-
-      const resolvedLicenseId = licenseRecord.id;
-      const resolvedLicenseNumber = licenseRecord.licenseNumber;
-
-      // 2. Check if there is any existing Renewal for the same License.
-      //    - If an approved renewal exists → allow creation of a new renewal (prefilled from last approved).
-      //    - If a non-approved renewal exists (Pending/In Progress/Rejected) → return the existing one
-      //      so the user can continue editing it.
-      const existingRenewal = await prisma.renewalFormPersonalDetails.findFirst({
-        where: {
-          licenseId: resolvedLicenseId,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      if (existingRenewal) {
-        if (!existingRenewal.isApproved) {
-          // Existing renewal is NOT approved (Pending/In Progress/Rejected/etc.)
-          // Check if the latest workflow history actionTaken is CLOSE — if so, allow
-          // creating a new renewal (auto-assigned to self user) instead of returning
-          // the existing one.
-          const latestHistory = await prisma.renewalApplicationsFormWorkflowHistories.findFirst({
-            where: { applicationId: existingRenewal.id },
-            orderBy: { createdAt: 'desc' },
-          });
-          if (!latestHistory || latestHistory.actionTaken !== ACTION_CODES.CLOSE) {
-            // Not a closed renewal — return existing so the user can resume
-            return this.mapApplicationToResponse(existingRenewal);
-          }
-          // actionTaken IS CLOSE → fall through to create a new renewal
-        }
-        // Existing renewal IS approved → fall through to create a new renewal
-      }
-
-      // 3. Determine the source data for pre-filling:
-      //    - If lastModifiedRenewalId exists and that renewal is APPROVED, use it as source
-      //    - Otherwise, use the original fresh license data
-      let sourceData: any = null;
-      let sourceFromRenewal = false;
-
-      if (licenseRecord.lastModifiedRenewalId) {
-        const approvedRenewal = await prisma.renewalFormPersonalDetails.findFirst({
-          where: {
-            id: licenseRecord.lastModifiedRenewalId,
-            isApproved: true,
-          },
-          include: {
-            presentAddress: true,
-            permanentAddress: true,
-            occupationAndBusiness: true,
-            licenseDetails: true,
-          },
-        });
-        if (approvedRenewal) {
-          sourceData = approvedRenewal;
-          sourceFromRenewal = true;
-        }
-      }
-
-      // If no approved renewal source, fall back to fresh license data
-      if (!sourceData) {
-        sourceData = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-          where: { id: freshLicenseId },
-          include: {
-            presentAddress: true,
-            permanentAddress: true,
-            occupationAndBusiness: true,
-            licenseDetails: true,
-          },
-        });
-
-        if (!sourceData) {
-          throw new NotFoundException('Fresh license record not found');
-        }
-      }
-
-      // Generate acknowledgement number
-      const acknowledgementNo = `RAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
-
-      // Create the renewal record within a transaction
-      const renewalRecord = await prisma.$transaction(async (tx: any) => {
-        // Get DRAFT status
-        const draftStatus = await tx.statuses.findFirst({
-          where: { code: 'DRAFT' },
-        });
-
-        if (!draftStatus) {
-          throw new BadRequestException('DRAFT status not found in the system.');
-        }
-
-        // Copy present address from source
-        let presentAddressId: number | null = null;
-        if (
-          sourceData.presentAddress &&
-          sourceData.presentAddress.addressLine
-        ) {
-          try {
-            const copiedPresentAddress = await tx.renewalAddressesAndContactDetails.create({
-              data: {
-                addressLine: sourceData.presentAddress.addressLine,
-                stateId: sourceData.presentAddress.stateId,
-                districtId: sourceData.presentAddress.districtId,
-                zoneId: sourceData.presentAddress.zoneId,
-                divisionId: sourceData.presentAddress.divisionId,
-                policeStationId: sourceData.presentAddress.policeStationId,
-                sinceResiding: sourceData.presentAddress.sinceResiding
-                  ? new Date(sourceData.presentAddress.sinceResiding)
-                  : undefined,
-                telephoneOffice: sourceData.presentAddress.telephoneOffice || null,
-                telephoneResidence: sourceData.presentAddress.telephoneResidence || null,
-                officeMobileNumber: sourceData.presentAddress.officeMobileNumber || null,
-                alternativeMobile: sourceData.presentAddress.alternativeMobile || null,
-              },
-            });
-            presentAddressId = copiedPresentAddress.id;
-          } catch (addrError: any) {
-            console.error('Error copying present address:', addrError.message);
-          }
-        }
-
-        // Copy permanent address
-        let permanentAddressId: number | null = null;
-        if (
-          sourceData.permanentAddress &&
-          sourceData.permanentAddress.addressLine
-        ) {
-          try {
-            const copiedPermanentAddress = await tx.renewalAddressesAndContactDetails.create({
-              data: {
-                addressLine: sourceData.permanentAddress.addressLine,
-                stateId: sourceData.permanentAddress.stateId,
-                districtId: sourceData.permanentAddress.districtId,
-                zoneId: sourceData.permanentAddress.zoneId,
-                divisionId: sourceData.permanentAddress.divisionId,
-                policeStationId: sourceData.permanentAddress.policeStationId,
-                sinceResiding: sourceData.permanentAddress.sinceResiding
-                  ? new Date(sourceData.permanentAddress.sinceResiding)
-                  : undefined,
-                telephoneOffice: sourceData.permanentAddress.telephoneOffice || null,
-                telephoneResidence: sourceData.permanentAddress.telephoneResidence || null,
-                officeMobileNumber: sourceData.permanentAddress.officeMobileNumber || null,
-                alternativeMobile: sourceData.permanentAddress.alternativeMobile || null,
-              },
-            });
-            permanentAddressId = copiedPermanentAddress.id;
-          } catch (addrError: any) {
-            console.error('Error copying permanent address:', addrError.message);
-          }
-        }
-
-        // Copy occupation and business
-        let occupationAndBusinessId: number | null = null;
-        if (
-          sourceData.occupationAndBusiness &&
-          sourceData.occupationAndBusiness.occupation
-        ) {
-          try {
-            const copiedOccupation = await tx.renewalOccupationAndBusiness.create({
-              data: {
-                occupation: sourceData.occupationAndBusiness.occupation,
-                officeAddress: sourceData.occupationAndBusiness.officeAddress,
-                stateId: sourceData.occupationAndBusiness.stateId,
-                districtId: sourceData.occupationAndBusiness.districtId,
-                cropLocation: sourceData.occupationAndBusiness.cropLocation || null,
-                areaUnderCultivation: sourceData.occupationAndBusiness.areaUnderCultivation || null,
-              },
-            });
-            occupationAndBusinessId = copiedOccupation.id;
-          } catch (occError: any) {
-            console.error('Error copying occupation:', occError.message);
-          }
-        }
-
-        // Create the renewal record using the original license's id and license number
-        const newRenewalRecord = await tx.renewalFormPersonalDetails.create({
-          data: {
-            acknowledgementNo,
-            // Use the original license id and license number (not generated)
-            licenseId: resolvedLicenseId,
-            licenseNumber: resolvedLicenseNumber,
-            renewalLicenseId: licenseRecord.almsLicenseId || null,
-            firstName: sourceData.firstName,
-            middleName: sourceData.middleName || null,
-            lastName: sourceData.lastName,
-            parentOrSpouseName: sourceData.parentOrSpouseName,
-            sex: sourceData.sex,
-            dateOfBirth: sourceData.dateOfBirth || null,
-            dobInWords: sourceData.dobInWords || null,
-            panNumber: sourceData.panNumber || null,
-            aadharNumber: sourceData.aadharNumber || null,
-            filledBy: sourceData.filledBy || null,
-            currentUserId: currentUserId || null,
-            workflowStatusId: draftStatus.id,
-            occupationAndBusinessId,
-            presentAddressId,
-            permanentAddressId,
-            isAwareOfLegalConsequences: sourceData.isAwareOfLegalConsequences || false,
-            isDeclarationAccepted: sourceData.isDeclarationAccepted || false,
-            isTermsAccepted: sourceData.isTermsAccepted || false,
-            isSubmit: false,
-          },
-          include: {
-            workflowStatus: true,
-            currentUser: true,
-            presentAddress: true,
-            permanentAddress: true,
-            occupationAndBusiness: true,
-          },
-        });
-
-        return newRenewalRecord;
-      });
-
-      return this.mapApplicationToResponse(renewalRecord);
-    } catch (error: any) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException || error instanceof ConflictException) {
-        throw error;
-      }
-      if (error.code === 'P2003') {
-        throw new BadRequestException(`Invalid foreign key reference while copying from fresh license. Error: ${error.message}`);
-      }
-      throw new InternalServerErrorException(
-        `An error occurred while creating renewal: ${error?.message || 'Unknown error'}`,
       );
     }
   }

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { useAuth } from '../../hooks/useAuth';
 import { useLayout } from '../../config/layoutContext';
 import { useIsomorphicLayoutEffect } from '../../hooks/useIsomorphicLayoutEffect';
+import { PageLayoutSkeleton, ContentSkeleton } from '../../components/Skeleton';
 
 /**
  * Layout for all /cancelForm/* routes.
@@ -14,12 +15,9 @@ import { useIsomorphicLayoutEffect } from '../../hooks/useIsomorphicLayoutEffect
  */
 export default function CancelFormLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, initialized } = useAuth();
-  const { headerOptions, setShowSidebar, setShowHeader } = useLayout();
-  // Start as checked when auth is already resolved (client-side navigation into
-  // this section) so the full-screen spinner doesn't flash on every visit.
+  const { headerOptions, setShowSidebar, setShowHeader, headerHeight } = useLayout();
   const [checked, setChecked] = useState(() => initialized && !isLoading && isAuthenticated);
 
-  // Layout effect: hide the sidebar before paint so the header doesn't shift.
   useIsomorphicLayoutEffect(() => {
     setShowHeader(true);
     setShowSidebar(false);
@@ -41,24 +39,26 @@ export default function CancelFormLayout({ children }: { children: React.ReactNo
     setChecked(true);
   }, [isAuthenticated, isLoading, initialized, checked]);
 
-  // Show spinner while auth is being resolved
   if (!initialized || isLoading || !checked) {
     return (
-      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-[#001F54] mx-auto mb-4'></div>
-          <p className='text-sm text-gray-600'>Loading...</p>
-        </div>
-      </div>
+      <PageLayoutSkeleton sidebar={false}><ContentSkeleton /></PageLayoutSkeleton>
+
+
+
+
+
     );
   }
 
   return (
-    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
+    <div className='flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white'>
       <Header hideCreateForm {...headerOptions} />
 
       {/* Main content area — full width when sidebar is removed */}
-      <main className='flex-1 w-full min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[78px]'>
+      <main
+        className='flex-1 w-full min-w-0 overflow-auto flex flex-col pt-[54px] md:pt-[58px]'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
+      >
         <div className='flex-grow'>
           {children}
         </div>

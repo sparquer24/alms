@@ -53,7 +53,7 @@ export default function ResetPassword() {
       } else {
         setError(data.message || 'Failed to reset password. Please try again.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -79,7 +79,7 @@ export default function ResetPassword() {
           </div>
           <h2 className='mt-2 text-center text-3xl font-extrabold text-black'>Reset Password</h2>
           <p className='mt-2 text-center text-sm text-gray-700'>
-            Enter your email address and we'll send you instructions to reset your password
+            Enter your email address and we&apos;ll send you instructions to reset your password
           </p>
         </div>
         {error && (

@@ -1,4 +1,4 @@
-import { postData, patchData, fetchData, putData, debugTokenStatus } from './axiosConfig';
+import { postData, patchData, fetchData } from './axiosConfig';
 
 export interface ApplicationFormData {
   // Personal Information Fields
@@ -75,23 +75,6 @@ export interface ApplicationFormData {
 }
 
 export class ApplicationService {
-  /**
-   * Debug function to test if application exists and check API connectivity
-   * @param applicantId - The application ID to test
-   */
-  static async debugApplicationStatus(applicantId: string) {
-    try {
-      // Test GET first to see if application exists
-      const getResult = await this.getApplication(applicantId);
-      return { exists: true, data: getResult };
-    } catch (error: any) {
-      if (error.message.includes('404') || error.message.includes('Not Found')) {
-        return { exists: false, error: 'Application not found' };
-      }
-      
-      return { exists: false, error: error.message };
-    }
-  }
 
   /**
    * Create new application (POST) - Only for Personal Information
@@ -205,14 +188,14 @@ export class ApplicationService {
     if (!applicationData) return null;
 
     switch (section) {
-      case 'personal':
+      case 'personal': {
         const personalData = applicationData.personalDetails || applicationData;
         // Handle date formatting for frontend
         let dateOfBirth = '';
         if (personalData.dateOfBirth) {
           try {
             dateOfBirth = new Date(personalData.dateOfBirth).toISOString().split('T')[0];
-          } catch (error) {
+          } catch {
           }
         }
         
@@ -231,7 +214,8 @@ export class ApplicationService {
           dobInWords: personalData.dobInWords || '',
         };
         return extractedPersonal;
-      case 'address':
+      }
+      case 'address': {
         const presentAddr = applicationData.presentAddress || {};
         const permanentAddr = applicationData.permanentAddress || {};
         return {
@@ -272,7 +256,8 @@ export class ApplicationService {
           // Checkbox state
           sameAsPresent: false,
         };
-      case 'occupation':
+      }
+      case 'occupation': {
         const occupationData = applicationData.occupationAndBusiness || {};
         const extracted = {
           occupation: occupationData.occupation || '',
@@ -285,11 +270,12 @@ export class ApplicationService {
           areaUnderCultivation: occupationData.areaUnderCultivation ? String(occupationData.areaUnderCultivation) : '',
         };
         return extracted;
+      }
       case 'criminal':
         return {
           criminalHistories: applicationData.criminalHistories || [],
         };
-      case 'license-history':
+      case 'license-history': {
         const rejectedLicenseFiles = applicationData.fileUploads
           ? applicationData.fileUploads.filter((file: any) => file.fileType === 'REJECTED_LICENSE')
           : [];
@@ -297,7 +283,8 @@ export class ApplicationService {
           licenseHistories: applicationData.licenseHistories || [],
           rejectedLicenseFiles,
         };
-      case 'license-details':
+      }
+      case 'license-details': {
         const licenseDetailsData = applicationData.licenseDetails || [];
         const specialClaimsFiles = applicationData.fileUploads
           ? applicationData.fileUploads.filter((file: any) => file.fileType === 'OTHER')
@@ -340,29 +327,10 @@ export class ApplicationService {
             }]
           };
         }
+      }
       default:
         return applicationData;
     }
-  }
-
-  /**
-   * Complete debugging utility - call this to diagnose all issues
-   * @param applicantId - The application ID to debug
-   */
-  static async completeDebugCheck(applicantId: string) {
-    // 1. Check token status
-    const tokenStatus = debugTokenStatus();
-    
-    // 2. Test if application exists
-    const appStatus = await this.debugApplicationStatus(applicantId);
-    
-    // 3. Summary
-    if (!tokenStatus.cookieToken) {
-    }
-    
-    if (!appStatus.exists) {
-    }
-    return { tokenStatus, appStatus };
   }
 
   /**
@@ -373,7 +341,7 @@ export class ApplicationService {
    */
   private static preparePayload(formData: Partial<ApplicationFormData>, section: string) {
     switch (section) {
-      case 'personal':
+      case 'personal': {
         // Validate and format date of birth
         let formattedDateOfBirth = undefined;
         if (formData.dateOfBirth) {
@@ -381,7 +349,6 @@ export class ApplicationService {
           // Check if date is valid
           if (!isNaN(dobDate.getTime())) {
             formattedDateOfBirth = dobDate.toISOString();
-          } else {
           }
         }
 
@@ -392,14 +359,14 @@ export class ApplicationService {
             dateOfBirth: formattedDateOfBirth,
           }
         };
-      case 'address':
+      }
+      case 'address': {
         // Validate and format presentSince date
         let formattedPresentSince = undefined;
         if (formData.presentSince) {
           const presentSinceDate = new Date(formData.presentSince);
           if (!isNaN(presentSinceDate.getTime())) {
             formattedPresentSince = presentSinceDate.toISOString();
-          } else {
           }
         }
 
@@ -431,7 +398,8 @@ export class ApplicationService {
           },
           rangeOffice: parseInt(formData.presentRangeOffice || '0'),
         };
-      case 'occupation':
+      }
+      case 'occupation': {
         const occupationPayload = {
           occupationAndBusiness: {
             occupation: formData.occupation,
@@ -448,21 +416,14 @@ export class ApplicationService {
           },
         };
         return occupationPayload;
-      case 'criminal':
+      }
+      case 'criminal': {
         // The issue: formData.criminalHistories contains backend response data, not form data
         // We need to check if this is fresh form data or stale backend data
         
         const criminalHistories = formData.criminalHistories || [];
-        // Check if this is backend response data (has database fields like id, createdAt)
-        const isBackendData = criminalHistories.length > 0 && 
-          (criminalHistories[0].hasOwnProperty('id') || 
-           criminalHistories[0].hasOwnProperty('createdAt') || 
-           criminalHistories[0].hasOwnProperty('updatedAt'));
-        if (isBackendData) {
-        } else {
-        }
         
-        // Create payload with detailed logging for each field
+        // Create payload for each history entry
         const mappedHistories = criminalHistories.map((history: any) => {
           const mapped = {
             isConvicted: history.isConvicted || false,
@@ -482,10 +443,9 @@ export class ApplicationService {
         };
         
         // Add validation logging
-        criminalPayload.criminalHistories.forEach((history: any, index: number) => {
-        });
         return criminalPayload;
-      case 'license-history':
+      }
+      case 'license-history': {
         const licenseHistoryPayload = {
           licenseHistories: (formData.licenseHistories || []).map((history: any) => ({
             hasAppliedBefore: history.hasAppliedBefore || false,
@@ -506,7 +466,8 @@ export class ApplicationService {
           })),
         };
         return licenseHistoryPayload;
-      case 'license-details':
+      }
+      case 'license-details': {
         // Check if form data is already in the correct format (new structure)
         if (formData.licenseDetails && Array.isArray(formData.licenseDetails)) {
           // Clean the license details to remove file-related fields and backend-only fields that are handled separately
@@ -539,6 +500,7 @@ export class ApplicationService {
           }],
         };
         return licenseDetailsPayload;
+      }
       default:
         return formData;
     }

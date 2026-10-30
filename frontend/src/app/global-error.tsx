@@ -30,6 +30,7 @@ export default function GlobalError({
             >
               Try again
             </button>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a full reload is the point after a root crash */}
             <a 
               href="/" 
               className="inline-block px-6 py-3 bg-white/20 text-white font-semibold rounded-lg hover:scale-105 transition-transform"

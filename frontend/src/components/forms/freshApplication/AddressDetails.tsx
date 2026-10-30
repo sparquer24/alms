@@ -4,6 +4,7 @@ import { Input } from '../elements/Input';
 import { TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import { LocationHierarchy } from '../elements/LocationHierarchy';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { AddressFormData } from '../../../types/location';
@@ -96,7 +97,6 @@ const AddressDetails: React.FC = () => {
 		submitError,
 		submitSuccess,
 		isLoading,
-		handleChange: baseHandleChange,
 		saveFormData,
 		navigateToNext,
 		loadExistingData,
@@ -277,10 +277,19 @@ const AddressDetails: React.FC = () => {
 
 	return (
 		<form className="p-6">
-			<h2 className="text-xl font-bold mb-4">Address Details</h2>
+			<FormStepHeader
+				title="Address Details"
+				subtitle="Enter present and permanent address details, along with jurisdictional police stations and contact numbers."
+				stepNumber={2}
+				totalSteps={10}
+				applicationId={applicantId}
+				acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+				onRefresh={typeof loadExistingData === 'function' && applicantId ? () => loadExistingData(applicantId) : undefined}
+				isRefreshing={isLoading}
+			/>
 			
 			{/* Display Applicant ID and License ID if available */}
-			{(applicantId || almsLicenseId) && (
+			{false && (applicantId || almsLicenseId) && (
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<div className="flex flex-col">
 						{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
@@ -425,6 +434,7 @@ const AddressDetails: React.FC = () => {
 				<Input
 					label="Mobile Number\Office"
 					name="officeMobileNumber"
+					type="tel"
 					value={form.officeMobileNumber}
 					onChange={handleChange}
 					onBlur={handleBlur as any}
@@ -441,6 +451,7 @@ const AddressDetails: React.FC = () => {
 					<Input
 						label=""
 						name="telephoneResidence"
+						type="tel"
 						value={form.telephoneResidence}
 						onChange={handleChange}
 						onBlur={handleBlur as any}
@@ -457,6 +468,7 @@ const AddressDetails: React.FC = () => {
 					<Input
 						label=""
 						name="alternativeMobile"
+						type="tel"
 						value={form.alternativeMobile}
 						onChange={handleChange}
 						onBlur={handleBlur as any}
@@ -473,6 +485,7 @@ const AddressDetails: React.FC = () => {
 					<Input
 						label=""
 						name="telephoneOffice"
+						type="tel"
 						value={form.telephoneOffice}
 						onChange={handleChange}
 						onBlur={handleBlur as any}

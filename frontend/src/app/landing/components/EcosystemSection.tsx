@@ -32,17 +32,19 @@ const roleIcons: Record<string, React.ReactNode> = {
 
 export default function EcosystemSection({ groups }: EcosystemSectionProps) {
   return (
-    <section id="ecosystem" className="py-20 bg-gradient-to-br from-[#0F2D52]/5 via-[#F8F9FA] to-[#B8860B]/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="ecosystem" className="py-24 bg-white border-b border-gray-200 overflow-hidden">
+      <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="inline-block px-3 py-1 text-xs font-semibold text-[#B8860B] bg-[#B8860B]/10 rounded-full uppercase tracking-wider mb-4">
-            Ecosystem
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#0F2D52] mb-4">
-            ALMS Ecosystem
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 text-xs font-bold text-[#0F2D52] bg-[#0F2D52]/10 rounded-full uppercase tracking-wider mb-3">
+            <span className="w-2 h-2 rounded-full bg-[#138808]" />
+            Integrated Stakeholder Network
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-black text-[#0B1F3A] tracking-tight mb-3">
+            Telangana ALMS Ecosystem
           </h2>
-          <p className="text-gray-600 leading-relaxed">
-            Four interconnected user groups working together through a unified governance platform with role-specific capabilities and access controls.
+          <div className="mx-auto h-[2.5px] w-24 rounded-full bg-gradient-to-r from-[#FF9933] via-[#D4AF37] to-[#138808] mb-4" />
+          <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+            Four interconnected user groups working together through a unified governance platform with role-specific capabilities and statutory access controls.
           </p>
         </div>
 
@@ -51,33 +53,43 @@ export default function EcosystemSection({ groups }: EcosystemSectionProps) {
             <div key={group.role} className="relative">
               {/* Connector arrow between cards (desktop) */}
               {idx < groups.length - 1 && (
-                <div className="hidden lg:flex absolute -right-4 top-1/3 z-10 text-[#B8860B]">
+                <div className="hidden lg:flex absolute -right-3 top-1/3 z-20 text-gray-300 pointer-events-none">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
               )}
 
-              <div className="bg-white/50 backdrop-blur-sm rounded-xl border border-white/60 p-6 h-full shadow-sm hover:shadow-lg hover:bg-white/70 hover:border-[#B8860B]/20 transition-all duration-300">
-                <div className={`w-16 h-16 rounded-xl flex items-center justify-center mb-5 ${
-                  idx === 0 ? "bg-blue-50 text-blue-600" :
-                  idx === 1 ? "bg-amber-50 text-amber-600" :
-                  idx === 2 ? "bg-green-50 text-green-600" :
-                  "bg-purple-50 text-purple-600"
-                }`}>
-                  {roleIcons[group.role]}
+              <div className="group bg-white rounded-2xl border border-gray-200/90 p-7 h-full shadow-sm hover:shadow-xl hover:border-[#D4AF37]/80 transition-all duration-300 relative overflow-hidden flex flex-col justify-between">
+                {/* Top Accent Strip on Hover */}
+                <div className="absolute top-0 inset-x-0 h-1 bg-transparent group-hover:bg-gradient-to-r group-hover:from-[#0F2D52] group-hover:via-[#D4AF37] group-hover:to-[#0F2D52] transition-colors" />
+
+                <div>
+                  <div className="w-14 h-14 rounded-xl bg-[#0F2D52]/5 text-[#0F2D52] flex items-center justify-center group-hover:bg-[#0F2D52] group-hover:text-white transition-colors duration-300 shadow-sm mb-5">
+                    {roleIcons[group.role]}
+                  </div>
+                  <h3 className="text-xl font-bold text-[#0B1F3A] mb-1">{group.title}</h3>
+                  {group.designation && (
+                    <span className="inline-block text-[11px] font-semibold text-[#0F2D52] bg-[#0F2D52]/10 px-2.5 py-0.5 rounded-full mb-4 border border-[#0F2D52]/15">
+                      {group.designation}
+                    </span>
+                  )}
+                  <ul className="space-y-2.5 mt-2">
+                    {group.capabilities.map((cap) => (
+                      <li key={cap} className="flex items-start gap-2.5">
+                        <svg className="w-4 h-4 text-[#138808] mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-xs sm:text-sm text-gray-600 leading-snug">{cap}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <h3 className="text-xl font-bold text-[#0F2D52] mb-4">{group.title}</h3>
-                <ul className="space-y-2.5">
-                  {group.capabilities.map((cap) => (
-                    <li key={cap} className="flex items-start gap-2">
-                      <svg className="w-4 h-4 text-[#2E7D32] mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm text-gray-600">{cap}</span>
-                    </li>
-                  ))}
-                </ul>
+
+                <div className="pt-4 mt-6 border-t border-gray-100 flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  <span>Tier 0{idx + 1}</span>
+                  <span className="text-[#0F2D52] font-semibold group-hover:text-[#D4AF37] transition-colors">Access Portal &rarr;</span>
+                </div>
               </div>
             </div>
           ))}

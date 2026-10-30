@@ -53,7 +53,7 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
       if (requestId === requestIdRef.current) {
         setApplications(apps ?? []);
       }
-    } catch (err) {
+    } catch {
       // only report/clear if this is the latest request
       if (requestId === requestIdRef.current) {
         setApplications([]);

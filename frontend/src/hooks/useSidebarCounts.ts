@@ -9,6 +9,11 @@ interface ApplicationCounts {
     redFlaggedCount: number;
     pendingCount: number;
     draftCount: number;
+    sentCount: number;
+    closedCount: number;
+    freshFormCount: number;
+    cancelFormCount: number;
+    applicationsCount: number;
     allCount: number;
 }
 
@@ -19,6 +24,11 @@ const EMPTY_COUNTS: ApplicationCounts = {
     reEnquiryCount: 0,
     pendingCount: 0,
     draftCount: 0,
+    sentCount: 0,
+    closedCount: 0,
+    freshFormCount: 0,
+    cancelFormCount: 0,
+    applicationsCount: 0,
     allCount: 0,
 };
 
@@ -38,6 +48,11 @@ export const useSidebarCounts = (enabled: boolean = true) => {
                 reEnquiryCount: counts.reEnquiryCount,
                 pendingCount: counts.pendingCount,
                 draftCount: counts.draftCount,
+                sentCount: counts.sentCount ?? 0,
+                closedCount: counts.closedCount ?? 0,
+                freshFormCount: counts.freshFormCount ?? 0,
+                cancelFormCount: counts.cancelFormCount ?? 0,
+                applicationsCount: counts.applicationsCount ?? 0,
                 allCount: counts.allCount ?? 0,
             } as ApplicationCounts;
         },

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { useDispatch } from 'react-redux';
 import { useInbox } from '../context/InboxContext';
@@ -22,13 +22,16 @@ export default function InboxBootloaderClient({
       const type = searchParams?.get('type');
       if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
         const normalized = String(type);
-        // ensure inbox UI is open
-        dispatch(openInbox());
+        // ensure inbox UI is open only if user hasn't explicitly closed it
+        const desiredOpen = typeof window !== 'undefined' ? localStorage.getItem('inboxDesiredOpen') : null;
+        if (desiredOpen !== 'false') {
+          dispatch(openInbox());
+        }
         // trigger load in context
         void loadType(normalized).catch(() => {});
         if (onTableReload) onTableReload(normalized);
       }
-    } catch (err) {
+    } catch {
       // ignore
     }
     // intentionally only run on mount/url change

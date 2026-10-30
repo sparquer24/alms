@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useEditor, EditorContent as EditorContentComponent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Table, TableHeader } from '@tiptap/extension-table';
@@ -406,11 +406,9 @@ export const TiptapRichTextEditor: React.FC<TiptapRichTextEditorProps> = ({
   disabled = false,
   minHeight = '200px',
   maxHeight = '600px',
-  contentType = 'general',
   showTemplates = true,
 }) => {
   const [mounted, setMounted] = React.useState(false);
-  const [showFormatting, setShowFormatting] = useState(false);
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
 
   const editor = useEditor({

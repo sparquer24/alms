@@ -1,4 +1,4 @@
-import { IsOptional, ValidateNested, IsArray, IsNumber, IsString } from 'class-validator';
+import { IsOptional, ValidateNested, IsArray, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PatchAddressDetailsDto } from './patch-address-details.dto';

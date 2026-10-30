@@ -136,25 +136,6 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
     analyticsService.exportToCSV(exportData, `Applications_Data_${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
-  const handleExportExcel = async () => {
-    if (!data || data.length === 0) return;
-    const exportData = data.map((item, idx) => ({
-      'S.No': (page - 1) * limit + (idx + 1),
-      'Application ID': item.applicationId,
-      'License / Ack Number': item.licenseId || `APP-${item.applicationId}`,
-      'Applicant Name': item.applicantName || 'N/A',
-      'Application Type': item.applicationType || 'FRESH',
-      'Workflow Status': item.status || 'PENDING',
-      'Reviewing Officer': item.currentUser?.name || 'In Queue',
-      'Days in Review': item.daysTillToday ?? 0,
-      'Last Updated': item.actionTakenAt ? format(new Date(item.actionTakenAt), 'yyyy-MM-dd HH:mm') : 'N/A',
-    }));
-    try {
-      await analyticsService.exportToExcel(exportData, `Applications_Data_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    } catch (err) {
-      handleExportCSV();
-    }
-  };
 
   return (
     <div className={`w-full bg-white ${embedded ? '' : 'rounded-2xl border border-gray-200/80 shadow-sm p-5 sm:p-6'}`}>
@@ -179,7 +160,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                 }}
                 className={`px-3 py-1.5 rounded-md transition-all ${
                   typeFilter === tab.key
-                    ? 'bg-[#0F2D52] text-white shadow-xs'
+                    ? 'bg-[#0B1F3A] text-white shadow-xs'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -233,7 +214,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
               value={searchQuery}
               onChange={handleSearchChange}
               placeholder="Search by Ack No, License ID, Name..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F2D52]/20 focus:border-[#0F2D52] transition-all"
+              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0B1F3A]/20 focus:border-[#0B1F3A] transition-all"
             />
           </div>
 
@@ -243,7 +224,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
             onClick={fetchApplications}
             disabled={loading}
             title="Refresh Table Data"
-            className="p-2 text-gray-600 hover:text-[#0F2D52] bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="p-2 text-gray-600 hover:text-[#0B1F3A] bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -345,7 +326,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                     {/* Ack No / License ID */}
                     <td className="py-0.5 px-4 font-semibold text-gray-900">
                       <div className="flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-[#0F2D52]" />
+                        <FileText className="w-3.5 h-3.5 text-[#0B1F3A]" />
                         <span className="font-mono text-xs">{row.licenseId || `APP-${row.applicationId}`}</span>
                       </div>
                     </td>
@@ -405,7 +386,7 @@ export const ApplicationsDetailTable: React.FC<ApplicationsDetailTableProps> = (
                           appType: row.applicationType,
                           initialData: row,
                         })}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0F2D52] text-white hover:bg-[#1E3A8A] transition-colors shadow-xs cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0B1F3A] text-white hover:bg-[#1E3A8A] transition-colors shadow-xs cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Inspect</span>

@@ -43,7 +43,7 @@ export function LazySection({ children, fallback, rootMargin = '300px', minHeigh
 
   return (
     <div ref={containerRef} style={{ minHeight: isVisible ? 'auto' : minHeight }}>
-      {isVisible ? children : (fallback || <div className="w-full h-full min-h-[200px] animate-pulse bg-slate-100 rounded-xl" />)}
+      {isVisible ? children : (fallback || <div className="w-full h-full min-h-[200px] flag-skeleton-shimmer rounded-2xl" />)}
     </div>
   );
 }

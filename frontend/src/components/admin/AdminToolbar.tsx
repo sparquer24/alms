@@ -2,9 +2,7 @@ import React from 'react';
 import { useAdminTheme } from '../../context/AdminThemeContext';
 import {
   AdminLayout,
-  AdminBorderRadius,
   AdminShadows,
-  AdminSpacing,
 } from '../../styles/admin-design-system';
 
 interface AdminToolbarProps {

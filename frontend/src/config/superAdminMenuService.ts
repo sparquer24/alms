@@ -88,37 +88,6 @@ export function getSuperAdminMenuItems(): SuperAdminMenuItem[] {
 }
 
 /**
- * Get Super Admin menu item by key
- */
-export function getSuperAdminMenuItem(key: SuperAdminMenuItemKey): SuperAdminMenuItem | undefined {
-    return SUPER_ADMIN_MENU_ITEMS[key];
-}
-
-/**
- * Get Super Admin menu item path by key
- */
-export function getSuperAdminMenuPath(key: SuperAdminMenuItemKey): string | undefined {
-    return SUPER_ADMIN_MENU_ITEMS[key]?.path;
-}
-
-/**
- * Check if a path is a Super Admin menu path
- */
-export function isSuperAdminMenuPath(pathname: string): boolean {
-    return Object.values(SUPER_ADMIN_MENU_ITEMS).some(item => pathname === item.path || pathname.startsWith(item.path));
-}
-
-/**
- * Extract Super Admin menu key from pathname
- */
-export function getSuperAdminMenuKeyFromPath(pathname: string): SuperAdminMenuItemKey | null {
-    const item = Object.values(SUPER_ADMIN_MENU_ITEMS).find(
-        item => pathname === item.path || pathname.startsWith(item.path)
-    );
-    return item?.key || null;
-}
-
-/**
  * Normalize Super Admin menu item names to canonical keys
  * Handles various naming conventions: camelCase, snake_case, kebab-case, spaces
  */

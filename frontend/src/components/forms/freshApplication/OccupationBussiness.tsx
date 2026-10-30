@@ -5,6 +5,7 @@ import { Select } from '../elements/Select';
 import FormFooter from '../elements/footer';
 import { useRouter } from 'next/navigation';
 import { FormSkeleton } from '../elements/FormSkeleton';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
@@ -55,7 +56,6 @@ const OccupationBussiness: React.FC = () => {
 		submitError,
 		submitSuccess,
 		isLoading,
-		handleChange: baseHandleChange,
 		saveFormData,
 		navigateToNext,
 		loadExistingData,
@@ -191,10 +191,19 @@ const OccupationBussiness: React.FC = () => {
 
 	return (
 		<form className="p-6">
-			<h2 className="text-xl font-bold mb-4">Occupation and Business Details</h2>
+			<FormStepHeader
+				title="Occupation & Business Details"
+				subtitle="Provide your profession, workplace address, and crop protection land details (if applicable)."
+				stepNumber={3}
+				totalSteps={10}
+				applicationId={applicantId}
+				acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+				onRefresh={typeof loadExistingData === 'function' && applicantId ? () => loadExistingData(applicantId) : undefined}
+				isRefreshing={isLoading}
+			/>
 			
 		{/* Display Applicant ID and License ID if available */}
-		{(applicantId || almsLicenseId) && (
+		{false && (applicantId || almsLicenseId) && (
 			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
 				<div className="flex flex-col">
 					{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>
@@ -214,6 +223,7 @@ const OccupationBussiness: React.FC = () => {
 			<Input
 				label="10. Occupation"
 				name="occupation"
+				textOnly={true}
 				value={form.occupation}
 				onChange={handleChange}
 				onBlur={handleBlur as any}
@@ -282,7 +292,7 @@ const OccupationBussiness: React.FC = () => {
 					Error loading locations: {locationState.error}
 				</div>
 			)}
-			<div className="mb-2 text-sm font-semibold">12. Additional particulars if the licence is required for crop protection under rule 35</div>
+			<div className="mb-2 text-sm font-bold text-[#0B1F3A]">12. Additional particulars if the licence is required for crop protection under rule 35</div>
 			<div className="grid grid-cols-2 gap-6">
 				<Input
 					label="Location"
@@ -296,6 +306,7 @@ const OccupationBussiness: React.FC = () => {
 				<Input
 					label="Area of land under cultivation"
 					name="areaUnderCultivation"
+					type="number"
 					value={form.areaUnderCultivation}
 					onChange={handleChange}
 					onBlur={handleBlur as any}

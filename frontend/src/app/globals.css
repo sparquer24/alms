@@ -20,7 +20,8 @@ html {
 
 html,
 body {
-  max-width: 100vw;
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
 }
 
@@ -29,7 +30,8 @@ body {
 }
 
 .container {
-  width: 100vw;
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
   background: #fff;
 }
@@ -100,6 +102,120 @@ body::-webkit-scrollbar-thumb,
 
 .animate-loading-pulse {
   animation: loading-pulse 1.5s ease-in-out infinite;
+}
+
+/* Indian National Flag Flying Waves for Skeleton Loaders
+   - Very light, subtle flag colors stay stationary (Saffron top, White middle, Green bottom) — THEY DO NOT MOVE.
+   - Wind wave ripples stream rapidly across the surface 2+ times every 1 second (dual-crest wave at 0.9s cycle).
+*/
+@keyframes flagFlyingWave {
+  0% {
+    background-position: -200% 0, 0 0;
+  }
+  100% {
+    background-position: 200% 0, 0 0;
+  }
+}
+
+.flag-skeleton-shimmer {
+  background-image: 
+    /* Layer 1: Two fluttering wind wave crests passing 2+ times per second */
+    linear-gradient(
+      105deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0) 10%,
+      rgba(255, 255, 255, 0.4) 20%,
+      rgba(255, 255, 255, 0.8) 25%,
+      rgba(255, 255, 255, 0.4) 30%,
+      rgba(255, 255, 255, 0) 40%,
+      transparent 50%,
+      rgba(255, 255, 255, 0) 60%,
+      rgba(255, 255, 255, 0.4) 70%,
+      rgba(255, 255, 255, 0.8) 75%,
+      rgba(255, 255, 255, 0.4) 80%,
+      rgba(255, 255, 255, 0) 90%,
+      transparent 100%
+    ),
+    /* Layer 2: Very light, subtle stationary Indian Flag Tricolor Base (DOES NOT MOVE) */
+    linear-gradient(
+      180deg,
+      rgba(255, 153, 51, 0.045) 0%,
+      rgba(255, 153, 51, 0.02) 33.3%,
+      rgba(255, 255, 255, 0.5) 33.4%,
+      rgba(255, 255, 255, 0.5) 66.6%,
+      rgba(19, 136, 8, 0.02) 66.7%,
+      rgba(19, 136, 8, 0.045) 100%
+    );
+  background-size: 200% 100%, 100% 100%;
+  background-position: -200% 0, 0 0;
+  background-repeat: no-repeat, no-repeat;
+  background-color: #f8fafc;
+  animation: flagFlyingWave 0.9s linear infinite;
+}
+
+.flag-skeleton-dark {
+  background-image: 
+    /* Layer 1: Two fluttering wave crests for dark mode */
+    linear-gradient(
+      105deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0) 10%,
+      rgba(255, 255, 255, 0.12) 20%,
+      rgba(255, 255, 255, 0.25) 25%,
+      rgba(255, 255, 255, 0.12) 30%,
+      rgba(255, 255, 255, 0) 40%,
+      transparent 50%,
+      rgba(255, 255, 255, 0) 60%,
+      rgba(255, 255, 255, 0.12) 70%,
+      rgba(255, 255, 255, 0.25) 75%,
+      rgba(255, 255, 255, 0.12) 80%,
+      rgba(255, 255, 255, 0) 90%,
+      transparent 100%
+    ),
+    /* Layer 2: Very light stationary Dark Flag Base (DOES NOT MOVE) */
+    linear-gradient(
+      180deg,
+      rgba(255, 153, 51, 0.06) 0%,
+      rgba(255, 153, 51, 0.03) 33.3%,
+      rgba(255, 255, 255, 0.04) 33.4%,
+      rgba(255, 255, 255, 0.04) 66.6%,
+      rgba(19, 136, 8, 0.03) 66.7%,
+      rgba(19, 136, 8, 0.06) 100%
+    );
+  background-size: 200% 100%, 100% 100%;
+  background-position: -200% 0, 0 0;
+  background-repeat: no-repeat, no-repeat;
+  background-color: rgba(255, 255, 255, 0.04);
+  animation: flagFlyingWave 0.9s linear infinite;
+}
+
+/* Indian National Flag Top Runner Bar — Flying Light Wave across stationary flag ribbon (2+ times/sec) */
+@keyframes flagRunner {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.flag-runner-bar {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 10%,
+    rgba(255, 255, 255, 0.8) 25%,
+    rgba(255, 255, 255, 0) 40%,
+    transparent 50%,
+    rgba(255, 255, 255, 0) 60%,
+    rgba(255, 255, 255, 0.8) 75%,
+    rgba(255, 255, 255, 0) 90%,
+    transparent 100%
+  );
+  animation: flagRunner 0.9s linear infinite;
 }
 
 /* Success/Error Message Animation */

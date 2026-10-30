@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ApplicationService, ApplicationFormData } from '../api/applicationService';
+import { ApplicationService } from '../api/applicationService';
 import { useAuth } from '@/hooks/useAuth';
 
 interface UseApplicationFormProps {
@@ -106,7 +106,7 @@ export const useApplicationForm = ({
     } finally {
       setIsLoading(false);
     }
-  }, [formSection, handleLoadedData]);
+  }, [handleLoadedData]);
 
   // Handle form field changes
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

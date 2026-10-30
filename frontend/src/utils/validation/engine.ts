@@ -13,11 +13,13 @@ import {
   validatePhone,
   validateDate,
   validateSelect,
+  validateEmail,
   validateArea,
   validateNumber,
 } from './validators';
 import {
   filterText,
+  filterEmail,
   filterPan,
   filterDigits,
   filterArea,
@@ -28,6 +30,7 @@ import {
 
 const FILTER_MAP: Record<FieldType, (value: string) => string> = {
   text: filterText,
+  email: filterEmail,
   address: filterNone,
   pan: filterPan,
   aadhaar: filterDigits,
@@ -91,6 +94,9 @@ export function validateField(rule: FieldRule, value: any, form: any): string {
   const strValue = typeof value === 'string' ? value : String(value ?? '');
 
   switch (rule.type) {
+    case 'email':
+      return validateEmail(strValue, required, overrides);
+
     case 'text':
       return validateText(strValue, required, overrides);
 

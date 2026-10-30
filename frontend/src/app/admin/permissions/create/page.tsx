@@ -59,7 +59,7 @@ export default function CreatePermissionPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">The flag key stored in a role's permissions. Must be unique.</p>
+            <p className="text-xs text-gray-500 mt-1">The flag key stored in a role&apos;s permissions. Must be unique.</p>
           </div>
 
           <div>

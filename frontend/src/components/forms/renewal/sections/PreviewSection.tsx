@@ -393,7 +393,7 @@ const PreviewSection: React.FC<{ formData: any; onEditStep?: (index: number) => 
           label='Documentary evidence'
           value={
             specialEvidenceFiles.length
-              ? specialEvidenceFiles.map((f, i) => fileLabel(f)).join(', ')
+              ? specialEvidenceFiles.map(f => fileLabel(f)).join(', ')
               : fileLabel(data.specialEvidenceUploaded)
           }
         />

@@ -1,12 +1,13 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
-import { Checkbox } from '../elements/Checkbox';
 import { Select } from '../elements/Select';
 import { FormSkeleton } from '../elements/FormSkeleton';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
-import { FileUploadService, FileUploadResponse } from '../../../api/fileUploadService';
+import { FileUploadService } from '../../../api/fileUploadService';
+import { getFileSizeError, MB } from '../../../utils/fileValidation';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
@@ -156,15 +157,12 @@ const LicenseDetails = () => {
   const [loadingWeapons, setLoadingWeapons] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
 
   // Helper function to safely get license detail
   const getLicenseDetail = () => {
     return form.licenseDetails?.[0] || {};
   };
-
-  useEffect(() => {
-    // Debug: Log initial form state
-  }, []);
 
   // Upload pending files when applicationId becomes available
   useEffect(() => {
@@ -181,7 +179,7 @@ const LicenseDetails = () => {
         const list = await WeaponsService.getAll();
         const items = (list || []).map(w => ({ id: w.id, name: w.name })) as Weapon[];
         setWeapons(items);
-      } catch (e) {
+      } catch {
         // Fallback weapons if API fails
         setWeapons([
           { id: 1, name: 'Revolver' },
@@ -309,11 +307,12 @@ const LicenseDetails = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setEvidenceError(null);
 
-    // Check file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-    if (file.size > maxSize) {
-      alert('File size must be less than 10MB');
+    const sizeError = getFileSizeError(file, 10 * MB);
+    if (sizeError) {
+      setEvidenceError(sizeError);
+      e.target.value = '';
       return;
     }
 
@@ -358,7 +357,7 @@ const LicenseDetails = () => {
 
         setUploadProgress('');
       } catch (error: any) {
-        alert(`File upload failed: ${error.message}`);
+        setEvidenceError(`Could not upload "${file.name}". ${error?.message || 'Please try again.'}`);
         setUploadProgress('');
       } finally {
         setUploadingFiles(false);
@@ -391,12 +390,10 @@ const LicenseDetails = () => {
 
   // Remove specific file (local or uploaded)
   const removeFile = async (indexToRemove: number, isUploaded: boolean = false) => {
-    console.debug('[LicenseDetails] removeFile called:', { indexToRemove, isUploaded });
     if (isUploaded) {
       const currentDetail = getLicenseDetail();
       const currentUploadedFiles = currentDetail.uploadedFiles || [];
       const fileToRemove = currentUploadedFiles[indexToRemove];
-      console.debug('[LicenseDetails] file to remove:', fileToRemove);
       
       const rawId = fileToRemove?.id || fileToRemove?.uploadId;
       const fileId = rawId ? parseInt(String(rawId), 10) : null;
@@ -404,10 +401,9 @@ const LicenseDetails = () => {
       if (fileId && !isNaN(fileId)) {
         try {
           await FileUploadService.deleteFile(fileId);
-          console.debug('[LicenseDetails] file deleted from server successfully:', fileId);
         } catch (error: any) {
           console.error('[LicenseDetails] failed to delete file:', error);
-          alert(`Failed to delete file from server: ${error.message}`);
+          setEvidenceError(`Could not remove the file. ${error?.message || 'Please try again.'}`);
           return;
         }
       } else {
@@ -491,7 +487,7 @@ const LicenseDetails = () => {
         };
       });
     } catch (error: any) {
-      alert(`Failed to upload some files: ${error.message}`);
+      setEvidenceError(`Some files could not be uploaded. ${error?.message || 'Please try again.'}`);
     } finally {
       setUploadingFiles(false);
       setUploadProgress('');
@@ -499,21 +495,11 @@ const LicenseDetails = () => {
   };
 
   const handleSaveToDraft = async () => {
-    // Debug: Log the current form data before saving
-    const detail = getLicenseDetail();
-    Object.keys(detail).forEach(key => {});
-
-    // Enhanced debugging for requestedWeaponIds specifically
     // The form data is already in the correct format (licenseDetails array)
     await saveFormData();
   };
 
   const handleNext = async () => {
-    // Debug: Log the current form data before save
-    const detail = getLicenseDetail();
-    Object.keys(detail).forEach(key => {});
-
-    // Enhanced debugging for requestedWeaponIds specifically
     // The form data is already in the correct format (licenseDetails array)
     const savedApplicantId = await saveFormData(undefined, undefined, true);
 
@@ -545,10 +531,19 @@ const LicenseDetails = () => {
   // Debug: Log current form state on render
   return (
     <form className='p-6'>
-      <h2 className='text-xl font-bold mb-4'>License Details</h2>
+      <FormStepHeader
+        title="License Details"
+        subtitle="Specify the arms category, requested weapons, area of validity, and reasons for license requirement."
+        stepNumber={6}
+        totalSteps={10}
+        applicationId={applicantId}
+        acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+        onRefresh={typeof loadExistingData === 'function' && applicantId ? () => loadExistingData(applicantId) : undefined}
+        isRefreshing={isLoading}
+      />
 
       {/* Display Applicant ID and License ID if available */}
-      {(applicantId || almsLicenseId) && (
+      {false && (applicantId || almsLicenseId) && (
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
             {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>
@@ -785,6 +780,12 @@ const LicenseDetails = () => {
                   />
                 </div>
               </div>
+
+              {evidenceError && (
+                <p className='mt-2 text-sm text-red-600' role='alert'>
+                  {evidenceError}
+                </p>
+              )}
 
               {/* Upload Progress */}
               {uploadingFiles && uploadProgress && (

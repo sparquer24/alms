@@ -2,6 +2,7 @@ import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Request, 
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { CaptchaService } from './captcha.service';
 import { LoginRequest } from '../../request/auth';
 import { LoginResponse, UserProfileResponse } from '../../response/auth';
 import { AuthGuard } from '../../middleware/auth.middleware';
@@ -9,32 +10,69 @@ import { AuthGuard } from '../../middleware/auth.middleware';
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(
+    private readonly authService: AuthService,
+    private readonly captchaService: CaptchaService,
+  ) { }
+
+  /**
+   * Generate CAPTCHA endpoint
+   * @returns CAPTCHA token and SVG string
+   */
+  @Get('captcha')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Generate CAPTCHA',
+    description: 'Generate an SVG CAPTCHA challenge with a unique ID for login verification'
+  })
+  @ApiResponse({ status: 200, description: 'CAPTCHA generated successfully' })
+  async getCaptcha(): Promise<any> {
+    const data = await this.captchaService.generateCaptcha();
+    return {
+      success: true,
+      data,
+    };
+  }
 
   /**
    * Login endpoint
-   * @param loginData - Login credentials
+   * @param loginData - Login credentials including CAPTCHA verification
    * @returns Authentication response with token
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'User Login',
-    description: 'Authenticate user with username and password to get JWT token'
+    description: 'Authenticate user with username, password, and CAPTCHA to get JWT token'
   })
   @ApiBody({
     type: LoginRequest,
-    description: 'User login credentials',
+    description: 'User login credentials with CAPTCHA',
   })
   @ApiResponse({
     status: 200,
     description: 'Login successful',
     type: LoginResponse,
   })
+  @ApiResponse({ status: 400, description: 'Invalid or expired CAPTCHA' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async login(@Body() loginData: LoginRequest, @Res({ passthrough: true }) res: Response): Promise<any> {
     try {
+      // 1. Verify CAPTCHA before checking credentials
+      const captchaValidation = await this.captchaService.validateCaptcha(
+        loginData.captchaId,
+        loginData.captchaCode,
+      );
+      if (!captchaValidation.isValid) {
+        res.status(HttpStatus.BAD_REQUEST);
+        return {
+          success: false,
+          message: captchaValidation.message || 'Invalid or expired CAPTCHA',
+        };
+      }
+
+      // 2. Authenticate user credentials
       const result = await this.authService.authenticateUser(loginData);
 
       // If the authenticated user payload includes a role, set an HttpOnly
@@ -49,7 +87,7 @@ export class AuthController {
           // 24 hours
           res.cookie('role', normalized, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000, path: '/', sameSite: 'lax' });
         }
-      } catch (cookieErr) {
+      } catch {
         // Best-effort: don't fail login if cookie setting fails
       }
 

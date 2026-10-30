@@ -59,7 +59,7 @@ const fetchRenewalApplications = async (submittedOnly: boolean): Promise<Applica
         submittedOnly ? application?.isSubmit === true : application?.isSubmit === false
       )
       .map((application: any) => normalizeRenewalApplication(application, submittedOnly));
-  } catch (error) {
+  } catch {
     return [];
   }
 };
@@ -304,7 +304,11 @@ export default function ApplicationsByTypeView({
     <div className='flex flex-col flex-1 min-h-0 w-full'>
       <PageSubHeader
         title={getPageTitle(queryType, selectedFormType)}
-        metaBadge={applications.length > 0 ? `${applications.length} Application${applications.length !== 1 ? 's' : ''}` : undefined}
+        metaBadge={
+          isLoading
+            ? 'Loading...'
+            : `${applications.length} Application${applications.length !== 1 ? 's' : ''}`
+        }
         actions={
           <div className='flex flex-wrap items-center gap-2 sm:gap-2.5'>
             {/* Search Input in SubHeader */}

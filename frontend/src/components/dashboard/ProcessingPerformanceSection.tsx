@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { TrendingUp, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
@@ -28,15 +28,15 @@ export default function ProcessingPerformanceSection({ data, loading }: Processi
   const stats = [
     {
       label: 'Avg Processing',
-      value: data ? `${data.avgDays}d` : '—',
+      value: data ? `${data.avgDays}d` : 'â€”',
       sub: 'Days to approval',
-      color: 'text-[#0F2D52]',
+      color: 'text-[#0B1F3A]',
       bg: 'bg-blue-50',
       icon: <TrendingUp className="w-4 h-4 text-blue-600" />,
     },
     {
       label: 'Median Time',
-      value: data ? `${data.medianDays}d` : '—',
+      value: data ? `${data.medianDays}d` : 'â€”',
       sub: 'Median days',
       color: 'text-purple-700',
       bg: 'bg-purple-50',
@@ -44,15 +44,15 @@ export default function ProcessingPerformanceSection({ data, loading }: Processi
     },
     {
       label: 'Within SLA',
-      value: data ? `${data.slaPercent}%` : '—',
-      sub: '≤30 day target',
+      value: data ? `${data.slaPercent}%` : 'â€”',
+      sub: 'â‰¤30 day target',
       color: slaColor,
       bg: data?.slaPercent && data.slaPercent >= 80 ? 'bg-emerald-50' : data?.slaPercent && data.slaPercent >= 60 ? 'bg-amber-50' : 'bg-rose-50',
       icon: slaIcon,
     },
     {
       label: 'Delayed',
-      value: data ? data.delayedCount.toLocaleString() : '—',
+      value: data ? data.delayedCount.toLocaleString() : 'â€”',
       sub: 'Over 30 days',
       color: data?.delayedCount ? 'text-rose-600' : 'text-emerald-600',
       bg: data?.delayedCount ? 'bg-rose-50' : 'bg-emerald-50',
@@ -61,15 +61,15 @@ export default function ProcessingPerformanceSection({ data, loading }: Processi
   ];
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-      <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+    <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+      <div className="flex items-center justify-between pb-5 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#0F2D52]" />
+            <TrendingUp className="w-4 h-4 text-[#0B1F3A]" />
             Processing Performance
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            Based on {data?.totalProcessed?.toLocaleString() ?? '—'} processed applications
+            Based on {data?.totalProcessed?.toLocaleString() ?? 'â€”'} processed applications
           </p>
         </div>
         <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">30-day SLA</span>
@@ -80,7 +80,7 @@ export default function ProcessingPerformanceSection({ data, loading }: Processi
           <Loader2 className="w-4 h-4 animate-spin" />Calculating performance...
         </div>
       ) : (
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-4">
           {stats.map((s) => (
             <div key={s.label} className={`${s.bg} rounded-xl p-3 flex flex-col gap-1`}>
               <div className="flex items-center justify-between">

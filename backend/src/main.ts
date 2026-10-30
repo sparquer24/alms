@@ -64,10 +64,11 @@ async function bootstrap() {
     process.exit(0);
   });
 
-  // Increase body size limit to 10MB for JSON and URL-encoded requests
+  // Files are uploaded as base64 inside JSON (~4/3 of the raw size), so a 10MB
+  // file needs ~13.4MB of body. Keep this above the 10MB per-file UI limit.
   const express = require('express');
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  app.use(express.json({ limit: '20mb' }));
+  app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
   // Serve static files from the uploads directory
   app.useStaticAssets(resolve(process.cwd(), 'uploads'), {
@@ -75,12 +76,13 @@ async function bootstrap() {
   });
 
   // Enable CORS for frontend. Read from CORS_ORIGIN env (comma-separated) else fallback to sensible defaults.
-  const defaultOrigins = ['http://localhost:5000', 'http://localhost:5001', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5001', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000', "https://alms.sparquer.com"];
+  const defaultOrigins = ['http://localhost:5000', 'http://localhost:5001', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5001', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000', "https://alms.sparquer.com", "https://dev.alms.sparquer.com", "https://alms.sparquer.ai"];
   const corsEnv = process.env.CORS_ORIGIN;
   const origins = corsEnv ? corsEnv.split(',').map(s => s.trim()).filter(Boolean) : defaultOrigins;
 
   app.enableCors({
-    origin: "*",
+    // Only the listed origins; CORS_ORIGIN=* opts back in to allowing any site.
+    origin: origins.includes('*') ? '*' : origins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'authorization'],

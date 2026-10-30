@@ -10,9 +10,7 @@ import {
   Users,
   Shield,
   GitBranch,
-  RefreshCcw,
   MapPin,
-  FileText,
   List,
   XCircle,
   LayoutDashboard,
@@ -33,9 +31,7 @@ const UsersFixed = Users as any;
 const ShieldFixed = Shield as any;
 const GitBranchFixed = GitBranch as any;
 const BadgeCheckFixed = BadgeCheck as any;
-const RefreshCcwFixed = RefreshCcw as any;
 const MapPinFixed = MapPin as any;
-const FileTextFixed = FileText as any;
 const ListFixed = List as any;
 const XCircleFixed = XCircle as any;
 const LayoutDashboardFixed = LayoutDashboard as any;

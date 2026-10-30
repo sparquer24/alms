@@ -1,4 +1,4 @@
-import { apiClient, getAuthToken, redirectToLogin } from '../../config/authenticatedApiClient';
+import { apiClient } from '../../config/authenticatedApiClient';
 
 
 export interface CreateRoleParams {

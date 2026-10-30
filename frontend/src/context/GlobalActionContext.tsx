@@ -65,10 +65,6 @@ export const GlobalActionProvider = ({ children }: { children: ReactNode }) => {
     (actionId: string): boolean => {
       // Only block if the same actionId is in progress
       if (actionStateRef.current.isLoading && actionStateRef.current.actionId === actionId) {
-        console.debug(
-          '[GlobalAction] Action rejected - same action in progress:',
-          actionStateRef.current.actionId
-        );
         return false;
       }
       const newState = {
@@ -140,12 +136,10 @@ export const GlobalActionProvider = ({ children }: { children: ReactNode }) => {
     (path: string, actionId?: string): boolean => {
       // If we're currently navigating to the same path, block
       if (activeNavigationPath === path) {
-        console.debug('[GlobalAction] Navigation blocked - already navigating to:', path);
         return false;
       }
       // Only block if the same actionId is in progress
       if (actionId && actionStateRef.current.isLoading && actionStateRef.current.actionId === actionId) {
-        console.debug('[GlobalAction] Navigation blocked - same action in progress:', actionId);
         return false;
       }
       return true;
@@ -171,49 +165,3 @@ export const GlobalActionProvider = ({ children }: { children: ReactNode }) => {
 
 export const useGlobalAction = () => useContext(GlobalActionContext);
 
-// Custom hook for sidebar menu actions
-export const useSidebarAction = () => {
-  const { isActionInProgress, startAction, endAction, canNavigateTo, setActiveNavigationPath } =
-    useGlobalAction();
-
-  const executeSidebarNavigation = useCallback(
-    async (
-      menuKey: string,
-      targetPath: string,
-      navigationAction: () => Promise<void> | void
-    ): Promise<boolean> => {
-      const actionId = `sidebar-${menuKey}`;
-
-      // Check if we can navigate
-      if (!canNavigateTo(targetPath)) {
-        return false;
-      }
-
-      // Check if action is already in progress
-      if (isActionInProgress(actionId)) {
-        return false;
-      }
-
-      // Start the action
-      if (!startAction(actionId)) {
-        return false;
-      }
-
-      try {
-        setActiveNavigationPath(targetPath);
-        await navigationAction();
-        return true;
-      } catch (error) {
-        console.error(`[SidebarAction] Navigation to ${targetPath} failed:`, error);
-        return false;
-      } finally {
-        endAction(actionId);
-      }
-    },
-    [isActionInProgress, startAction, endAction, canNavigateTo, setActiveNavigationPath]
-  );
-
-  return { executeSidebarNavigation, isActionInProgress };
-};
-
-export default GlobalActionContext;

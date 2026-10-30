@@ -70,6 +70,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
         value: [
           ...initialFirDetails,
           {
+            // eslint-disable-next-line react-hooks/purity -- runs in the click handler, not during render
             id: `fir-${Date.now()}`,
             firNumber: '',
             underSection: '',

@@ -1,5 +1,4 @@
 import { IsOptional, IsString, IsEnum, IsDateString } from 'class-validator';
-import { Sex } from '@prisma/client';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PatchRenewalPersonalDetailsDto {

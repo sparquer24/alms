@@ -3,14 +3,13 @@
 // React hook that wraps the validation engine for use in form components.
 // Provides: processChange, processBlur, validateAll, isValid, getRule.
 
-import { useMemo, useCallback } from 'react';
+import { useCallback } from 'react';
 import { FieldRule, ProcessResult } from '../utils/validation/types';
 import {
   processFieldChange,
   processFieldBlur,
   validateForm,
   isFormValid as checkIsFormValid,
-  getActiveRules,
 } from '../utils/validation/engine';
 
 /**

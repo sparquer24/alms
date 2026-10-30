@@ -1,12 +1,5 @@
 import { IsNotEmpty, IsString, IsEnum, IsNumber } from 'class-validator';
-import { FileType } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
-
-export class PatchRenewalBiometricDataDto {
-  @ApiProperty({ description: 'Biometric data in JSON format (signature, photo, iris, fingerprint)' })
-  @IsNotEmpty()
-  biometricData!: Record<string, any>;
-}
 
 export class UploadRenewalFileDto {
   @ApiProperty({ 

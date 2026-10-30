@@ -35,10 +35,15 @@ function InboxContent() {
   // visit (stray nav link/bookmark). An explicit ?type= means the admin
   // intentionally drilled down here (e.g. from the Analytics Dashboard
   // summary cards) and should see the filtered list, not get bounced.
+  // For non-admin users on bare /inbox, normalize to /inbox?type=all.
   useEffect(() => {
-    if (initialized && isAdminRole(userRole) && !searchParams?.get('type')) {
-      const redirectPath = getRoleBasedRedirectPath(userRole);
-      router.push(redirectPath);
+    if (initialized && !searchParams?.get('type')) {
+      if (isAdminRole(userRole)) {
+        const redirectPath = getRoleBasedRedirectPath(userRole);
+        router.push(redirectPath);
+      } else {
+        router.replace('/inbox?type=all');
+      }
     }
   }, [initialized, userRole, router, searchParams]);
 

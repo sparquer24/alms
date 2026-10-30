@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  AdminCard,
-  AdminTable,
   AdminToolbar,
   AdminFilter,
   AdminTableSkeleton,
@@ -14,7 +12,7 @@ import {
 } from '@/components/admin';
 import { AdminDataTable, Column } from '@/components/tables/AdminDataTable';
 import { useAdminTheme } from '@/context/AdminThemeContext';
-import { AdminSpacing, AdminLayout } from '@/styles/admin-design-system';
+import { AdminLayout } from '@/styles/admin-design-system';
 
 interface User {
   id: string;
@@ -99,18 +97,6 @@ const UserListPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return colors.status.success;
-      case 'inactive':
-        return colors.status.warning;
-      case 'suspended':
-        return colors.status.error;
-      default:
-        return colors.text.secondary;
-    }
-  };
 
   const columns: Column<User>[] = [
     { key: 'username', header: 'Username' },

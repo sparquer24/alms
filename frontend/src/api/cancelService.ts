@@ -1,19 +1,4 @@
 import { apiClient } from '../config/authenticatedApiClient';
-import { patchData } from './axiosConfig';
-
-export interface CancelFormData {
-  id?: number;
-  licenseId: number;
-  applicationType: string;
-  cancellationReason: string;
-  remarks?: string;
-  status?: string;
-  requestedDate?: string;
-  actionedDate?: string;
-  requester?: any;
-  actioner?: any;
-  workflowStatus?: any;
-}
 
 export class CancelService {
   /**
@@ -28,6 +13,27 @@ export class CancelService {
     remarks?: string;
   }): Promise<any> {
     return apiClient.post('/cancel-forms', payload);
+  }
+
+  /**
+   * Attach a supporting document (sent as a data URL) to a cancel request
+   */
+  static async uploadFile(cancelRequestId: number, file: File): Promise<any> {
+    const fileUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error(`Could not read "${file.name}".`));
+      reader.readAsDataURL(file);
+    });
+    return apiClient.post(`/cancel-forms/${cancelRequestId}/upload-file`, {
+      fileUrl,
+      fileName: file.name,
+      fileSize: file.size,
+    });
+  }
+
+  static async deleteFile(fileId: number): Promise<any> {
+    return apiClient.delete(`/cancel-forms/file/${fileId}`);
   }
 
   /**
@@ -55,50 +61,6 @@ export class CancelService {
    */
   static async getCancelRequestById(id: number): Promise<any> {
     return apiClient.get(`/cancel-forms/${id}`);
-  }
-
-  /**
-   * Update a cancel request (only when pending)
-   */
-  static async updateCancelRequest(
-    id: number,
-    payload: {
-      cancellationReason?: string;
-      remarks?: string;
-    }
-  ): Promise<any> {
-    return patchData(`/cancel-forms/${id}`, payload);
-  }
-
-  /**
-   * Action a cancel request (APPROVE/REJECT) - direct endpoint if needed
-   */
-  static async processCancelAction(
-    id: number,
-    payload: {
-      action: 'APPROVED' | 'REJECTED';
-      remarks?: string;
-    }
-  ): Promise<any> {
-    return apiClient.post(`/cancel-forms/${id}/action`, payload);
-  }
-
-  /**
-   * Get all Cancel Form applications via Workflow API (for standard listing)
-   */
-  static async getCancelWorkflowApplications(filters?: {
-    page?: number;
-    limit?: number;
-    status?: string;
-  }): Promise<any> {
-    const params = new URLSearchParams({
-      applicationType: 'CancelFormRequest',
-      ...(filters?.page && { page: String(filters.page) }),
-      ...(filters?.limit && { limit: String(filters.limit) }),
-      ...(filters?.status && { status: filters.status }),
-    });
-    
-    return apiClient.get(`/workflow/applications?${params.toString()}`);
   }
 
   /**

@@ -3,6 +3,8 @@
  * Maps frontend document type display names to backend FileType enum values
  */
 
+import { getFileSizeError, MB } from '../utils/fileValidation';
+
 export interface DocumentTypeMapping {
   displayName: string;
   fileType: string;
@@ -86,14 +88,6 @@ export const getDocumentTypeConfig = (displayName: string): DocumentTypeMapping 
 };
 
 /**
- * Get all document types as array
- * @returns Array of all document type configurations
- */
-export const getAllDocumentTypes = (): DocumentTypeMapping[] => {
-  return Object.values(DOCUMENT_TYPE_MAPPING);
-};
-
-/**
  * Validate file against document type constraints
  * @param file - The file to validate
  * @param displayName - The document type display name
@@ -109,13 +103,9 @@ export const validateFileForDocumentType = (
     return { isValid: false, error: 'Unknown document type' };
   }
 
-  // Check file size (convert MB to bytes)
-  const maxSizeBytes = config.maxSize * 1024 * 1024;
-  if (file.size > maxSizeBytes) {
-    return { 
-      isValid: false, 
-      error: `File size must be less than ${config.maxSize}MB` 
-    };
+  const sizeError = getFileSizeError(file, config.maxSize * MB);
+  if (sizeError) {
+    return { isValid: false, error: sizeError };
   }
 
   // Check file type

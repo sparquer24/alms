@@ -52,13 +52,13 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
           isAuthenticated: true,
           exp: parsedPayload.exp,
         };
-      } catch (jwtErr) {
+      } catch {
         authData = { token: trimmed, isAuthenticated: true };
       }
     } else {
       try {
         authData = JSON.parse(trimmed);
-      } catch (e) {
+      } catch {
         authData = { token: trimmed, isAuthenticated: true };
       }
     }
@@ -108,7 +108,7 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
     }
 
     return { isAuthenticated, userRole };
-  } catch (error) {
+  } catch {
     return { isAuthenticated: false };
   }
 }
@@ -151,7 +151,7 @@ export function proxy(request: NextRequest) {
     if (roleCookie) {
       try {
         userRole = String(roleCookie).replace(/"/g, '').trim().toUpperCase();
-      } catch (e) {
+      } catch {
         userRole = String(roleCookie).toUpperCase();
       }
     }

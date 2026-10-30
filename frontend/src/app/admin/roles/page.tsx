@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
 import { AdminRoleService } from '@/services/admin/roles';
 import type { AdminRole } from '@/store/slices/adminRoleSlice';
 import {
@@ -14,7 +12,6 @@ import {
   AdminCardSkeleton,
   AdminErrorAlert,
   AdminErrorBoundary,
-  AdminTableSkeleton,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
@@ -170,8 +167,6 @@ const PermissionEditorModal: React.FC<{
 };
 
 export default function UserRolesMappingPage() {
-  const { userRole } = useAuth();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useAdminTheme();
   const [searchTerm, setSearchTerm] = useState('');
@@ -292,7 +287,6 @@ export default function UserRolesMappingPage() {
           <AdminCard
             title='No Roles Found'
             description={searchTerm ? 'Try adjusting your search criteria.' : 'No roles available.'}
-            children={undefined}
           />
         ) : (
           <div

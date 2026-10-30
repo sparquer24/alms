@@ -13,15 +13,35 @@ import { consumeLicenseOpenedFromList, getLicensesListUrl } from '@/components/l
 import { PageLayoutSkeleton, ApplicationDetailSkeleton } from '@/components/Skeleton';
 import { normalizeRole } from '@/utils/roleUtils';
 import { LicenseData } from '@/types';
-import { ChevronLeft, ChevronDown, ExternalLink, Printer, FileText, History, Ban, ShieldCheck, UserRound, Calendar, MapPin, Search } from 'lucide-react';
+import { ChevronDown, ExternalLink, Printer, FileText, History, Ban, ShieldCheck, UserRound, Calendar, MapPin } from 'lucide-react';
 import { apiClient } from '@/config/authenticatedApiClient';
 import { ApplicationDetailsView } from '@/components/licenses/ApplicationDetailsView';
+import { ApplicationHistoryCards } from '@/components/licenses/ApplicationHistoryCards';
+import { CancellationInfoPrint } from '@/components/cancelForm/CancelRequestDetail';
+import PrintApplicationForm from '@/app/application/components/PrintApplicationForm';
+import { RichTextDisplay } from '@/components/RichTextDisplay';
 import { SectionCard, DetailItem, SummaryCard, DocumentTable, StatusBadge, MaskedAadhaar } from '@/app/application/components/RedesignedComponents';
 import { getDocuments } from '@/services/documentService';
 import { getStatusStyle } from '@/utils/statusColors';
 import { formatGender, formatStatusLabel, humanize } from '@/utils/formatters';
+import { getPendingRenewalId } from '@/utils/licenseRenewal';
 
 type Tab = 'details' | 'fresh' | 'renewals' | 'cancellations';
+
+const PRINT_LABELS: Record<Tab, string> = {
+  details: 'Print license',
+  fresh: 'Print application',
+  renewals: 'Print renewals',
+  cancellations: 'Print cancellation',
+};
+
+/** Shape a fresh/renewal API record the way the application print expects it. */
+const toPrintableApplication = (app: any, applicationType: string) => ({
+  ...app,
+  applicationType,
+  applicationDate: app.applicationDate ?? app.createdAt,
+  documents: app.documents ?? app.fileUploads ?? [],
+});
 
 const formatDate = (value?: string | null) => {
   if (!value) return '-';
@@ -57,20 +77,6 @@ const getLicenseSource = (license: LicenseData): { label: string; badge: string 
   }
 };
 
-const getIconForField = (label: string) => {
-  const l = label.toLowerCase();
-  if (l.includes('name') || l.includes('guardian') || l.includes('gender') || l.includes('user')) {
-    return <UserRound className="h-4 w-4 text-blue-500" />;
-  }
-  if (l.includes('date')) {
-    return <Calendar className="h-4 w-4 text-blue-500" />;
-  }
-  if (l.includes('address') || l.includes('state') || l.includes('district') || l.includes('station') || l.includes('zone') || l.includes('office') || l.includes('division')) {
-    return <MapPin className="h-4 w-4 text-blue-500" />;
-  }
-  return <FileText className="h-4 w-4 text-blue-500" />;
-};
-
 /** Validity chip for the header: days left, or when it expired. */
 const getValidityChip = (license: LicenseData): { label: string; className: string } | null => {
   if (!license.validTill || license.status === 'CANCELLED') return null;
@@ -95,19 +101,6 @@ const getValidityChip = (license: LicenseData): { label: string; className: stri
     label: `Valid till ${formatDate(license.validTill)}`,
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   };
-};
-
-/**
- * A renewal still in progress. Once a renewal is approved it becomes the license's
- * last modifying application, and the next renewal can be started.
- */
-const getPendingRenewalId = (license: any): number | null => {
-  const id = license?.renewalApplicationId;
-  if (!id) return null;
-  const completed =
-    String(license.lastModifiedAppType || '').toUpperCase() === 'RENEWAL' &&
-    String(license.lastModifiedAppId ?? license.lastModifiedRenewalId) === String(id);
-  return completed ? null : id;
 };
 
 export default function LicenseDetailClient({ params }: { params: Promise<{ id: string }> }) {
@@ -229,7 +222,19 @@ export default function LicenseDetailClient({ params }: { params: Promise<{ id: 
           const res: any = await apiClient.get(`/cancel-forms?licenseId=${getLicensePk(license)}&limit=100`);
           // cancel-forms API returns: { success, message, data: [...], pagination: {...} }
           const list = res.data?.data ?? res.data ?? [];
-          setCancellations(Array.isArray(list) ? list : []);
+          const rows: any[] = Array.isArray(list) ? list : [];
+          // The list omits each request's workflow history and documents; the detail has both.
+          const detailed = await Promise.all(
+            rows.map(async (row: any) => {
+              try {
+                const detail: any = await apiClient.get(`/cancel-forms/${row.id}`);
+                return { ...row, ...(detail?.data ?? detail) };
+              } catch {
+                return row;
+              }
+            })
+          );
+          setCancellations(detailed);
           cancelFetched.current = true;
         } catch (err) {
           console.error('Error fetching cancellations', err);
@@ -298,6 +303,17 @@ function LicenseDetailContent({
     setListHref(getLicensesListUrl());
   }, []);
 
+  // Print follows the open tab. Renewals print the expanded ones, or all when none is.
+  const openRenewals = renewals.filter(
+    (r: any) => renewalToggles[String(r.id)] ?? renewals.length === 1
+  );
+  const renewalsToPrint = openRenewals.length ? openRenewals : renewals;
+  const hasPrintContent =
+    activeTab === 'details' ||
+    (activeTab === 'fresh' && !!freshApp) ||
+    (activeTab === 'renewals' && renewals.length > 0) ||
+    (activeTab === 'cancellations' && cancellations.length > 0);
+
   // Opened from the list: step back through history so the list's own Back
   // then continues to wherever the user was before (Inbox/Home). Otherwise
   // replace this entry with the list rather than pushing on top of it.
@@ -320,7 +336,7 @@ function LicenseDetailContent({
 
   return (
     <>
-    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
+    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white print:hidden'>
       <Sidebar />
       
       <Header
@@ -351,8 +367,8 @@ function LicenseDetailContent({
       />
       
       <main
-        className='flex-1 ml-0 h-full overflow-y-auto flex flex-col pt-[72px] md:pt-[86px]'
-        style={headerHeight != null ? { paddingTop: headerHeight + 20 } : undefined}
+        className='flex-1 w-full min-w-0 h-full overflow-y-auto flex flex-col pt-[56px] md:pt-[58px]'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <div className='flex-grow w-full mx-auto mb-16'>
           
@@ -381,10 +397,11 @@ function LicenseDetailContent({
                   <button
                     type='button'
                     onClick={() => window.print()}
-                    className='inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50'
+                    disabled={!hasPrintContent}
+                    className='inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
                   >
                     <Printer className='h-4 w-4' />
-                    Print license
+                    {PRINT_LABELS[activeTab as Tab]}
                   </button>
                 {isZS && license.status !== 'CANCELLED'
                   ? (() => {
@@ -437,7 +454,7 @@ function LicenseDetailContent({
           </div>
           
           <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden avoid-break'>
-            <div className='p-6 lg:p-8 bg-slate-50/30 min-h-[500px]'>
+            <div className='p-6 lg:p-8 bg-slate-50 min-h-[500px]'>
               <div className="space-y-8">
             {activeTab === 'details' && (
               <div className="space-y-8">
@@ -560,20 +577,13 @@ function LicenseDetailContent({
                 </div>
                 
                 {/* 3. Documents — always from the most recently approved application */}
-                {(() => {
-                  const docs = license.documents ?? license.fileUploads ?? [];
-                  return docs.length > 0 ? (
-                    <SectionCard
-                      title="Uploaded Documents"
-                      icon={FileText}
-                      iconColorClass="text-indigo-600 bg-indigo-50 border-indigo-100"
-                    >
-                      <div className="w-full">
-                        <DocumentTable documents={docs} />
-                      </div>
-                    </SectionCard>
-                  ) : null;
-                })()}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                  <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-6">
+                    <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+                    Uploaded Documents
+                  </h3>
+                  <DocumentTable documents={license.documents ?? license.fileUploads ?? []} />
+                </div>
               </div>
             )}
 
@@ -615,6 +625,8 @@ function LicenseDetailContent({
                       const submittedOn = renewal.applicationDate || renewal.createdAt;
                       const statusCode = String(renewal.workflowStatus?.code || '').toUpperCase();
                       const isDecided = ['APPROVED', 'REJECTED', 'CLOSE', 'CANCELLED', 'DISPOSED'].includes(statusCode);
+                      // Once the license is cancelled, an undecided renewal can never proceed.
+                      const isVoided = license.status === 'CANCELLED' && !isDecided;
 
                       return (
                         <li key={key} className={isMatched ? '' : 'bg-amber-50/40'}>
@@ -642,14 +654,23 @@ function LicenseDetailContent({
                               </span>
                             )}
                             <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => router.push(`/renewalApplication/${renewal.id}`)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                Open
-                              </button>
+                              {isVoided ? (
+                                <span
+                                  className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700"
+                                  title="This renewal was not completed before the license was cancelled and can no longer be opened."
+                                >
+                                  Void: license cancelled
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => router.push(`/renewalApplication/${renewal.id}`)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  Open
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => setRenewalToggles(prev => ({ ...prev, [key]: !isOpen }))}
@@ -662,7 +683,7 @@ function LicenseDetailContent({
                             </div>
                           </div>
                           {isOpen && (
-                            <div className="border-t border-slate-100 bg-slate-50/50 p-4">
+                            <div className="border-t border-slate-100 bg-slate-50 p-4">
                               <ApplicationDetailsView application={renewal} hideLicenseDetails={true} />
                             </div>
                           )}
@@ -690,8 +711,10 @@ function LicenseDetailContent({
                   <div className="space-y-6">
                     {cancellations.map((cancel: any) => {
                       const isMatched = cancel.licenseId === getLicensePk(license);
+                      // The backend appends each workflow action as "\n[Action: X] ..."; show only the applicant's remarks
+                      const appRemarks = String(cancel.remarks || '').split('\n[Action:')[0].trim();
                       return (
-                        <div key={cancel.id} className={`rounded-xl border ${isMatched ? 'border-gray-200' : 'border-amber-300 bg-amber-50/40'}`}>
+                        <div key={cancel.id} className={`rounded-xl border ${isMatched ? 'border-gray-200' : 'border-amber-300 bg-amber-50'}`}>
                           {/* Header */}
                           <div className={`flex flex-wrap items-center gap-3 px-5 py-3 rounded-t-xl border-b ${isMatched ? 'border-gray-200 bg-slate-50' : 'border-amber-200 bg-amber-50'}`}>
                             <Ban className="h-4 w-4 text-red-500" />
@@ -714,12 +737,12 @@ function LicenseDetailContent({
                               </span>
                             )}
                           </div>
-                          {/* Body */}
-                          <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {/* Body: details beside the license holder's photograph */}
+                          <div className="grid grid-cols-1 gap-6 p-5 lg:grid-cols-3">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:col-span-2">
                             {[
                               ['Application Type', cancel.applicationType ? humanize(cancel.applicationType) : null],
                               ['Cancellation Reason', cancel.cancellationReason],
-                              ['Remarks', cancel.remarks],
                               ['Requested By', cancel.requester?.username || cancel.requestedBy],
                               ['Requested Date', formatDate(cancel.requestedDate || cancel.createdAt)],
                               ['Actioner', cancel.actioner?.username || '-'],
@@ -727,6 +750,32 @@ function LicenseDetailContent({
                             ].map(([label, value]) => value ? (
                               <DetailItem key={label as string} label={label as string} value={value as string} icon={FileText} />
                             ) : null)}
+                          </div>
+                          <SummaryCard
+                            application={license}
+                            applicationId={cancel.id}
+                            applicantName={getFullName(license)}
+                          />
+                          </div>
+                          {appRemarks && (
+                            <div className="px-5 pb-5">
+                              <div className="pt-4 border-t border-slate-100">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Remarks</p>
+                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                  <RichTextDisplay content={appRemarks} className="text-sm text-slate-700" />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="space-y-6 px-5 pb-5">
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-6">
+                                <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+                                Uploaded Documents
+                              </h3>
+                              <DocumentTable documents={cancel.fileUploads || []} />
+                            </div>
+                            <ApplicationHistoryCards workflowHistory={cancel.cancelWorkflowHistories || []} />
                           </div>
                         </div>
                       );
@@ -750,9 +799,37 @@ function LicenseDetailContent({
       </main>
     </div>
 
-    {/* Print-only copy of the license; the app shell is hidden while printing */}
+    {/* Print-only copy of the open tab; the app shell is hidden while printing */}
     <div className='hidden print:block'>
-      <PrintLicense license={license} />
+      {activeTab === 'details' && <PrintLicense license={license} />}
+      {activeTab === 'fresh' && freshApp && (
+        <PrintApplicationForm
+          application={toPrintableApplication(freshApp, 'Fresh')}
+          applicantName={getFullName(freshApp)}
+          workflowHistory={freshApp.workflowHistories || []}
+        />
+      )}
+      {activeTab === 'renewals' &&
+        renewalsToPrint.map((renewal: any) => (
+          <div key={renewal.id} style={{ breakAfter: 'page' }}>
+            <PrintApplicationForm
+              application={toPrintableApplication(renewal, 'Renewal')}
+              applicantName={getFullName(renewal)}
+              workflowHistory={renewal.workflowHistories || []}
+            />
+          </div>
+        ))}
+      {activeTab === 'cancellations' &&
+        cancellations.map((cancel: any) => (
+          <div key={cancel.id} style={{ breakAfter: 'page' }}>
+            <CancellationInfoPrint
+              request={cancel}
+              applicantName={getFullName(license)}
+              licenseNumber={license.licenseNumber}
+              appRemarks={String(cancel.remarks || '').split('\n[Action:')[0].trim()}
+            />
+          </div>
+        ))}
     </div>
     </>
   );

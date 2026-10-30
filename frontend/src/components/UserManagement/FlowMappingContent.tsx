@@ -30,7 +30,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { LocationService } from '@/services/locations';
 import { getUserFromCookie } from '@/utils/authCookies';
-import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
+import { AdminSpacing, AdminBorderRadius } from '@/styles/admin-design-system';
 import { apiClient } from '@/config/authenticatedApiClient';
 
 interface Role {
@@ -280,7 +280,7 @@ export default function FlowMappingContent() {
   });
 
   // Fetch all mappings for current context to compute previous paths
-  const { data: allContextMappings = [], isLoading: allMappingsLoading } = useQuery({
+  const { data: allContextMappings = [] } = useQuery({
     queryKey: ['all-flow-mappings', applicationType?.value, effectiveStateId, effectiveDistrictId],
     queryFn: async () => {
       if (!applicationType) return [];

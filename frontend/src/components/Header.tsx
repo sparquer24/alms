@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { BadgeCheck, ChevronLeft } from 'lucide-react';
+import { BadgeCheck, ChevronLeft, ChevronDown } from 'lucide-react';
 import { useLayout } from '../config/layoutContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '../config/notificationContext';
@@ -60,7 +60,7 @@ const Header = (props: HeaderProps) => {
     onBack,
     applicationTypeLabel,
   } = props;
-  const { showHeader, showSidebar, setHeaderHeight } = useLayout();
+  const { showHeader, showSidebar, sidebarCollapsed, setHeaderHeight } = useLayout();
   const headerRef = useRef<HTMLElement>(null);
   const { userName, isLoading, user, userRole: hookUserRole } = useAuth();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
@@ -141,10 +141,7 @@ const Header = (props: HeaderProps) => {
     if (!isLoading && name) setDisplayName(name);
   }, [userName, user, isLoading, hookUserRole]);
 
-  // Keep the shared layout context in sync with the header's real rendered
-  // height (it can grow when breadcrumbs wrap), so the sticky subheader and
-  // the main content's top offset always line up with the header instead of
-  // relying on a guessed pixel constant.
+  // Keep the shared layout context in sync with the header's real rendered height
   useEffect(() => {
     if (!showHeader) {
       setHeaderHeight(null);
@@ -153,8 +150,6 @@ const Header = (props: HeaderProps) => {
     const node = headerRef.current;
     if (!node) return;
 
-    // Use the header's bottom edge (not just its height) so the floating
-    // `top-4` offset used at the md breakpoint is included automatically.
     const measure = () => setHeaderHeight(node.getBoundingClientRect().bottom);
     measure();
 
@@ -185,83 +180,89 @@ const Header = (props: HeaderProps) => {
 
   const canCreateApplication = canCreateApplications(hookUserRole);
 
-  // Adjust header position based on sidebar visibility
-  const headerLeftClass = showSidebar ? 'left-0 md:left-66' : 'left-0 md:left-4';
+  // Position based on sidebar presence and desktop collapsed state
+  const headerLeftClass = showSidebar
+    ? sidebarCollapsed
+      ? 'left-0 md:left-22'
+      : 'left-0 md:left-66'
+    : 'left-0';
 
-  // Determine if header needs extra height for breadcrumbs
   const hasBreadcrumbs = effectiveBreadcrumbs && effectiveBreadcrumbs.length > 0;
 
   return (
     <header
       ref={headerRef}
-      className={`fixed top-0 md:top-2 right-0 md:right-4 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg md:rounded-2xl z-40 transition-all duration-300`}
+      className={`fixed top-0 right-0 ${headerLeftClass} min-w-[200px] bg-[#0B1F3A] border-b border-white/10 ${
+        hasBreadcrumbs ? 'h-auto min-h-[56px] md:min-h-[58px] py-1.5' : 'h-[56px] md:h-[58px]'
+      } px-4 sm:px-6 lg:px-8 flex items-center justify-between shadow-xs z-40 transition-all duration-300`}
     >
-      <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
+      <div className='w-full mx-auto flex items-center justify-between gap-3'>
         {/* Left section: breadcrumbs / page title / create form */}
-        <div className='flex items-center gap-4 min-w-0'>
+        <div className='flex items-center gap-3 min-w-0'>
           {/* Back button */}
           {showBackButton && (
             <button
               type='button'
               onClick={() => (onBack ? onBack() : backHref ? router.push(backHref) : router.back())}
-              className='flex items-center gap-1 pl-2 pr-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md flex-shrink-0'
+              className='flex items-center gap-1 px-2.5 py-1 text-white hover:bg-white/10 rounded-lg flex-shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
               aria-label='Go back'
               title='Go back'
             >
-              <ChevronLeft className='h-5 w-5' />
-              <span className='text-sm font-medium'>Back</span>
+              <ChevronLeft className='h-4 w-4' />
+              <span className='text-xs font-semibold'>Back</span>
             </button>
           )}
-          {/* Show Create Form only when sidebar is visible and not hidden,
-              or when explicitly forced via the showCreateForm prop */}
-          {(showSidebar || showCreateForm) && !hideCreateForm && (
+
+          {/* Show Create Form when allowed */}
+          {(showSidebar || showCreateForm) && !hideCreateForm && canCreateApplication && (
             <div className='relative flex-shrink-0'>
-              {canCreateApplication && (
-                <>
-                  <button
-                    className='px-3.5 py-1.5 bg-white text-[#001F54] hover:bg-gray-100 rounded-lg flex items-center justify-center h-8.5 z-50 font-semibold text-xs whitespace-nowrap shadow-xs transition-all'
-                    onClick={() => setShowDropdown(v => !v)}
-                  >
-                    <span className='mr-1.5'>Create Form</span>
-                    <svg className='w-3.5 h-3.5 text-[#001F54]' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth={2}
-                        d='M19 9l-7 7-7-7'
-                      />
-                    </svg>
-                  </button>
-                  {showDropdown && (
-                    <div className='absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 overflow-hidden'>
-                      {APPLICATION_TYPES.map(type => (
-                        <button
-                          key={type.key}
-                          className={`w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-100 transition-colors ${type.enabled ? 'text-gray-800' : 'text-gray-400 cursor-not-allowed'}`}
-                          onClick={() => handleDropdownClick(type)}
-                          disabled={!type.enabled}
-                        >
-                          {type.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
+              <button
+                type='button'
+                className='px-3 py-1.5 bg-white text-[#0B1F3A] hover:bg-amber-50 hover:border-[#D4AF37] border border-transparent rounded-lg flex items-center justify-center font-bold text-xs whitespace-nowrap shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
+                onClick={() => setShowDropdown(v => !v)}
+                aria-expanded={showDropdown}
+                aria-haspopup='true'
+              >
+                <span className='mr-1.5'>Create Form</span>
+                <ChevronDown className='w-3.5 h-3.5 text-[#0B1F3A]' />
+              </button>
+              {showDropdown && (
+                <div className='absolute left-0 mt-1.5 w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-150'>
+                  <div className='px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100'>
+                    Application Type
+                  </div>
+                  {APPLICATION_TYPES.map(type => (
+                    <button
+                      key={type.key}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-gray-100 transition-colors ${
+                        type.enabled ? 'text-gray-800' : 'text-gray-400 cursor-not-allowed'
+                      }`}
+                      onClick={() => handleDropdownClick(type)}
+                      disabled={!type.enabled}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           )}
 
-          {/* License Management nav item (moved out of the sidebar), aligned next to Create Form */}
+          {/* License Management nav item */}
           {(showSidebar || showCreateForm) && !hideCreateForm && showLicenseManagement && (
-            <div className='relative flex-shrink-0'>
+            <div className='relative flex-shrink-0 hidden sm:block'>
               <button
                 type='button'
                 onClick={() => router.push('/licenses')}
                 aria-current={isLicensesActive ? 'page' : undefined}
-                className='px-3.5 py-1.5 bg-white text-[#001F54] hover:bg-gray-100 rounded-lg flex items-center justify-center h-8.5 z-50 font-semibold text-xs whitespace-nowrap shadow-xs transition-all'
+                className={`px-3 py-1.5 rounded-lg flex items-center justify-center font-bold text-xs whitespace-nowrap shadow-xs transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${
+                  isLicensesActive
+                    ? 'bg-white text-[#0B1F3A] border-[#D4AF37] ring-2 ring-[#D4AF37]/50 shadow-sm'
+                    : 'bg-white text-[#0B1F3A] hover:bg-amber-50 hover:border-[#D4AF37] border-transparent'
+                }`}
               >
-                <BadgeCheck className='w-3.5 h-3.5 mr-1.5' aria-hidden='true' />
-                <span>License Management</span>
+                <BadgeCheck className={`w-3.5 h-3.5 mr-1.5 ${isLicensesActive ? 'text-[#D4AF37]' : 'text-[#0B1F3A]'}`} aria-hidden='true' />
+                <span>Licenses</span>
               </button>
             </div>
           )}
@@ -270,33 +271,43 @@ const Header = (props: HeaderProps) => {
           {(hasBreadcrumbs || effectivePageTitle) && (
             <nav className='min-w-0 flex-1' aria-label='Breadcrumb'>
               {hasBreadcrumbs && effectiveBreadcrumbs ? (
-                <ol className='flex items-center space-x-2 text-sm truncate'>
-                  {effectiveBreadcrumbs.map((crumb, idx) => (
-                    <li key={idx} className='flex items-center space-x-2 min-w-0'>
-                      {idx > 0 && <span className='text-white text-opacity-50 flex-shrink-0'>/</span>}
-                      {crumb.onClick ? (
-                        <button
-                          onClick={crumb.onClick}
-                          className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
-                        >
-                          {crumb.label}
-                        </button>
-                      ) : crumb.href ? (
-                        <Link
-                          href={crumb.href}
-                          className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
-                        >
-                          {crumb.label}
-                        </Link>
-                      ) : (
-                        <span className='text-white font-medium truncate'>{crumb.label}</span>
-                      )}
-                    </li>
-                  ))}
+                <ol className='flex items-center space-x-1.5 text-xs truncate'>
+                  {effectiveBreadcrumbs.map((crumb, idx) => {
+                    const isLast = idx === effectiveBreadcrumbs.length - 1;
+                    return (
+                      <li key={idx} className='flex items-center space-x-1.5 min-w-0'>
+                        {idx > 0 && <span className='text-gray-400 flex-shrink-0'>/</span>}
+                        {crumb.onClick ? (
+                          <button
+                            type='button'
+                            onClick={crumb.onClick}
+                            className={`transition-colors truncate ${
+                              isLast ? 'text-[#D4AF37] font-semibold' : 'text-gray-300 hover:text-white'
+                            }`}
+                          >
+                            {crumb.label}
+                          </button>
+                        ) : crumb.href ? (
+                          <Link
+                            href={crumb.href}
+                            className={`transition-colors truncate ${
+                              isLast ? 'text-[#D4AF37] font-semibold' : 'text-gray-300 hover:text-white'
+                            }`}
+                          >
+                            {crumb.label}
+                          </Link>
+                        ) : (
+                          <span className={`truncate ${isLast ? 'text-[#D4AF37] font-semibold' : 'text-gray-300'}`}>
+                            {crumb.label}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ol>
               ) : (
-                <div className='flex items-center gap-2 text-white font-semibold text-base truncate'>
-                  <span>{effectivePageTitle}</span>
+                <div className='flex items-center gap-2 text-white font-semibold text-sm truncate'>
+                  <span className='text-[#D4AF37] font-bold'>{effectivePageTitle}</span>
                 </div>
               )}
             </nav>
@@ -304,94 +315,50 @@ const Header = (props: HeaderProps) => {
         </div>
 
         {/* Right section: status badge + actions */}
-        <div className='flex items-center space-x-3  justify-end flex-shrink-0'>
+        <div className='flex items-center space-x-2.5 justify-end flex-shrink-0'>
           {/* Application Type badge */}
           {applicationTypeLabel && (
-            <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
-              <div className='w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0'>
-                {applicationTypeLabel.toLowerCase().includes('renewal') ? (
-                  <svg
-                    className='w-5 h-5 text-white'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M6 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className='w-5 h-5 text-white'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M6 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-                    />
-                  </svg>
-                )}
-              </div>
-              <div>
-                <span
-                  className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border whitespace-nowrap ${
-                    applicationTypeLabel.toLowerCase().includes('renewal')
-                      ? 'bg-[#D97706] text-white border-[#B45309]'
-                      : applicationTypeLabel.toLowerCase().includes('cancel')
-                        ? 'bg-red-600 text-white border-red-700'
-                        : 'bg-[#059669] text-white border-[#047857]'
-                  }`}
-                >
-                  {applicationTypeLabel}
-                </span>
-              </div>
+            <div className='hidden sm:flex items-center space-x-1.5 bg-white/10 rounded-lg px-2.5 py-1 text-xs'>
+              <span
+                className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full border whitespace-nowrap ${
+                  applicationTypeLabel.toLowerCase().includes('renewal')
+                    ? 'bg-amber-600/90 text-white border-amber-500'
+                    : applicationTypeLabel.toLowerCase().includes('cancel')
+                      ? 'bg-red-600/90 text-white border-red-500'
+                      : 'bg-emerald-600/90 text-white border-emerald-500'
+                }`}
+              >
+                {applicationTypeLabel}
+              </span>
             </div>
           )}
+
           {/* Status badge */}
           {statusBadge && (
-            <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
-              <div className='w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center'>
-                <svg
-                  className='w-5 h-5 text-white'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-                  />
-                </svg>
-              </div>
-              <div>
-                <span
-                  className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border ${statusBadge.className || 'bg-white bg-opacity-20 text-white border-white border-opacity-30'}`}
-                  style={statusBadge.style}
-                >
-                  {statusBadge.label}
-                </span>
-              </div>
+            <div className='flex items-center space-x-1.5 bg-white/10 rounded-lg px-2.5 py-1 text-xs'>
+              <span
+                className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
+                  statusBadge.className || 'bg-white/20 text-white border-white/30'
+                }`}
+                style={statusBadge.style}
+              >
+                {statusBadge.label}
+              </span>
             </div>
           )}
+
+          {/* Notifications */}
           <div className='relative'>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-full'
+              className='p-1.5 text-gray-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
               aria-label='Toggle notifications'
               aria-expanded={showNotifications}
+              title='Notifications'
             >
               <svg
                 xmlns='http://www.w3.org/2000/svg'
-                className='h-6 w-6'
+                className='h-5 w-5'
                 fill='none'
                 viewBox='0 0 24 24'
                 stroke='currentColor'
@@ -404,8 +371,8 @@ const Header = (props: HeaderProps) => {
                 />
               </svg>
               {unreadCount > 0 && (
-                <span className='absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full'>
-                  {unreadCount}
+                <span className='absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-[#0B1F3A]'>
+                  {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </button>
@@ -413,17 +380,18 @@ const Header = (props: HeaderProps) => {
               <NotificationDropdown onClose={() => setShowNotifications(false)} />
             )}
           </div>
-          {/* Print button - hidden when hidePrint is true */}
+
+          {/* Print button */}
           {!hidePrint && (
             <button
               onClick={() => globalThis.print()}
-              className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md'
+              className='p-1.5 text-gray-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
               aria-label='Print page'
               title='Print'
             >
               <svg
                 xmlns='http://www.w3.org/2000/svg'
-                className='h-6 w-6'
+                className='h-5 w-5'
                 fill='none'
                 viewBox='0 0 24 24'
                 stroke='currentColor'
@@ -437,21 +405,22 @@ const Header = (props: HeaderProps) => {
               </svg>
             </button>
           )}
+
+          {/* User profile avatar / settings link */}
           {hasValidUserName && (
             <Link
               href='/settings'
-              className='flex items-center hover:bg-white hover:bg-opacity-10 rounded-full p-1 transition-colors'
+              className='flex items-center hover:ring-2 hover:ring-[#D4AF37] rounded-full p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]'
+              title={`Logged in as ${displayName} (${roleLabel})`}
+              aria-label={`Settings for ${displayName}`}
             >
-              <div className='bg-white text-[#001F54] rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm'>
+              <div className='bg-[#D4AF37] text-[#0B1F3A] rounded-full w-7 h-7 flex items-center justify-center font-black text-xs shadow-sm'>
                 {displayName.charAt(0).toUpperCase()}
               </div>
             </Link>
           )}
         </div>
       </div>
-
-
-
     </header>
   );
 };

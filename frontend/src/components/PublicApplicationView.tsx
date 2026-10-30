@@ -147,7 +147,7 @@ export default function PublicApplicationView({ applicationId, type }: PublicApp
   return (
     <div className='min-h-screen bg-gray-50'>
       {/* Header */}
-      <header className='bg-[#001F54] text-white py-6 shadow-lg'>
+      <header className='bg-[#0B1F3A] text-white py-6 shadow-lg'>
         <div className='max-w-4xl mx-auto px-4'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-3'>

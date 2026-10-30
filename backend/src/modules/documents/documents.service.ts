@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { ApplicationType } from './dto/get-documents.dto';
 
@@ -15,7 +15,6 @@ export interface DocumentResponse {
 
 @Injectable()
 export class DocumentsService {
-  private readonly logger = new Logger(DocumentsService.name);
 
   /**
    * Resolve an acknowledgement number to a numeric application ID for the given type.

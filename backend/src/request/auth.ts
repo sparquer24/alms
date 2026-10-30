@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class LoginRequest {
   @ApiProperty({
@@ -19,4 +19,22 @@ export class LoginRequest {
   @IsString()
   @IsNotEmpty()
   password!: string;
+
+  @ApiProperty({
+    description: 'CAPTCHA token ID',
+    required: false,
+    type: String
+  })
+  @IsString()
+  @IsOptional()
+  captchaId?: string;
+
+  @ApiProperty({
+    description: 'CAPTCHA code entered by user',
+    required: false,
+    type: String
+  })
+  @IsString()
+  @IsOptional()
+  captchaCode?: string;
 }

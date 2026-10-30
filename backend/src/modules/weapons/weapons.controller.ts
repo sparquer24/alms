@@ -1,7 +1,6 @@
-import { Controller, Get, Post, Patch,  Param,  Query, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { WeaponsService } from './weapons.service';
-import { WeaponsModule } from './weapons.module';
 import { CacheResponse } from '../../cache/cache.decorators';
 import { CacheKeys } from '../../cache/cache';
 
@@ -29,11 +28,6 @@ export class WeaponsController {
     
   })
   async getWeapons(@Query('id') id?: number){
-    try{
     return this.weaponsService.getWeapons(id);
   }
-  catch(error){
-    throw error;
-   }
- }
 }

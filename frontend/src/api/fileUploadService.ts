@@ -14,12 +14,6 @@ export interface FileUploadResponse {
   };
 }
 
-export interface FileUploadError {
-  success: false;
-  error: string;
-  details?: any;
-}
-
 /**
  * Convert file to base64 string with compression for images
  */
@@ -154,12 +148,8 @@ export class FileUploadService {
       this.uploadFile(applicationId, file, fileType, description)
     );
 
-    try {
-      const results = await Promise.all(uploadPromises);
-      return results;
-    } catch (error) {
-      throw error;
-    }
+    const results = await Promise.all(uploadPromises);
+    return results;
   }
 
   /**
@@ -168,13 +158,9 @@ export class FileUploadService {
    * @returns Promise with deletion response
    */
   static async deleteFile(fileId: number): Promise<{ success: boolean; message: string }> {
-    try {
-      // Note: This endpoint may need to be implemented in the backend
-      const response = await apiClient.delete(`/application-form/file/${fileId}`) as { success: boolean; message: string };
-      return response;
-    } catch (error) {
-      throw error;
-    }
+    // Note: This endpoint may need to be implemented in the backend
+    const response = await apiClient.delete(`/application-form/file/${fileId}`) as { success: boolean; message: string };
+    return response;
   }
 
   /**
@@ -183,17 +169,13 @@ export class FileUploadService {
    * @returns Promise with array of files
    */
   static async getFiles(applicationId: string | number): Promise<FileUploadResponse['data'][]> {
-    try {
-      // The backend exposes application retrieval at GET /application-form?applicationId=:id
-      // which includes `fileUploads` in the returned application object. Some environments
-      // may return an envelope { success, message, data } where data is the application.
-      const resp = await apiClient.get<any>(`/application-form?applicationId=${applicationId}`);
-      // Try multiple shapes defensively
-      const app = resp?.data ?? resp;
-      const files = app?.fileUploads ?? app?.file_uploads ?? app?.fileUploads?.data ?? [];
-      return files as FileUploadResponse['data'][];
-    } catch (error) {
-      throw error;
-    }
+    // The backend exposes application retrieval at GET /application-form?applicationId=:id
+    // which includes `fileUploads` in the returned application object. Some environments
+    // may return an envelope { success, message, data } where data is the application.
+    const resp = await apiClient.get<any>(`/application-form?applicationId=${applicationId}`);
+    // Try multiple shapes defensively
+    const app = resp?.data ?? resp;
+    const files = app?.fileUploads ?? app?.file_uploads ?? app?.fileUploads?.data ?? [];
+    return files as FileUploadResponse['data'][];
   }
 }

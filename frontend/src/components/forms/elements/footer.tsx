@@ -48,16 +48,16 @@ const FormFooter = ({
   const nextBusy = isLoading && pendingAction !== 'draft';
 
   return (
-    <footer className='w-full mt-8 bg-white px-6 py-2 flex flex-col gap-2 z-50 shadow-[0_-2px_8px_0_rgba(0,0,0,0.04)]'>
+    <footer className='w-full mt-8 bg-slate-50/80 border-t border-slate-200 px-6 py-4 flex flex-col gap-3 z-30 rounded-b-2xl shadow-xs'>
       {errorEntries.length > 0 && (
-        <div className='bg-red-50 border-l-4 border-red-500 rounded-r-md p-3 mb-2'>
-          <div className='flex items-start gap-2'>
+        <div className='bg-red-50 border-l-4 border-red-500 rounded-r-lg p-3.5 mb-1 shadow-xs'>
+          <div className='flex items-start gap-2.5'>
             <svg className='w-5 h-5 text-red-500 shrink-0 mt-0.5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
               <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z' />
             </svg>
             <div>
-              <p className='text-sm font-semibold text-red-800'>Please fix the following errors to proceed:</p>
-              <ul className='mt-1 text-sm text-red-700 list-disc list-inside space-y-0.5'>
+              <p className='text-sm font-bold text-red-900'>Please correct the following fields to proceed:</p>
+              <ul className='mt-1 text-xs text-red-700 list-disc list-inside space-y-0.5 font-medium'>
                 {errorEntries.map(([field, msg]) => (
                   <li key={field}>{msg}</li>
                 ))}
@@ -66,118 +66,121 @@ const FormFooter = ({
           </div>
         </div>
       )}
-      <div className='flex flex-wrap items-center gap-2 text-[15px] font-medium text-[#1A237E]'>
+
+      {/* Official Form Header Legend in Navy Blue */}
+      <div className='flex flex-wrap items-center gap-2 text-xs sm:text-sm font-semibold text-[#0B1F3A]'>
         <span>SCHEDULE–III Part – II</span>
-        <span className='mx-1'>|</span>
+        <span className='text-gray-300'>|</span>
         <span>Application Form</span>
-        <span className='mx-1'>|</span>
-        <span className='font-bold'>
-          Form A-1 <span className='font-normal text-xs text-black'>[for individuals]</span>
+        <span className='text-gray-300'>|</span>
+        <span className='font-bold text-[#0B1F3A]'>
+          Form A-1 <span className='font-normal text-xs text-gray-600'>[for individuals]</span>
         </span>
-        <span className='mx-1'>|</span>
-        <span>
+        <span className='text-gray-300'>|</span>
+        <span className='text-gray-700'>
           Form of application for an arms license In{' '}
-          <span className='font-bold'>Form II, III and IV</span>
+          <span className='font-bold text-[#0B1F3A]'>Form II, III and IV</span>
         </span>
       </div>
-      <div className='mt-2 w-full'>
-        <div className='flex items-center'>
-          <span className='text-red-600 font-bold mr-2'>NOTE:</span>
-          <span className='text-black'>
-            Please review the data before submitting of your Arms License application
-          </span>
-        </div>
-      {isDeclarationStep ? (
-        <div className='flex w-full flex-wrap justify-between mt-4 gap-2'>
-          {!hidePrevious && (
-            <button
-              type='button'
-              onClick={onPrevious}
-              disabled={isLoading}
-              suppressHydrationWarning
-              className='flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed'
-            >
-              <FiArrowLeftFixed className='text-lg' />
-              Previous
-            </button>
-          )}
-          <button
-            type='button'
-            onClick={onSubmit}
-            disabled={isLoading}
-            suppressHydrationWarning
-            className='flex items-center justify-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]'
-          >
-            {isLoading ? (
-              <>
-                <Spinner size="sm" color="text-white" /> Submitting...
-              </>
-            ) : (
-              'Submit'
-            )}
-          </button>
-        </div>
-      ) : (
-        <div className='flex flex-wrap gap-3 justify-end mt-4'>
-          <button
-            type='button'
-            onClick={() => {
-              setPendingAction('draft');
-              onSaveToDraft?.();
-            }}
-            disabled={isLoading || (disableSaveDraft ?? disableActions)}
-            suppressHydrationWarning
-            className='flex items-center justify-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]'
-          >
-            {draftBusy ? (
-              <>
-                <Spinner size="sm" color="text-yellow-700" /> Saving...
-              </>
-            ) : (
-              <>
-                <FaRegSaveFixed className='text-lg' />
-                Save to Draft
-              </>
-            )}
-          </button>
 
-          {!hidePrevious && (
+      <div className='w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1'>
+        <div className='flex items-center text-xs text-gray-600 font-medium'>
+          <span className='text-red-600 font-bold mr-1.5'>NOTE:</span>
+          <span>Please review the data before proceeding to the next step.</span>
+        </div>
+
+        {isDeclarationStep ? (
+          <div className='flex flex-wrap items-center gap-3 justify-end'>
+            {!hidePrevious && (
+              <button
+                type='button'
+                onClick={onPrevious}
+                disabled={isLoading}
+                suppressHydrationWarning
+                className='flex items-center gap-2 border-2 border-[#0B1F3A] text-[#0B1F3A] font-bold px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm shadow-xs'
+              >
+                <FiArrowLeftFixed className='text-base' />
+                Previous
+              </button>
+            )}
             <button
               type='button'
-              onClick={onPrevious}
+              onClick={onSubmit}
               disabled={isLoading}
               suppressHydrationWarning
-              className='flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-4 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed'
+              className='flex items-center justify-center gap-2 bg-[#0B1F3A] hover:bg-[#15325B] text-white font-bold px-8 py-2.5 rounded-xl shadow-md transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px] text-xs sm:text-sm'
             >
-              <FiArrowLeftFixed className='text-lg' />
-              Previous
+              {isLoading ? (
+                <>
+                  <Spinner size="sm" color="text-white" /> Submitting...
+                </>
+              ) : (
+                'Submit Application'
+              )}
             </button>
-          )}
-          <button
-            type='button'
-            onClick={() => {
-              setPendingAction('next');
-              onNext?.();
-            }}
-            disabled={isLoading || disableActions}
-            suppressHydrationWarning
-            className='flex items-center justify-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]'
-          >
-            {nextBusy ? (
-              <>
-                <Spinner size="sm" color="text-white" /> Saving...
-              </>
-            ) : (
-              <>
-                Next
-                <FiArrowRightFixed className='text-lg' />
-              </>
+          </div>
+        ) : (
+          <div className='flex flex-wrap items-center gap-3 justify-end'>
+            <button
+              type='button'
+              onClick={() => {
+                setPendingAction('draft');
+                onSaveToDraft?.();
+              }}
+              disabled={isLoading || (disableSaveDraft ?? disableActions)}
+              suppressHydrationWarning
+              className='flex items-center justify-center gap-2 border border-amber-300 bg-amber-50 text-amber-900 font-semibold px-4 py-2.5 rounded-xl hover:bg-amber-100 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px] text-xs sm:text-sm shadow-xs'
+            >
+              {draftBusy ? (
+                <>
+                  <Spinner size="sm" color="text-amber-700" /> Saving...
+                </>
+              ) : (
+                <>
+                  <FaRegSaveFixed className='text-sm text-amber-700' />
+                  Save to Draft
+                </>
+              )}
+            </button>
+
+            {!hidePrevious && (
+              <button
+                type='button'
+                onClick={onPrevious}
+                disabled={isLoading}
+                suppressHydrationWarning
+                className='flex items-center gap-2 border-2 border-[#0B1F3A] text-[#0B1F3A] font-bold px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm shadow-xs'
+              >
+                <FiArrowLeftFixed className='text-base' />
+                Previous
+              </button>
             )}
-          </button>
-        </div>
-      )}
-    </div>
-  </footer>
+
+            <button
+              type='button'
+              onClick={() => {
+                setPendingAction('next');
+                onNext?.();
+              }}
+              disabled={isLoading || disableActions}
+              suppressHydrationWarning
+              className='flex items-center justify-center gap-2 bg-[#0B1F3A] hover:bg-[#15325B] text-white font-bold px-6 py-2.5 rounded-xl shadow-md transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px] text-xs sm:text-sm'
+            >
+              {nextBusy ? (
+                <>
+                  <Spinner size="sm" color="text-white" /> Saving...
+                </>
+              ) : (
+                <>
+                  Next Step
+                  <FiArrowRightFixed className='text-base' />
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </footer>
   );
 };
 

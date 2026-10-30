@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Param, Query, Patch, UseGuards, Request, HttpCode, HttpStatus, ForbiddenException, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Patch, UseGuards, Request, HttpCode, HttpStatus, ForbiddenException, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { CancelFormService } from './cancel-form.service';
 import { CreateCancelRequestDto, CreateCancelRequestResponseDto } from './dto/create-cancel-request.dto';
 import { UpdateCancelRequestDto } from './dto/update-cancel-request.dto';
 import { CancelRequestActionDto, CancelRequestActionResponseDto } from './dto/cancel-request-action.dto';
+import { UploadCancelFileDto } from './dto/upload-file.dto';
 import { AuthGuard } from '../../middleware/auth.middleware';
 
 @ApiTags('Cancel Form')
@@ -51,22 +52,18 @@ export class CancelFormController {
     @Body() dto: CreateCancelRequestDto,
     @Request() req: any,
   ) {
-    try {
-      const userId = req.user?.sub || req.user?.userId || req.user?.id;
-      if (!userId) {
-        throw new ForbiddenException('User not authenticated.');
-      }
-      const roleId = req.user?.roleId || req.user?.role?.id || null;
-
-      const result = await this.cancelFormService.createCancelRequest(dto, userId, roleId);
-      return {
-        success: true,
-        message: 'Cancel request submitted successfully',
-        data: result,
-      };
-    } catch (error: any) {
-      throw error;
+    const userId = req.user?.sub || req.user?.userId || req.user?.id;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated.');
     }
+    const roleId = req.user?.roleId || req.user?.role?.id || null;
+
+    const result = await this.cancelFormService.createCancelRequest(dto, userId, roleId);
+    return {
+      success: true,
+      message: 'Cancel request submitted successfully',
+      data: result,
+    };
   }
 
   /**
@@ -125,35 +122,31 @@ export class CancelFormController {
     @Query('licenseId') licenseId?: number,
     @Request() req?: any,
   ) {
-    try {
-      const user = req?.user;
-      const stateId = user?.stateId ? Number(user.stateId) : (user?.state_id ? Number(user.state_id) : undefined);
-      const roleCode = user?.roleCode || (typeof user?.role === 'string' ? user.role : user?.role?.code);
+    const user = req?.user;
+    const stateId = user?.stateId ? Number(user.stateId) : (user?.state_id ? Number(user.state_id) : undefined);
+    const roleCode = user?.roleCode || (typeof user?.role === 'string' ? user.role : user?.role?.code);
 
-      const result = await this.cancelFormService.getCancelRequests({
-        page: page ? Number(page) : undefined,
-        limit: limit ? Number(limit) : undefined,
-        requestedBy: requestedBy ? Number(requestedBy) : undefined,
-        licenseId: licenseId ? Number(licenseId) : undefined,
-        status: status || undefined,
-        stateId,
-        roleCode,
-      });
+    const result = await this.cancelFormService.getCancelRequests({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      requestedBy: requestedBy ? Number(requestedBy) : undefined,
+      licenseId: licenseId ? Number(licenseId) : undefined,
+      status: status || undefined,
+      stateId,
+      roleCode,
+    });
 
-      return {
-        success: true,
-        message: 'Cancel requests retrieved successfully',
-        data: result.data,
-        pagination: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-          totalPages: Math.ceil(result.total / result.limit),
-        },
-      };
-    } catch (error: any) {
-      throw error;
-    }
+    return {
+      success: true,
+      message: 'Cancel requests retrieved successfully',
+      data: result.data,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+    };
   }
 
   /**
@@ -194,16 +187,12 @@ export class CancelFormController {
   @ApiResponse({ status: 404, description: 'Cancel request not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async getCancelRequestById(@Param('id', ParseIntPipe) id: number) {
-    try {
-      const result = await this.cancelFormService.getCancelRequestById(id);
-      return {
-        success: true,
-        message: 'Cancel request retrieved successfully',
-        data: result,
-      };
-    } catch (error: any) {
-      throw error;
-    }
+    const result = await this.cancelFormService.getCancelRequestById(id);
+    return {
+      success: true,
+      message: 'Cancel request retrieved successfully',
+      data: result,
+    };
   }
 
   /**
@@ -310,5 +299,57 @@ export class CancelFormController {
       }
       throw error;
     }
+  }
+  /**
+   * Attach a supporting document to a cancel request
+   */
+  @Post(':id/upload-file')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Upload a supporting document',
+    description: 'Attach a PDF or image (max 5 MB, up to 10 files) to a cancel request. Requester only, before the request is processed.',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Cancel request ID' })
+  @ApiBody({ type: UploadCancelFileDto })
+  @ApiResponse({ status: 201, description: 'File uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file, too many files, or request already processed' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Not the requester' })
+  @ApiResponse({ status: 404, description: 'Cancel request not found' })
+  async uploadFile(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UploadCancelFileDto,
+    @Request() req: any,
+  ) {
+    const userId = req.user?.sub || req.user?.userId || req.user?.id;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated.');
+    }
+    const result = await this.cancelFormService.uploadFile(id, dto, Number(userId));
+    return {
+      success: true,
+      message: 'File uploaded successfully',
+      data: result,
+    };
+  }
+
+  /**
+   * Remove a supporting document from a cancel request
+   */
+  @Delete('file/:fileId')
+  @ApiOperation({ summary: 'Delete a supporting document' })
+  @ApiParam({ name: 'fileId', type: Number, description: 'File ID' })
+  @ApiResponse({ status: 200, description: 'File deleted successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Not the requester' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  async deleteFile(
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @Request() req: any,
+  ) {
+    const userId = req.user?.sub || req.user?.userId || req.user?.id;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated.');
+    }
+    await this.cancelFormService.deleteFile(fileId, Number(userId));
+    return { success: true, message: 'File deleted successfully' };
   }
 }

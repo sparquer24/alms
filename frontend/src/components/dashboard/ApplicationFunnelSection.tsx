@@ -1,8 +1,7 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { TrendingDown, Loader2 } from 'lucide-react';
-import { ResponsiveContainer, FunnelChart, Funnel, Cell, Tooltip, LabelList } from 'recharts';
 
 interface FunnelStage {
   stage: string;
@@ -18,21 +17,6 @@ interface ApplicationFunnelSectionProps {
 
 const FUNNEL_COLORS = ['#1E3A8A', '#2563EB', '#0891B2', '#059669', '#D97706', '#10B981'];
 
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const entry = payload[0].payload;
-    return (
-      <div className="bg-[#0F2D52] text-white px-3 py-2 rounded-lg text-xs shadow-xl">
-        <div className="font-bold">{entry.stage}</div>
-        <div className="text-blue-200 mt-0.5">{entry.count.toLocaleString()} applications</div>
-        {entry.dropOff > 0 && (
-          <div className="text-rose-300 mt-0.5">↓ {entry.dropOff}% drop from prev</div>
-        )}
-      </div>
-    );
-  }
-  return null;
-};
 
 export default function ApplicationFunnelSection({ stages, loading }: ApplicationFunnelSectionProps) {
   // Sort by order and enrich with drop-off %
@@ -46,11 +30,11 @@ export default function ApplicationFunnelSection({ stages, loading }: Applicatio
   const maxCount = Math.max(...enriched.map((s) => s.count), 1);
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-      <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+    <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+      <div className="flex items-center justify-between pb-5 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <TrendingDown className="w-4 h-4 text-[#0F2D52]" />
+            <TrendingDown className="w-4 h-4 text-[#0B1F3A]" />
             Application Funnel
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">Stage-by-stage lifecycle progression</p>
@@ -65,7 +49,7 @@ export default function ApplicationFunnelSection({ stages, loading }: Applicatio
       ) : enriched.length === 0 || maxCount === 0 ? (
         <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No data available</div>
       ) : (
-        <div className="mt-4 space-y-2">
+        <div className="mt-5 space-y-3">
           {enriched.map((stage, idx) => {
             const pct = maxCount > 0 ? Math.max(5, Math.round((stage.count / maxCount) * 100)) : 5;
             const color = FUNNEL_COLORS[idx % FUNNEL_COLORS.length];
@@ -94,7 +78,7 @@ export default function ApplicationFunnelSection({ stages, loading }: Applicatio
                   {/* Drop-off */}
                   {idx > 0 && stage.dropOff > 0 && (
                     <span className="text-[10px] text-rose-500 font-medium w-14 shrink-0">
-                      ↓{stage.dropOff}%
+                      â†“{stage.dropOff}%
                     </span>
                   )}
                   {idx > 0 && stage.dropOff === 0 && (

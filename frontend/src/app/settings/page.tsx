@@ -14,8 +14,8 @@ import { PageLayoutSkeleton } from '../../components/Skeleton';
 import { useLayout } from '../../config/layoutContext';
 
 export default function SettingsPage() {
-  const { isAuthenticated, isLoading: authLoading, token } = useAuth();
-  const { headerHeight } = useLayout();
+  const { isAuthenticated, isLoading: authLoading, token, initialized } = useAuth();
+  const { headerHeight, sidebarCollapsed } = useLayout();
   const dispatch = useDispatch();
 
   const router = useRouter();
@@ -35,33 +35,28 @@ export default function SettingsPage() {
   const [cookieUser, setCookieUser] = useState<any | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    // Redirect only after auth has fully resolved, not during initialization.
+    if (!initialized || authLoading) return;
+    if (!isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [isAuthenticated, authLoading, initialized, router]);
 
   useEffect(() => {
     try {
       const u = getUserFromCookie();
       setCookieUser(u);
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[SettingsPage] cookieUser loaded:', u);
-      }
-    } catch (e) {
+    } catch {
       setCookieUser(null);
     }
   }, []);
 
-  if (process.env.NODE_ENV === 'development') {
-    console.debug('[SettingsPage] authLoading:', authLoading, 'isAuthenticated:', isAuthenticated);
-  }
 
   const { user } = useAuth();
   const currentUser = useMemo(() => user ?? cookieUser, [user, cookieUser]);
   const roleData = useMemo(() => currentUser?.role ?? {}, [currentUser]);
   const location = useMemo(() => currentUser?.location ?? currentUser?.state ?? {}, [currentUser]);
 
-  console.log({ currentUser, roleData, location });
 
   // Pretty helpers
   const toTitleCase = (txt: string) =>
@@ -116,17 +111,17 @@ export default function SettingsPage() {
     showUserPermissions ||
     showAvailableActions;
 
-  // Show skeleton while auth is loading
-  if (authLoading) return <PageLayoutSkeleton />;
-  if (!authLoading && !isAuthenticated) return null;
+  // Show skeleton while auth is resolving (not yet initialized, or still loading)
+  if (!initialized || authLoading) return <PageLayoutSkeleton />;
+  if (!isAuthenticated) return null;
 
   return (
-    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
+    <div className='flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white'>
       <Sidebar />
       <Header />
 
       <main
-        className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[52px] md:pt-[66px]'
+        className={`flex-1 ml-0 ${sidebarCollapsed ? 'md:ml-22' : 'md:ml-66'} min-w-0 overflow-auto flex flex-col transition-all duration-300 pt-[54px] md:pt-[58px]`}
         style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <PageSubHeader
@@ -134,7 +129,7 @@ export default function SettingsPage() {
           metaBadge={currentUser?.username ? `Logged in as: ${currentUser.username}` : undefined}
         />
 
-        <div className='flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6'>
+        <div className='flex-grow w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6'>
           <div className='bg-white rounded-2xl shadow-xs border border-gray-200/80 p-6 sm:p-8'>
 
           {!currentUser && (

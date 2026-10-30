@@ -105,6 +105,12 @@ export default function PrintLicense({ license }: { license: any }) {
         <div style={{ fontSize: '13px', marginTop: '2px' }}>
           Licence No. <strong>{license?.licenseNumber || '—'}</strong>
         </div>
+        {license?.status === 'CANCELLED' && (
+          <div style={{ marginTop: '6px', fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px' }}>
+            CANCELLED
+            {license?.cancellationDate ? ` ON ${formatDisplayDate(license.cancellationDate)}` : ''}
+          </div>
+        )}
       </div>
 
       <table>

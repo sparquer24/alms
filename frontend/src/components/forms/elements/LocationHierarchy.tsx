@@ -38,9 +38,8 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
   className = '',
   disabledFields = {},
   errors = {},
-  isRenewal = false,
 }) => {
-  const [locationState, locationActions] = useLocationHierarchy({ isRenewal });
+  const [locationState, locationActions] = useLocationHierarchy();
 
   // Load cascading options when parent pre-fills saved location IDs
   React.useEffect(() => {

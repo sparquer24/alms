@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, IsNumber, Min } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsNumber, Min } from 'class-validator';
 import { FileType } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 

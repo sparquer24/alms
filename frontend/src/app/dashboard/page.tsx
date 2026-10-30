@@ -1,8 +1,7 @@
-'use client';
+﻿'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
 import {
   Shield,
   FileText,
@@ -13,12 +12,9 @@ import {
   TrendingUp,
   RefreshCw,
   Search,
-  Users,
   Target,
-  Trees,
   Activity,
   Layers,
-  Printer,
   X,
   ArrowRight,
   MousePointerClick,
@@ -67,8 +63,6 @@ import {
 } from '@/components/common/PageSubHeader';
 import {
   publicDashboardService,
-  PublicDashboardData,
-  SummaryKPIs,
 } from '@/services/publicDashboardService';
 import { analyticsService } from '@/services/analyticsService';
 
@@ -76,7 +70,6 @@ import {
   DashboardCardDetailModal,
   CardModalConfig,
   CardCategoryType,
-  DashboardDrillDownSection,
   DrillDownTab,
   DashboardFullSkeleton,
   DashboardSidebarSkeleton,
@@ -93,7 +86,7 @@ import {
 
 // Color definitions matching the ALMS government palette
 const COLORS = {
-  navy: '#0F2D52',
+  navy: '#0B1F3A',
   navyDark: '#0A1C33',
   navyLight: '#1E3A8A',
   gold: '#B8860B',
@@ -107,7 +100,7 @@ const COLORS = {
 };
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EF4444'];
-const WEAPON_COLORS = ['#0F2D52', '#2563EB', '#0D9488', '#D97706', '#DC2626'];
+const WEAPON_COLORS = ['#0B1F3A', '#2563EB', '#0D9488', '#D97706', '#DC2626'];
 
 // Roles allowed to view the universal dashboard. Backend scopes the data
 // server-side: ZS/DCP by zone, JTCP/CP by district, AS/ARMS_SUPDT/ADMIN by state.
@@ -125,11 +118,11 @@ const DASHBOARD_ROLE_LABELS: Record<string, string> = {
 };
 
 function DashboardMain({ children }: { children: React.ReactNode }) {
-  const { headerHeight } = useLayout();
+  const { headerHeight, sidebarCollapsed } = useLayout();
 
   return (
     <main
-      className="isolate flex-1 ml-0 md:ml-66 min-w-0 overflow-hidden flex flex-col pt-[64px] md:pt-[78px]"
+      className={`isolate flex-1 ml-0 ${sidebarCollapsed ? 'md:ml-22' : 'md:ml-66'} min-w-0 overflow-hidden flex flex-col transition-all duration-300 pt-[54px] md:pt-[58px]`}
       style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
     >
       {children}
@@ -138,15 +131,15 @@ function DashboardMain({ children }: { children: React.ReactNode }) {
 }
 
 export default function UniversalDashboard() {
-  const { user, userRole, userName, token, isLoading: authLoading, initialized: authInitialized } = useAuth();
+  const { userRole, token, isLoading: authLoading, initialized: authInitialized } = useAuth();
   const router = useRouter();
 
 
   const [mounted, setMounted] = useState<boolean>(false);
   const [authCheckedState, setAuthChecked] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [timeRange, setTimeRange] = useState<string>('all');
-  const [appTypeFilter, setAppTypeFilter] = useState<string>('all');
+  const [timeRange] = useState<string>('all');
+  const [appTypeFilter] = useState<string>('all');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
 
   // Search & Lookup State
@@ -171,10 +164,9 @@ export default function UniversalDashboard() {
   });
 
   // Active in-page drill-down tab
-  const [activeDrillTab, setActiveDrillTab] = useState<DrillDownTab>('applications_all');
 
-  // ── Enhancement section data — cached via React Query, fetched once per
-  // authChecked session and served from cache on revisits within staleTime ──
+  // â”€â”€ Enhancement section data â€” cached via React Query, fetched once per
+  // authChecked session and served from cache on revisits within staleTime â”€â”€
 
   const openCardDetail = (
     category: CardCategoryType,
@@ -190,7 +182,6 @@ export default function UniversalDashboard() {
     }
   ) => {
     if (opts?.drillTab) {
-      setActiveDrillTab(opts.drillTab);
       if (typeof window !== 'undefined') {
         const el = document.getElementById('dashboard-drilldown-section');
         if (el) {
@@ -277,7 +268,7 @@ export default function UniversalDashboard() {
     setMounted(true);
   }, []);
 
-  // ── Role-based Access Control Guard ──
+  // â”€â”€ Role-based Access Control Guard â”€â”€
   // ADMIN/SUPER_ADMIN see unscoped or state-scoped data; ZS/DCP see zone-scoped
   // data; JTCP/CP see district-scoped data (enforced server-side).
   useEffect(() => {
@@ -303,7 +294,7 @@ export default function UniversalDashboard() {
     setAuthChecked(true);
   }, [token, effectiveRole, authLoading, authInitialized, authChecked, router]);
 
-  // Overview data — cached per (timeRange, appTypeFilter); background-polled
+  // Overview data â€” cached per (timeRange, appTypeFilter); background-polled
   // every 30s while autoRefresh is on, without showing a loading spinner
   // (isLoading is only true when there's no cached data to show yet).
   const overviewQuery = useQuery({
@@ -317,8 +308,8 @@ export default function UniversalDashboard() {
   const loading = overviewQuery.isLoading;
   const lastUpdated = overviewQuery.dataUpdatedAt ? new Date(overviewQuery.dataUpdatedAt) : new Date();
 
-  // ── Enhancement section data — each cached independently so revisiting the
-  // dashboard within staleTime renders instantly from cache with no spinner ──
+  // â”€â”€ Enhancement section data â€” each cached independently so revisiting the
+  // dashboard within staleTime renders instantly from cache with no spinner â”€â”€
   const actionRequiredQuery = useQuery({
     queryKey: ['dashboard', 'actionRequired'],
     queryFn: () => analyticsService.getActionRequired(),
@@ -425,18 +416,13 @@ export default function UniversalDashboard() {
       } else {
         setLookupError('No matching application found. Please verify the Application ID or Acknowledgement Number.');
       }
-    } catch (err) {
+    } catch {
       setLookupError('Unable to fetch status. Please try again.');
     } finally {
       setLookupLoading(false);
     }
   };
 
-  const handlePrint = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
-  };
 
   const trendDiff = useMemo(() => {
     if (!data?.trend || data.trend.length < 2) return null;
@@ -451,7 +437,7 @@ export default function UniversalDashboard() {
   if (authLoading || !authChecked || !authInitialized) {
     return (
       <LayoutProvider>
-        <div className="flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white">
+        <div className="flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white">
           <DashboardSidebarSkeleton />
           <Header
             breadcrumbs={[{ label: 'Admin' }, { label: 'Dashboard' }]}
@@ -469,7 +455,7 @@ export default function UniversalDashboard() {
                 </div>
               }
             />
-            <div className="flex-grow max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5">
+            <div className="flex-grow max-w-[1800px] w-full mx-auto px-5 sm:px-7 lg:px-10 py-6 sm:py-8">
               <DashboardFullSkeleton />
             </div>
           </DashboardMain>
@@ -487,7 +473,7 @@ export default function UniversalDashboard() {
 
   return (
     <LayoutProvider>
-      <div className="flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white">
+      <div className="flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white">
         {/* Standard ALMS Sidebar */}
         <Sidebar />
 
@@ -558,13 +544,13 @@ export default function UniversalDashboard() {
           />
 
           {/* Main Dashboard Content Area */}
-          <div className="flex-grow min-h-0 overflow-y-auto max-w-[1800px] w-full mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
+          <div className="flex-grow min-h-0 overflow-y-auto max-w-[1800px] w-full mx-auto px-5 sm:px-7 lg:px-10 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             0. QUICK ACTIONS (role-gated shortcuts)
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {quickActions.length > 0 && (
-          <section className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-sm">
+          <section className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mr-1">
                 Quick Actions
@@ -574,7 +560,7 @@ export default function UniversalDashboard() {
                   key={action.key}
                   type="button"
                   onClick={() => router.push(action.href)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0F2D52]/5 text-[#0F2D52] hover:bg-[#0F2D52] hover:text-white border border-[#0F2D52]/10 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0B1F3A]/5 text-[#0B1F3A] hover:bg-[#0B1F3A] hover:text-white border border-[#0B1F3A]/10 transition-colors"
                 >
                   {action.icon}
                   {action.label}
@@ -584,22 +570,22 @@ export default function UniversalDashboard() {
           </section>
         )}
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             1. CORE APPLICATION & LICENSING METRIC CARDS (INTERACTIVE)
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <section>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#0F2D52]" />
+                <Layers className="w-5 h-5 text-[#0B1F3A]" />
                 Core Application &amp; Licensing Metrics
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
                 Click any metric card below to inspect its detailed records table and live data
               </p>
             </div>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#0F2D52] border border-blue-100">
-              <MousePointerClick className="w-3.5 h-3.5 text-[#0F2D52]" />
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#0B1F3A] border border-blue-100">
+              <MousePointerClick className="w-3.5 h-3.5 text-[#0B1F3A]" />
               <span>Interactive Data Cards</span>
             </span>
           </div>
@@ -607,7 +593,7 @@ export default function UniversalDashboard() {
           {loading && !summary ? (
             <DashboardKpiCardsSkeleton />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-5">
               {/* Card 1: Total Applications */}
               <div
                 role="button"
@@ -620,14 +606,14 @@ export default function UniversalDashboard() {
                   subtitle: 'All application lifecycles across Fresh, Renewal, and Cancellation requests',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0F2D52]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0B1F3A]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Total Applications
                     </span>
-                    <div className="p-2 rounded-lg bg-blue-50 text-blue-700 group-hover:bg-[#0F2D52] group-hover:text-white transition-colors">
+                    <div className="p-2 rounded-lg bg-blue-50 text-blue-700 group-hover:bg-[#0B1F3A] group-hover:text-white transition-colors">
                       <FileText className="w-4 h-4" />
                     </div>
                   </div>
@@ -651,7 +637,7 @@ export default function UniversalDashboard() {
                         badge: `${summary?.freshApplications.toLocaleString()} Fresh`,
                       });
                     }}
-                    className="hover:text-[#0F2D52] hover:underline"
+                    className="hover:text-[#0B1F3A] hover:underline"
                   >
                     Fresh: <strong>{summary?.freshApplications.toLocaleString()}</strong>
                   </button>
@@ -666,11 +652,11 @@ export default function UniversalDashboard() {
                         badge: `${summary?.renewalApplications.toLocaleString()} Renewal`,
                       });
                     }}
-                    className="hover:text-[#0F2D52] hover:underline"
+                    className="hover:text-[#0B1F3A] hover:underline"
                   >
                     Renewal: <strong>{summary?.renewalApplications.toLocaleString()}</strong>
                   </button>
-                  <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-[#0F2D52] transition-colors" />
+                  <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-[#0B1F3A] transition-colors" />
                 </div>
               </div>
 
@@ -685,7 +671,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Operational arms licenses currently in force within your jurisdiction',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -734,7 +720,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Applications successfully verified and granted license issuance',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -785,7 +771,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Applications undergoing multi-level verification and scrutiny',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -820,7 +806,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Durations from application submission to final administrative disposal',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -855,7 +841,7 @@ export default function UniversalDashboard() {
                   subtitle: 'Fingerprint and iris authentication verification records under MHA Rule 11',
                 })}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); }}
-                className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -896,9 +882,9 @@ export default function UniversalDashboard() {
           )}
         </section>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             2. ACTION REQUIRED ALERT BANNER
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <ActionRequiredSection
           items={actionItems}
           loading={actionLoading}
@@ -916,10 +902,10 @@ export default function UniversalDashboard() {
           }}
         />
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             2B. APPLICATION FUNNEL + AGING + PROCESSING PERFORMANCE
-        ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-1">
             <ApplicationFunnelSection stages={funnelStages} loading={funnelLoading} />
           </div>
@@ -931,20 +917,20 @@ export default function UniversalDashboard() {
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             3. INTERACTIVE CHARTS & VISUAL ANALYTICS SECTION
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {loading && !data?.trend ? (
           <DashboardChartsSkeleton />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Main Chart: Volume Inflow Trends (2 cols on lg) */}
-            <div className="lg:col-span-2 bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
               <div>
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between pb-4 border-b border-gray-100 gap-3">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between pb-5 border-b border-gray-100 gap-3">
                   <div>
                     <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-[#0F2D52]" />
+                      <TrendingUp className="w-4 h-4 text-[#0B1F3A]" />
                       Application Inflow &amp; Processing Trends
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -961,7 +947,7 @@ export default function UniversalDashboard() {
                         title="Spline Area Chart"
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                           chartType === 'area'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -974,7 +960,7 @@ export default function UniversalDashboard() {
                         title="Categorical Bar Chart"
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                           chartType === 'bar'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -987,7 +973,7 @@ export default function UniversalDashboard() {
                         title="Velocity Line Chart"
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                           chartType === 'line'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1000,7 +986,7 @@ export default function UniversalDashboard() {
                         title="Composite Intake & Disposal Velocity"
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                           chartType === 'combo'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1016,7 +1002,7 @@ export default function UniversalDashboard() {
                         onClick={() => setActiveChartTab('trend')}
                         className={`px-2.5 py-1 rounded-md transition-all ${
                           activeChartTab === 'trend'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1027,7 +1013,7 @@ export default function UniversalDashboard() {
                         onClick={() => setActiveChartTab('family')}
                         className={`px-2.5 py-1 rounded-md transition-all ${
                           activeChartTab === 'family'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1038,7 +1024,7 @@ export default function UniversalDashboard() {
                         onClick={() => setActiveChartTab('status')}
                         className={`px-2.5 py-1 rounded-md transition-all ${
                           activeChartTab === 'status'
-                            ? 'bg-[#0F2D52] text-white shadow-xs'
+                            ? 'bg-[#0B1F3A] text-white shadow-xs'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -1095,7 +1081,7 @@ export default function UniversalDashboard() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F2D52',
+                              backgroundColor: '#0B1F3A',
                               borderColor: '#1E3A8A',
                               borderRadius: '8px',
                               color: '#fff',
@@ -1203,7 +1189,7 @@ export default function UniversalDashboard() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F2D52',
+                              backgroundColor: '#0B1F3A',
                               borderColor: '#1E3A8A',
                               borderRadius: '8px',
                               color: '#fff',
@@ -1290,7 +1276,7 @@ export default function UniversalDashboard() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F2D52',
+                              backgroundColor: '#0B1F3A',
                               borderColor: '#1E3A8A',
                               borderRadius: '8px',
                               color: '#fff',
@@ -1396,7 +1382,7 @@ export default function UniversalDashboard() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F2D52',
+                              backgroundColor: '#0B1F3A',
                               borderColor: '#1E3A8A',
                               borderRadius: '8px',
                               color: '#fff',
@@ -1446,26 +1432,26 @@ export default function UniversalDashboard() {
               </div>
 
               {/* Inflow Summary Benchmarks */}
-              <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                <div className="p-2 rounded-lg bg-gray-50">
+              <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div className="p-3 rounded-lg bg-gray-50">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">Total Intake</div>
                   <div className="text-sm font-bold text-gray-900 mt-0.5">
                     {summary ? summary.totalApplications.toLocaleString() : '...'}
                   </div>
                 </div>
-                <div className="p-2 rounded-lg bg-gray-50">
+                <div className="p-3 rounded-lg bg-gray-50">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">Fresh Intake</div>
                   <div className="text-sm font-bold text-blue-700 mt-0.5">
                     {summary ? summary.freshApplications.toLocaleString() : '...'}
                   </div>
                 </div>
-                <div className="p-2 rounded-lg bg-gray-50">
+                <div className="p-3 rounded-lg bg-gray-50">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">Renewals</div>
                   <div className="text-sm font-bold text-emerald-700 mt-0.5">
                     {summary ? summary.renewalApplications.toLocaleString() : '...'}
                   </div>
                 </div>
-                <div className="p-2 rounded-lg bg-gray-50">
+                <div className="p-3 rounded-lg bg-gray-50">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">Cancellations</div>
                   <div className="text-sm font-bold text-amber-700 mt-0.5">
                     {summary ? summary.cancelApplications.toLocaleString() : '...'}
@@ -1475,9 +1461,9 @@ export default function UniversalDashboard() {
             </div>
 
             {/* Ratio Breakdown / Donut Chart (1 col on lg) */}
-            <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between pb-5 border-b border-gray-100">
                   <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     Status Distribution
@@ -1486,7 +1472,7 @@ export default function UniversalDashboard() {
                 </div>
 
                 {/* Donut Chart */}
-                <div className="mt-4 h-44 w-full relative flex items-center justify-center">
+                <div className="mt-5 h-48 w-full relative flex items-center justify-center">
                   {data?.statusDistribution ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -1508,7 +1494,7 @@ export default function UniversalDashboard() {
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: '#0F2D52',
+                            backgroundColor: '#0B1F3A',
                             borderColor: '#1E3A8A',
                             borderRadius: '8px',
                             color: '#fff',
@@ -1527,11 +1513,11 @@ export default function UniversalDashboard() {
                 </div>
 
                 {/* Status Breakdown List */}
-                <div className="mt-4 space-y-2">
+                <div className="mt-5 space-y-2.5">
                   {data?.statusDistribution?.map((item, idx) => (
                     <div
                       key={item.status}
-                      className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                      className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -1558,10 +1544,10 @@ export default function UniversalDashboard() {
           </div>
         )}
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             4B. MONTHLY COMPARISON + LICENSE EXPIRY BUCKETS
-        ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <MonthlyComparisonSection data={monthlyData} loading={monthlyLoading} />
           <LicenseExpiryBucketsSection
             buckets={expiryBuckets}
@@ -1576,20 +1562,20 @@ export default function UniversalDashboard() {
           />
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             4C. APPLICATION & LICENSE ANALYTICS (moved from the former
             Analytics sidebar page: By Type / By Status / License Status)
-        ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-[#0F2D52]" />
+                <BarChart2 className="w-4 h-4 text-[#0B1F3A]" />
                 Applications by Type
               </h3>
               <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
             </div>
-            <div className="mt-4">
+            <div className="mt-5">
               <ApplicationTypeChart
                 fresh={applicationTypeStatusSummary.totalFresh}
                 renewal={applicationTypeStatusSummary.totalRenewal}
@@ -1599,15 +1585,15 @@ export default function UniversalDashboard() {
               />
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 Applications by Status
               </h3>
               <span className="text-xs text-gray-500 font-medium">Last 30 Days</span>
             </div>
-            <div className="mt-4">
+            <div className="mt-5">
               <ApplicationStatusChart
                 approved={applicationTypeStatusSummary.totalApproved}
                 pending={applicationTypeStatusSummary.totalPending}
@@ -1619,15 +1605,15 @@ export default function UniversalDashboard() {
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             5. WEAPON CATEGORIES & PURPOSE DISTRIBUTION
-        ────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Weapon Categories */}
-          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#0F2D52]" />
+                <Target className="w-4 h-4 text-[#0B1F3A]" />
                 Weapon Category Breakdown
               </h3>
               <span className="text-xs text-gray-500 font-medium">Authorized Calibers</span>
@@ -1669,8 +1655,8 @@ export default function UniversalDashboard() {
           </div>
 
           {/* Purpose Breakdown */}
-          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-[#B8860B]" />
                 Authorized Purpose Distribution
@@ -1682,13 +1668,13 @@ export default function UniversalDashboard() {
               {data?.purposeBreakdown?.map((item) => (
                 <div
                   key={item.purpose}
-                  className="p-4 rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white hover:border-[#0F2D52]/30 transition-all shadow-xs"
+                  className="p-4 rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white hover:border-[#0B1F3A]/30 transition-all shadow-xs"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-700 line-clamp-1">
                       {item.purpose}
                     </span>
-                    <span className="text-xs font-bold text-[#0F2D52] bg-[#0F2D52]/10 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-bold text-[#0B1F3A] bg-[#0B1F3A]/10 px-2 py-0.5 rounded-full">
                       {item.percentage}%
                     </span>
                   </div>
@@ -1702,14 +1688,14 @@ export default function UniversalDashboard() {
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             6. LIVE PUBLIC ACTIVITY FEED & SYSTEM MILESTONES
-        ────────────────────────────────────────────────────────────── */}
+        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {loading && !data?.recentActivities ? (
           <DashboardActivitySkeleton />
         ) : (
-          <section className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <section className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between pb-5 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-blue-600" />
                 Live System Milestones &amp; Public Activity
@@ -1717,9 +1703,9 @@ export default function UniversalDashboard() {
               <span className="text-xs text-gray-500">Sanitized Real-Time Log</span>
             </div>
 
-            <div className="mt-4 divide-y divide-gray-100">
+            <div className="mt-5 divide-y divide-gray-100">
               {data?.recentActivities?.map((act) => (
-                <div key={act.id} className="py-3 flex items-start justify-between gap-3 text-xs">
+                <div key={act.id} className="py-4 flex items-start justify-between gap-3 text-xs">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 p-1.5 rounded-lg bg-blue-50 text-blue-700">
                       <Shield className="w-3.5 h-3.5" />
@@ -1728,9 +1714,9 @@ export default function UniversalDashboard() {
                       <div className="font-bold text-gray-900">{act.title}</div>
                       <div className="text-gray-500 text-[11px] mt-0.5 flex flex-wrap gap-2">
                         <span>Ref: <strong className="font-mono text-gray-700">{act.reference}</strong></span>
-                        <span>•</span>
+                        <span>â€¢</span>
                         <span>{act.location}</span>
-                        <span>•</span>
+                        <span>â€¢</span>
                         <span className="text-[#B8860B] font-medium">{act.category}</span>
                       </div>
                     </div>
@@ -1757,7 +1743,7 @@ export default function UniversalDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 animate-in fade-in zoom-in duration-200">
             {/* Modal Header */}
-            <div className="bg-[#0F2D52] text-white p-5 flex items-center justify-between">
+            <div className="bg-[#0B1F3A] text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Search className="w-5 h-5 text-[#B8860B]" />
                 <h3 className="font-bold text-base">Track Application Status</h3>
@@ -1786,13 +1772,13 @@ export default function UniversalDashboard() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="e.g. ALMS-2024-001429 or 104"
-                    className="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#0F2D52] focus:border-transparent outline-none"
+                    className="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#0B1F3A] focus:border-transparent outline-none"
                     autoFocus
                   />
                   <button
                     type="submit"
                     disabled={lookupLoading || !searchQuery.trim()}
-                    className="absolute right-2 top-2 p-1.5 rounded-lg bg-[#0F2D52] text-white hover:bg-[#1A365D] disabled:opacity-50 transition-colors"
+                    className="absolute right-2 top-2 p-1.5 rounded-lg bg-[#0B1F3A] text-white hover:bg-[#1A365D] disabled:opacity-50 transition-colors"
                   >
                     {lookupLoading ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1832,7 +1818,7 @@ export default function UniversalDashboard() {
                     </div>
                     {lookupResult.applicationType && (
                       <div>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0F2D52]/10 text-[#0F2D52]">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0B1F3A]/10 text-[#0B1F3A]">
                           {lookupResult.applicationType}
                         </span>
                       </div>
@@ -1873,7 +1859,7 @@ export default function UniversalDashboard() {
                           router.push(`/application/${lookupResult.applicationId}?type=${typeParam}`);
                         }
                       }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#0F2D52] text-white hover:bg-[#1A365D] transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#0B1F3A] text-white hover:bg-[#1A365D] transition-colors"
                     >
                       View Full Details
                       <ArrowRight className="w-3.5 h-3.5" />

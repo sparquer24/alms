@@ -19,12 +19,17 @@ export const AuthInitializer = () => {
   const isLoading = useSelector(selectAuthLoading);
   const initialized = useSelector(selectAuthInitialized);
 
-  // Initialize auth once on mount only
+  // Initialize auth only if it hasn't been initialized yet.
+  // Guarding on `initialized` prevents a redundant network call (and the
+  // associated loading skeleton) on every client-side navigation after the
+  // first page load.
   useEffect(() => {
-    dispatch(initializeAuth());
-    // Intentionally empty dependency array - run once on mount
+    if (!initialized) {
+      dispatch(initializeAuth());
+    }
+    // `dispatch` is stable; `initialized` is the only reactive dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialized]);
 
   // Handle redirection after initialization for page refresh scenarios
   useEffect(() => {

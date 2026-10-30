@@ -9,7 +9,6 @@ import {
   DocumentTable,
   MaskedAadhaar,
 } from '@/app/application/components/RedesignedComponents';
-import EnhancedApplicationTimeline from '@/components/EnhancedApplicationTimeline';
 import {
   UserRound,
   UserCheck,
@@ -49,7 +48,9 @@ import {
   Eye,
   FolderOpen,
   Printer,
+  ChevronDown,
 } from 'lucide-react';
+import { openAttachment } from '@/utils/attachmentViewer';
 import { ApplicationService } from '@/api/applicationService';
 import RenewalApplicationDetailsHeader from '@/components/renewal/renewalapplicationdetailsheader';
 import { getStatusStyle } from '@/utils/statusColors';
@@ -287,6 +288,10 @@ export default function CancelRequestDetail({
     );
   }
 
+  // The applicant's remarks; each officer action is appended as "\n[Action: X] ..."
+  // and is shown against its step in the Application History instead.
+  const appRemarks = String(request.remarks || '').split('\n[Action:')[0].trim();
+
   return (
     <>
     <div data-printable='application-card' className='space-y-6 print:hidden'>
@@ -316,9 +321,7 @@ export default function CancelRequestDetail({
 
             {!loading && (
               <>
-                <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
-                  {/* Left 2 columns: Applicant & Cancellation Details */}
-                  <div className='lg:col-span-2 space-y-6'>
+                <div className='space-y-6'>
                     <div className='rounded-3xl bg-white  border border-slate-200 overflow-hidden'>
                       <div className='flex items-center gap-3 px-6 py-5 border-b border-slate-100'>
                         <div className='p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600'>
@@ -337,13 +340,24 @@ export default function CancelRequestDetail({
 
                     {/* Cancellation Details from the Cancellation API */}
                     <div className='rounded-3xl bg-white border border-slate-200 overflow-hidden'>
-                      <div className='flex items-center gap-3 px-6 py-5 border-b border-slate-100'>
-                        <div className='p-2.5 rounded-lg border border-red-100 bg-red-50 text-red-600'>
-                          <FileQuestion className='w-5 h-5' />
+                      <div className='flex items-center justify-between gap-3 px-6 py-5 border-b border-slate-100'>
+                        <div className='flex items-center gap-3'>
+                          <div className='p-2.5 rounded-lg border border-red-100 bg-red-50 text-red-600'>
+                            <FileQuestion className='w-5 h-5' />
+                          </div>
+                          <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
+                            Cancellation Details
+                          </h3>
                         </div>
-                        <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
-                          Cancellation Details
-                        </h3>
+                        <button
+                          type='button'
+                          onClick={() => window.print()}
+                          className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200'
+                          title='Print cancellation details'
+                        >
+                          <Printer className='w-4 h-4 text-slate-500' />
+                          Print Details
+                        </button>
                       </div>
                       <div className='grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3'>
                         <DetailItem label='Cancellation Reason' value={request.cancellationReason} icon={Info} className='sm:col-span-2 lg:col-span-3' />
@@ -356,41 +370,27 @@ export default function CancelRequestDetail({
                           icon={Target}
                         />
                       </div>
-                      {(() => {
-                        // Extract only the Application Remarks (before any "[Action:" marker)
-                        const rawRemarks = request.remarks || '';
-                        if (!rawRemarks.trim()) return null;
-                        const appRemarks = rawRemarks.split('\n[Action:')[0].trim();
-                        if (!appRemarks) return null;
-                        return (
-                          <div className='px-6 pb-6'>
-                            <div className='pt-4 border-t border-slate-100'>
-                              <p className='text-xs font-bold uppercase tracking-wide text-slate-400 mb-2'>Remarks</p>
-                              <p className='text-sm text-slate-700 whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-slate-100'>{appRemarks}</p>
+                      {appRemarks && (
+                        <div className='px-6 pb-6'>
+                          <div className='pt-4 border-t border-slate-100'>
+                            <p className='text-xs font-bold uppercase tracking-wide text-slate-400 mb-2'>Remarks</p>
+                            <div className='bg-slate-50 p-3 rounded-lg border border-slate-100'>
+                              <RichTextDisplay content={appRemarks} className='text-sm text-slate-700' />
                             </div>
                           </div>
-                        );
-                      })()}
+                        </div>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Right column: Workflow Timeline */}
-                  <div className='rounded-3xl bg-white border border-slate-200 overflow-hidden'>
-                    <div className='flex items-center gap-3 px-6 py-5 border-b border-slate-100'>
-                      <div className='p-2.5 rounded-lg border border-amber-100 bg-amber-50 text-amber-600'>
-                        <History className='w-5 h-5' />
-                      </div>
-                      <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
-                        Workflow Timeline
+                    <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6'>
+                      <h3 className='text-base font-bold text-slate-800 flex items-center gap-2 mb-6'>
+                        <div className='w-1 h-5 bg-emerald-500 rounded-full'></div>
+                        Uploaded Documents
                       </h3>
+                      <LazySection minHeight='250px'>
+                        <DocumentTable documents={request.fileUploads || []} />
+                      </LazySection>
                     </div>
-                    <div className='p-6'>
-                      <EnhancedApplicationTimeline
-                        application={request}
-                        workflowHistory={request.cancelWorkflowHistories || []}
-                      />
-                    </div>
-                  </div>
                 </div>
 
               </>
@@ -416,6 +416,15 @@ export default function CancelRequestDetail({
           </>
         )}
     </div>
+
+    {activeTab === 'info' && !loading && (
+      <CancellationInfoPrint
+        request={request}
+        applicantName={applicantName}
+        licenseNumber={license.licenseNumber || request.licenseNumber}
+        appRemarks={appRemarks}
+      />
+    )}
 
     {activeTab === 'original' && (sourceAppData || licenseData) && (
       <OriginalLicenseDetailsPrint
@@ -457,6 +466,100 @@ function deriveOriginalAppData(sourceAppData: any, sourceAppType: string | undef
       : 'Original';
 
   return { app, originDocuments, originalLicenseHistory, applicantName, appTypeLabel };
+}
+
+/** Print-only rendering of the Cancellation Info tab. Hidden on screen. */
+export function CancellationInfoPrint({
+  request,
+  applicantName,
+  licenseNumber,
+  appRemarks,
+}: {
+  request: any;
+  applicantName: string;
+  licenseNumber?: string | null;
+  appRemarks: string;
+}) {
+  const rows: [string, React.ReactNode][] = [
+    ['Acknowledgement No', request.acknowledgementNo],
+    ['License Number', licenseNumber],
+    ['Applicant Name', applicantName],
+    ['Cancellation Reason', request.cancellationReason],
+    ['Requested By', [request.requester?.username, request.requester?.role?.name && `(${request.requester.role.name})`].filter(Boolean).join(' ')],
+    ['Requested Date', formatDisplayDateTime(request.requestedDate || request.createdAt)],
+    ['Workflow Status', request.workflowStatus?.name || request.status],
+  ];
+  const documents: any[] = request.fileUploads || [];
+  const history: any[] = [...(request.cancelWorkflowHistories || [])].reverse();
+  const cell = 'border border-slate-400 px-2 py-1 align-top text-left';
+
+  return (
+    <div className='hidden print:block print:w-full print:bg-white print:text-black text-[12px]'>
+      <h1 className='mb-3 text-center text-lg font-bold'>Cancellation Request Details</h1>
+      <table className='mb-4 w-full border-collapse'>
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label}>
+              <th className={`${cell} w-1/3 bg-slate-100`}>{label}</th>
+              <td className={cell}>{value || '-'}</td>
+            </tr>
+          ))}
+          <tr>
+            <th className={`${cell} bg-slate-100`}>Remarks</th>
+            <td className={cell}>{appRemarks ? <RichTextDisplay content={appRemarks} /> : '-'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 className='mb-1 font-bold'>Uploaded Documents</h2>
+      <table className='mb-4 w-full border-collapse'>
+        <tbody>
+          {documents.length ? (
+            documents.map((d, i) => (
+              <tr key={d.id ?? i}>
+                <td className={cell}>{d.fileName || d.name || 'Document'}</td>
+                <td className={cell}>{formatDisplayDate(d.uploadedAt || d.createdAt) || '-'}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td className={cell}>No documents uploaded</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {history.length > 0 && (
+        <>
+          <h2 className='mb-1 font-bold'>Application History</h2>
+          <table className='w-full border-collapse'>
+            <thead>
+              <tr className='bg-slate-100'>
+                <th className={cell}>Date</th>
+                <th className={cell}>Officer</th>
+                <th className={cell}>Action</th>
+                <th className={cell}>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((h, i) => (
+                <tr key={h.id ?? i}>
+                  <td className={cell}>{formatDisplayDateTime(h.createdAt)}</td>
+                  <td className={cell}>
+                    {[h.previousUserName, h.previousRoleName && `(${h.previousRoleName})`].filter(Boolean).join(' ') || '-'}
+                  </td>
+                  <td className={cell}>{h.actiones?.name || h.actionTaken || '-'}</td>
+                  <td className={cell}>
+                    {h.remarks ? <RichTextDisplay content={h.remarks} /> : h.systemNote || '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -507,7 +610,7 @@ function OriginalLicenseDetailsPrint({
             width: 210mm;
             min-height: 297mm;
           }
-          .hidden.print\:block {
+          .hidden.print\\:block {
             display: block !important;
             position: relative !important;
             visibility: visible !important;
@@ -537,7 +640,6 @@ function OriginalLicenseDetails({
   sourceAppType,
   licenseData,
   licenseId,
-  licenseNumber,
   printReady,
   onPrintClick,
 }: {
@@ -680,7 +782,7 @@ function OriginalLicenseDetails({
             )}
           </div>
 
-          {/* Right column: Photo & Quick Summary + Timeline */}
+          {/* Right column: Photo & Quick Summary */}
           <div>
             <SummaryCard
               application={
@@ -689,22 +791,12 @@ function OriginalLicenseDetails({
               applicationId={String(licenseId ?? '')}
               applicantName={applicantName}
             />
-            <div className='bg-slate-50/50 rounded-2xl border border-slate-100 p-6 overflow-hidden mt-6'>
-              <div>
-                <LazySection minHeight='400px'>
-                  <EnhancedApplicationTimeline
-                    application={app}
-                    workflowHistory={originalLicenseHistory || []}
-                  />
-                </LazySection>
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
       {/* ================= 2. Three-Column Row: License Details, License History, Criminal History ================= */}
-      <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+      <div className='grid grid-cols-1 lg:grid-cols-3 gap-4'>
         <SectionCard
           title='License Details'
           icon={Shield}
@@ -1017,7 +1109,10 @@ function OriginalLicenseDetails({
         </div>
 
         {(() => {
-          const historyToShow = originalLicenseHistory || app.workflowHistories || [];
+          // Prioritize cancellation history, then original license history, then app workflow histories
+          const historyToShow = licenseData?.cancelWorkflowHistories
+            ? licenseData.cancelWorkflowHistories
+            : originalLicenseHistory || app.workflowHistories || [];
           if (!historyToShow || historyToShow.length === 0) {
             if (originalLicenseHistoryLoading) {
               return (
@@ -1042,7 +1137,7 @@ function OriginalLicenseDetails({
                 const borderColor = statusStyle.border;
                 const backgroundColor = hexToRgba(borderColor, 0.05);
 
-                const hasRemarks = !!h.remarks;
+                const hasRemarks = !!h.remarks && h.remarks.trim() !== 'Cancel request forwarded';
                 const attachmentsArr = Array.isArray(h.attachments)
                   ? h.attachments.filter(Boolean)
                   : [];
@@ -1077,17 +1172,11 @@ function OriginalLicenseDetails({
                         <p className='font-semibold text-gray-900 text-sm'>{previousUserName}</p>
                         <p className='text-xs text-gray-600 mt-0.5'>{previousRoleName}</p>
                         <p className='text-sm text-gray-700 font-medium mt-1'>{actionTaken}</p>
-                        {nextUserName &&
-                          !(
-                            h.previousUserId &&
-                            h.nextUserId &&
-                            Number(h.previousUserId) === Number(h.nextUserId)
-                          ) && (
-                            <p className='text-xs text-gray-600 mt-1'>
-                              {'→'} Forwarded to:{' '}
-                              <span className='font-medium'>{nextUserName}</span> ({nextRoleName})
-                            </p>
-                          )}
+                        {nextUserName && !(h.previousUserId && h.nextUserId && Number(h.previousUserId) === Number(h.nextUserId)) && (
+                          <p className='text-xs text-gray-600 mt-1'>
+                            → Forwarded to: <span className='font-medium'>{nextUserName}</span> ({nextRoleName})
+                          </p>
+                        )}
                         <p className='text-xs text-gray-500 mt-1 flex items-center'>
                           <svg
                             className='w-3 h-3 mr-1'
@@ -1105,35 +1194,28 @@ function OriginalLicenseDetails({
                           {formattedDate} {formattedTime}
                         </p>
                       </div>
-                    </div>
-
-                    {hasDetails && (
-                      <button
-                        type='button'
-                        onClick={() =>
-                          setExpandedHistory((prev: Record<number, boolean>) => ({
-                            ...prev,
-                            [idx]: !prev[idx],
-                          }))
-                        }
-                        className='mt-3 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1'
-                      >
-                        {isExpanded ? 'Hide' : 'Show more'}
-                        <svg
-                          className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                          fill='none'
-                          stroke='currentColor'
-                          viewBox='0 0 24 24'
+                      {hasDetails && (
+                        <button
+                          type='button'
+                          onClick={() =>
+                            setExpandedHistory((prev: Record<number, boolean>) => ({
+                              ...prev,
+                              [idx]: !prev[idx],
+                            }))
+                          }
+                          className={`ml-4 text-sm font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center group relative ${
+                            isExpanded
+                              ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700'
+                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                          }`}
                         >
-                          <path
-                            strokeLinecap='round'
-                            strokeLinejoin='round'
-                            strokeWidth={2}
-                            d='M19 9l-7 7-7-7'
+                          <ChevronDown
+                            className={`w-4 h-4 mr-2 transform transition-all duration-300 ${isExpanded ? 'rotate-180' : ''}`}
                           />
-                        </svg>
-                      </button>
-                    )}
+                          {isExpanded ? 'Hide' : 'Show more'}
+                        </button>
+                      )}
+                    </div>
 
                     {hasRemarks && isExpanded && (
                       <div className='mt-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm'>
@@ -1143,29 +1225,55 @@ function OriginalLicenseDetails({
                     )}
 
                     {hasAttachments && isExpanded && (
-                      <div className='mt-3 pt-3 border-t border-gray-200'>
-                        <p className='text-xs font-semibold text-gray-600 mb-2'>Attachments</p>
-                        <div className='flex flex-wrap gap-2'>
-                          {attachmentsArr.map((att: any, attIdx: number) => {
-                            const isPdf =
-                              att.contentType?.includes('pdf') || att.name?.endsWith('.pdf');
-                            const isImage =
-                              att.contentType?.includes('image') ||
-                              att.name?.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i);
+                      <div className='mt-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm'>
+                        <div className='text-base font-semibold text-gray-800 mb-2'>
+                          Attachments
+                        </div>
+                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+                          {attachmentsArr.map((att: any, aidx: number) => {
+                            const displayName = truncateFilename(
+                              att?.name || att?.fileName || 'Attachment',
+                              10
+                            );
+                            const contentType = String(att?.contentType || att?.type || '').toLowerCase();
+                            const fileLower = String(att?.name || att?.fileName || '').toLowerCase();
+                            const isPdf = contentType.includes('pdf') || fileLower.endsWith('.pdf');
+                            const isImage = contentType.startsWith('image/') || /\.(png|jpe?g|gif|svg|webp)$/.test(fileLower);
+                            const iconColor = isPdf ? 'text-red-500' : isImage ? 'text-emerald-500' : 'text-blue-500';
+
                             return (
-                              <span
-                                key={attIdx}
-                                className='inline-flex items-center gap-1 px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs text-slate-700'
-                              >
-                                {isPdf ? (
-                                  <Eye className='w-3 h-3 text-red-500' />
-                                ) : isImage ? (
-                                  <Eye className='w-3 h-3 text-green-500' />
-                                ) : (
-                                  <FolderOpen className='w-3 h-3 text-slate-500' />
-                                )}
-                                {truncateFilename(att.name || att.fileName || 'File', 10)}
-                              </span>
+                              <div key={aidx} className='flex items-center text-xs text-blue-700 min-w-0'>
+                                <svg
+                                  className={`w-5 h-5 mr-2 ${iconColor} flex-shrink-0`}
+                                  fill='none'
+                                  stroke='currentColor'
+                                  viewBox='0 0 24 24'
+                                >
+                                  {isImage ? (
+                                    <path
+                                      strokeLinecap='round'
+                                      strokeLinejoin='round'
+                                      strokeWidth={2}
+                                      d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'
+                                    />
+                                  ) : (
+                                    <path
+                                      strokeLinecap='round'
+                                      strokeLinejoin='round'
+                                      strokeWidth={2}
+                                      d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+                                    />
+                                  )}
+                                </svg>
+                                <button
+                                  type='button'
+                                  onClick={() => openAttachment(att)}
+                                  className='hover:underline truncate text-left text-blue-700 font-medium'
+                                  title={att?.name || att?.fileName}
+                                >
+                                  {displayName}
+                                </button>
+                              </div>
                             );
                           })}
                         </div>

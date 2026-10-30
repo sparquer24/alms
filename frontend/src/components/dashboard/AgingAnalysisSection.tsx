@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { Clock, Loader2 } from 'lucide-react';
@@ -21,7 +21,7 @@ const BUCKET_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#7C3AED'];
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#0F2D52] text-white px-3 py-2 rounded-lg text-xs shadow-xl">
+      <div className="bg-[#0B1F3A] text-white px-3 py-2 rounded-lg text-xs shadow-xl">
         <div className="font-bold">{label}</div>
         <div className="text-blue-200 mt-0.5">{payload[0].value.toLocaleString()} pending applications</div>
       </div>
@@ -35,8 +35,8 @@ export default function AgingAnalysisSection({ buckets, loading }: AgingAnalysis
   const critical = buckets.filter((b) => b.minDays >= 16).reduce((s, b) => s + b.count, 0);
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm">
-      <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+    <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm">
+      <div className="flex items-center justify-between pb-5 border-b border-gray-100">
         <div>
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
             <Clock className="w-4 h-4 text-amber-600" />
@@ -61,7 +61,7 @@ export default function AgingAnalysisSection({ buckets, loading }: AgingAnalysis
         </div>
       ) : (
         <>
-          <div className="mt-4 h-44">
+          <div className="mt-5 h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={buckets} layout="vertical" margin={{ top: 0, right: 50, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
@@ -78,7 +78,7 @@ export default function AgingAnalysisSection({ buckets, loading }: AgingAnalysis
           </div>
 
           {/* Legend */}
-          <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-3">
             {buckets.map((b, idx) => (
               <div key={b.label} className="flex items-center gap-1.5 text-[10px] text-gray-600">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: BUCKET_COLORS[idx % BUCKET_COLORS.length] }} />

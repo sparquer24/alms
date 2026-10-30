@@ -33,25 +33,21 @@ async getStatus(code?: string, id?: number): Promise<any[]> {
   });
 }
 async createStatus(data: Statuses): Promise<Statuses | { error: boolean; message: string }> {
-  try {
-    const status = await this.getStatus(data.code); 
-    if (Array.isArray(status) && status.length > 0) {
-      return {
-        error: true,
-        message: 'Status with this code already exists'
-      };
-    }
-    return await prisma.statuses.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        code: data.code,
-        isActive: data.isActive
-      }
-    });
-  } catch (error) {
-    throw error;
+  const status = await this.getStatus(data.code); 
+  if (Array.isArray(status) && status.length > 0) {
+    return {
+      error: true,
+      message: 'Status with this code already exists'
+    };
   }
+  return await prisma.statuses.create({
+    data: {
+      name: data.name,
+      description: data.description,
+      code: data.code,
+      isActive: data.isActive
+    }
+  });
   }
 
   async updateStatus(id: number, data: Partial<Statuses>): Promise<Statuses> {

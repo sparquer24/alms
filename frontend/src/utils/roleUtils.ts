@@ -108,13 +108,6 @@ export const isRoleIn = (role: RoleValue, allowedRoles: string[]): boolean => {
   return allowedRoles.some(r => r.toUpperCase() === normalized);
 };
 
-/**
- * Check if a role can access admin pages
- */
-export const canAccessAdmin = (role: RoleValue): boolean => {
-  return isAdminRole(role);
-};
-
 export const getRoleHierarchy = (): Record<string, string[]> => ({
   [RoleTypes.SHO]: [RoleTypes.ACP, RoleTypes.ZS],
   [RoleTypes.ACP]: [RoleTypes.DCP, RoleTypes.ZS, RoleTypes.SHO],
@@ -155,23 +148,6 @@ export const getRoleHierarchy = (): Record<string, string[]> => ({
     RoleTypes.CP,
     RoleTypes.ADMIN
   ]
-});
-
-export const getRoleDisplayNames = (): Record<string, string> => ({
-  [RoleTypes.SHO]: 'Station House Officer (SHO)',
-  [RoleTypes.ACP]: 'Assistant Commissioner of Police (ACP)',
-  [RoleTypes.ZS]: 'Zonal Superintendent (ZS)',
-  [RoleTypes.DCP]: 'Deputy Commissioner of Police (DCP)',
-  [RoleTypes.JTCP]: 'Joint Commissioner of Police (JCP)',
-  [RoleTypes.CP]: 'Commissioner of Police (CP)',
-  [RoleTypes.ADO]: 'Administrative Officer (ADO)',
-  [RoleTypes.CADO]: 'Chief Administrative Officer (CADO)',
-  [RoleTypes.ARMS_SUPDT]: 'ARMS Superintendent',
-  [RoleTypes.ARMS_SEAT]: 'ARMS Seat',
-  [RoleTypes.AS]: 'Arms Superintendent (AS)',
-  [RoleTypes.ACO]: 'Assistant Compliance Officer (ACO)',
-  [RoleTypes.ADMIN]: 'System Administrator',
-  [RoleTypes.SUPER_ADMIN]: 'Super Administrator'
 });
 
 export const getRoleBasedActions = (role: string): { value: string; label: string }[] => {

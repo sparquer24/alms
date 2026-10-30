@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Roles } from '@prisma/client';
 import { ROLE_CODES } from '../../constants/auth';
+import { invalidateAuthUser } from '../../middleware/auth.middleware';
 
 interface GetRolesParams {
     id?: number;
@@ -70,207 +71,181 @@ export class RolesService {
             };
         }
 
-        try {
-            const skip = (page - 1) * limit;
-            const validSortFields = ['name', 'code', 'created_at', 'updated_at', 'is_active'];
-            const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
-            const sortDir = sortOrder === 'asc' ? 'asc' : 'desc';
+        const skip = (page - 1) * limit;
+        const validSortFields = ['name', 'code', 'created_at', 'updated_at', 'is_active'];
+        const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
+        const sortDir = sortOrder === 'asc' ? 'asc' : 'desc';
 
-            const [roles, total] = await Promise.all([
-                prisma.roles.findMany({
-                    where,
-                    skip,
-                    take: limit,
-                    orderBy: {
-                        [sortField]: sortDir,
-                    },
-                }),
-                prisma.roles.count({ where }),
-            ]);
+        const [roles, total] = await Promise.all([
+            prisma.roles.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: {
+                    [sortField]: sortDir,
+                },
+            }),
+            prisma.roles.count({ where }),
+        ]);
 
-            return {
-                data: roles,
-                total,
-                page,
-                limit,
-            };
-        } catch (error) {
-            throw error;
-        }
+        return {
+            data: roles,
+            total,
+            page,
+            limit,
+        };
     }
 
     /**
      * Get a single role by ID
      */
     async getRoleById(id: number): Promise<Roles | null> {
-        try {
-            return await prisma.roles.findUnique({
-                where: { id },
-            });
-        } catch (error) {
-            throw error;
-        }
+        return await prisma.roles.findUnique({
+            where: { id },
+        });
     }
 
     /**
      * Create a new role
      */
     async createRole(roleData: any): Promise<Roles> {
-        try {
-            const { name, code, dashboard_title, displayName, description, isActive, is_active, ...rest } = roleData;
+        const { name, code, dashboard_title, displayName, description, isActive, is_active, ...rest } = roleData;
 
-            const finalDashboardTitle = dashboard_title || displayName;
+        const finalDashboardTitle = dashboard_title || displayName;
 
-            if (!name || !finalDashboardTitle) {
-                throw new BadRequestException('Name and dashboard_title are required');
-            }
-
-            // Generate code/slug from name if not provided
-            const roleCode = code || this.generateSlug(name);
-
-            // Check if code already exists
-            const existingRole = await prisma.roles.findUnique({
-                where: { code: roleCode },
-            });
-
-            if (existingRole) {
-                throw new BadRequestException(`Role with code "${roleCode}" already exists`);
-            }
-
-            const finalIsActive = is_active !== undefined ? is_active : isActive;
-
-            return await prisma.roles.create({
-                data: {
-                    name,
-                    code: roleCode,
-                    dashboard_title: finalDashboardTitle,
-                    ...(finalIsActive !== undefined && { is_active: finalIsActive }),
-                    ...rest,
-                },
-            });
-        } catch (error) {
-            throw error;
+        if (!name || !finalDashboardTitle) {
+            throw new BadRequestException('Name and dashboard_title are required');
         }
+
+        // Generate code/slug from name if not provided
+        const roleCode = code || this.generateSlug(name);
+
+        // Check if code already exists
+        const existingRole = await prisma.roles.findUnique({
+            where: { code: roleCode },
+        });
+
+        if (existingRole) {
+            throw new BadRequestException(`Role with code "${roleCode}" already exists`);
+        }
+
+        const finalIsActive = is_active !== undefined ? is_active : isActive;
+
+        return await prisma.roles.create({
+            data: {
+                name,
+                code: roleCode,
+                dashboard_title: finalDashboardTitle,
+                ...(finalIsActive !== undefined && { is_active: finalIsActive }),
+                ...rest,
+            },
+        });
     }
 
     /**
      * Update an existing role
      */
     async updateRole(id: number, roleData: any): Promise<Roles> {
-        try {
-            const existing = await prisma.roles.findUnique({
-                where: { id },
-            });
+        const existing = await prisma.roles.findUnique({
+            where: { id },
+        });
 
-            if (!existing) {
-                throw new BadRequestException('Role not found');
-            }
-
-            const { code, name, dashboard_title, displayName, description, isActive, is_active, ...rest } = roleData;
-
-            // If code is being changed, check for uniqueness
-            if (code && code !== existing.code) {
-                const duplicate = await prisma.roles.findUnique({
-                    where: { code },
-                });
-                if (duplicate) {
-                    throw new BadRequestException(`Role with code "${code}" already exists`);
-                }
-            }
-
-            // If name is being changed, generate new code if code not explicitly provided
-            let finalCode = code;
-            if (name && !code && name !== existing.name) {
-                finalCode = this.generateSlug(name);
-                const duplicate = await prisma.roles.findUnique({
-                    where: { code: finalCode },
-                });
-                if (duplicate && duplicate.id !== id) {
-                    throw new BadRequestException(`Role with code "${finalCode}" already exists`);
-                }
-            }
-
-            const finalDashboardTitle = dashboard_title || displayName;
-            const finalIsActive = is_active !== undefined ? is_active : isActive;
-
-            return await prisma.roles.update({
-                where: { id },
-                data: {
-                    ...(name && { name }),
-                    ...(finalCode && { code: finalCode }),
-                    ...(finalDashboardTitle && { dashboard_title: finalDashboardTitle }),
-                    ...(finalIsActive !== undefined && { is_active: finalIsActive }),
-                    ...rest,
-                },
-            });
-        } catch (error) {
-            throw error;
+        if (!existing) {
+            throw new BadRequestException('Role not found');
         }
+
+        const { code, name, dashboard_title, displayName, description, isActive, is_active, ...rest } = roleData;
+
+        // If code is being changed, check for uniqueness
+        if (code && code !== existing.code) {
+            const duplicate = await prisma.roles.findUnique({
+                where: { code },
+            });
+            if (duplicate) {
+                throw new BadRequestException(`Role with code "${code}" already exists`);
+            }
+        }
+
+        // If name is being changed, generate new code if code not explicitly provided
+        let finalCode = code;
+        if (name && !code && name !== existing.name) {
+            finalCode = this.generateSlug(name);
+            const duplicate = await prisma.roles.findUnique({
+                where: { code: finalCode },
+            });
+            if (duplicate && duplicate.id !== id) {
+                throw new BadRequestException(`Role with code "${finalCode}" already exists`);
+            }
+        }
+
+        const finalDashboardTitle = dashboard_title || displayName;
+        const finalIsActive = is_active !== undefined ? is_active : isActive;
+
+        const updated = await prisma.roles.update({
+            where: { id },
+            data: {
+                ...(name && { name }),
+                ...(finalCode && { code: finalCode }),
+                ...(finalDashboardTitle && { dashboard_title: finalDashboardTitle }),
+                ...(finalIsActive !== undefined && { is_active: finalIsActive }),
+                ...rest,
+            },
+        });
+        await invalidateAuthUser();
+        return updated;
     }
 
     /**
      * Soft-delete a role (set is_active to false)
      */
     async deleteRole(id: number): Promise<Roles> {
-        try {
-            const existing = await prisma.roles.findUnique({
-                where: { id },
-            });
+        const existing = await prisma.roles.findUnique({
+            where: { id },
+        });
 
-            if (!existing) {
-                throw new BadRequestException('Role not found');
-            }
-
-            return await prisma.roles.update({
-                where: { id },
-                data: { is_active: false },
-            });
-        } catch (error) {
-            throw error;
+        if (!existing) {
+            throw new BadRequestException('Role not found');
         }
+
+        return await prisma.roles.update({
+            where: { id },
+            data: { is_active: false },
+        });
     }
 
     /**
      * Deactivate a role
      */
     async deactivateRole(id: number): Promise<Roles> {
-        try {
-            const existing = await prisma.roles.findUnique({
-                where: { id },
-            });
+        const existing = await prisma.roles.findUnique({
+            where: { id },
+        });
 
-            if (!existing) {
-                throw new BadRequestException('Role not found');
-            }
-
-            return await prisma.roles.update({
-                where: { id },
-                data: { is_active: false },
-            });
-        } catch (error) {
-            throw error;
+        if (!existing) {
+            throw new BadRequestException('Role not found');
         }
+
+        return await prisma.roles.update({
+            where: { id },
+            data: { is_active: false },
+        });
     }
 
     /**
      * Activate a role
      */
     async activateRole(id: number): Promise<Roles> {
-        try {
-            const existing = await prisma.roles.findUnique({
-                where: { id },
-            });
+        const existing = await prisma.roles.findUnique({
+            where: { id },
+        });
 
-            if (!existing) {
-                throw new BadRequestException('Role not found');
-            }
-
-            return await prisma.roles.update({
-                where: { id },
-                data: { is_active: true },
-            });
-        } catch (error) {
-            throw error;
+        if (!existing) {
+            throw new BadRequestException('Role not found');
         }
+
+        return await prisma.roles.update({
+            where: { id },
+            data: { is_active: true },
+        });
     }
 }

@@ -38,12 +38,22 @@ function normalizeRole(user: any): string | undefined {
 
 async function persistAuthCookies(token: string, user: any) {
   const role = normalizeRole(user);
-  const minimalUser = {
+  // Store a richer user object so the fast-path in initializeAuth can serve
+  // all fields the settings page needs without falling through to a getMe call.
+  const cachedUser = {
     id: user?.id ?? null,
     role: role ?? (typeof user?.role === 'string' ? user.role : null),
     username: user?.username ?? user?.userName ?? null,
     name: user?.name ?? null,
+    email: user?.email ?? null,
+    designation: user?.designation ?? null,
+    createdAt: user?.createdAt ?? null,
+    lastLogin: user?.lastLogin ?? null,
+    stateId: user?.stateId ?? null,
+    state: user?.state ?? null,
     location: user?.location ?? null,
+    permissions: user?.permissions ?? [],
+    availableActions: user?.availableActions ?? [],
   };
   const cookieOptions = { maxAge: 60 * 60 * 24, path: '/' };
   try { setCookie('auth', token, cookieOptions); } catch { /* ignore */ }
@@ -51,10 +61,10 @@ async function persistAuthCookies(token: string, user: any) {
     try { setCookie('role', role, cookieOptions); } catch { /* ignore */ }
   }
   try {
-    setCookie('user', JSON.stringify(minimalUser), cookieOptions);
+    setCookie('user', JSON.stringify(cachedUser), cookieOptions);
   } catch {
     try {
-      setCookie('user', JSON.stringify({ id: minimalUser.id, role: minimalUser.role }), cookieOptions);
+      setCookie('user', JSON.stringify({ id: cachedUser.id, role: cachedUser.role }), cookieOptions);
     } catch { /* ignore */ }
   }
 }
@@ -175,7 +185,7 @@ export const initializeAuth = createAsyncThunk(
         return { user: normalizedUser, token };
       }
 
-      // getMe returned an unrecognized response — the token may have been
+      // getMe returned an unrecognized response â€” the token may have been
       // rejected by the server. Clear the stale cookie so there's no
       // inconsistency between Redux state and cookie-based auth readers.
       try {
@@ -195,12 +205,15 @@ export const initializeAuth = createAsyncThunk(
 
 export const login = createAsyncThunk(
   'auth/login',
-  async ({ username, password }: { username: string; password: string }, { dispatch, rejectWithValue }) => {
+  async (
+    { username, password, captchaId, captchaCode }: { username: string; password: string; captchaId?: string; captchaCode?: string },
+    { dispatch, rejectWithValue }
+  ) => {
     try {
       dispatch(setLoading(true));
       dispatch(setError(''));
 
-      const response = await AuthApi.login({ username, password });
+      const response = await AuthApi.login({ username, password, captchaId, captchaCode });
 
       let token: string;
       let user: any = null;

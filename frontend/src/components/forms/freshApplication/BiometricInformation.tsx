@@ -2,19 +2,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
+import { getFileSizeError, MB } from '../../../utils/fileValidation';
 // Load react-webcam dynamically to avoid SSR/type conflicts
 // @ts-expect-error - dynamic import & react-webcam types can conflict with project React types
 const Webcam = dynamic(() => import('react-webcam').then(mod => mod.default), {
   ssr: false,
 }) as any;
 import FormFooter from '../elements/footer';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FileUploadService } from '../../../api/fileUploadService';
 import { ApplicationService } from '../../../api/applicationService';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import MantraSDKService from '../../../services/mantraSDKService';
 import BiometricAPIService from '../../../services/biometricAPIService';
-import { openAttachment } from '../../../utils/attachmentViewer';
 
 type BiometricForm = {
   fingerprint: File | null;
@@ -43,10 +44,8 @@ const BiometricInformation = () => {
 
   const [form, setForm] = useState<BiometricForm>(initialState);
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState('');
   const [streamActive, setStreamActive] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [existingBiometricData, setExistingBiometricData] = useState<any | null>(null);
   const [photoSubmitted, setPhotoSubmitted] = useState(false);
   const [almsLicenseId, setAlmsLicenseId] = useState<string | null>(null);
 
@@ -164,25 +163,15 @@ const BiometricInformation = () => {
           toast.error('Unsupported file format. Please upload a JPG, JPEG, or PNG image.');
           e.target.value = '';
           setUploadingFiles(false);
-          setUploadProgress('');
           return;
         }
 
         // 2. File Size Validation: 20 KB - 5 MB
-        const minSize = 20 * 1024;
-        const maxSize = 5 * 1024 * 1024;
-        if (file.size < minSize) {
-          toast.error('File size too small. Minimum allowed size is 20 KB.');
+        const sizeError = getFileSizeError(file, 5 * MB, { minBytes: 20 * 1024 });
+        if (sizeError) {
+          toast.error(sizeError);
           e.target.value = '';
           setUploadingFiles(false);
-          setUploadProgress('');
-          return;
-        }
-        if (file.size > maxSize) {
-          toast.error('File size too large. Maximum allowed size is 5 MB.');
-          e.target.value = '';
-          setUploadingFiles(false);
-          setUploadProgress('');
           return;
         }
 
@@ -205,7 +194,6 @@ const BiometricInformation = () => {
           toast.error('The uploaded image file appears to be corrupted or unreadable. Please choose a valid image.');
           e.target.value = '';
           setUploadingFiles(false);
-          setUploadProgress('');
           return;
         }
 
@@ -217,7 +205,6 @@ const BiometricInformation = () => {
         try {
           if (applicantId) {
             setUploadingFiles(true);
-            setUploadProgress('Uploading new photograph...');
             const uploadResp = await FileUploadService.uploadFile(applicantId, file, 'PHOTOGRAPH', 'Photograph');
             setUploadedPhotoId(uploadResp.data.id);
             setPhotoSubmitted(true);
@@ -230,7 +217,6 @@ const BiometricInformation = () => {
           setPhotoSubmitted(false);
         } finally {
           setUploadingFiles(false);
-          setUploadProgress('');
         }
       } else {
         setForm(prev => ({ ...prev, [name]: file }));
@@ -275,7 +261,6 @@ const BiometricInformation = () => {
           else normalized = bioWrapper;
         }
 
-        setExistingBiometricData(normalized);
 
         if (
           normalized?.fingerprints &&
@@ -345,27 +330,11 @@ const BiometricInformation = () => {
   // Camera permissions are now handled natively by react-webcam via onUserMedia and onUserMediaError callbacks,
   // which avoids browser incompatibilities with navigator.permissions.query({ name: 'camera' })
 
-  /** 📸 Capture webcam photo */
-  const capturePhoto = async () => {
-    if (!webcamRef.current) return;
-    const dataUrl = webcamRef.current.getScreenshot();
-    if (!dataUrl) {
-      toast.error('Failed to capture photo. Ensure webcam is active.');
-      return;
-    }
-
-    setPhotoPreview(dataUrl);
-    const blob = await (await fetch(dataUrl)).blob();
-    const file = new File([blob], 'photograph.jpg', { type: 'image/jpeg' });
-    setForm(prev => ({ ...prev, photograph: file }));
-    setStreamActive(false);
-  };
 
   const confirmRemovePhoto = async () => {
     if (uploadedPhotoId) {
       try {
         setUploadingFiles(true);
-        setUploadProgress('Deleting photograph...');
         await FileUploadService.deleteFile(uploadedPhotoId);
         setUploadedPhotoId(null);
         setPhotoPreview(null);
@@ -378,7 +347,6 @@ const BiometricInformation = () => {
         toast.error(errMsg);
       } finally {
         setUploadingFiles(false);
-        setUploadProgress('');
       }
     } else {
       setPhotoPreview(null);
@@ -397,7 +365,6 @@ const BiometricInformation = () => {
 
     try {
       setUploadingFiles(true);
-      setUploadProgress('Submitting photograph...');
 
       if (applicantId) {
         // Upload the photograph file using FileUploadService with PHOTOGRAPH fileType
@@ -415,11 +382,10 @@ const BiometricInformation = () => {
       } else {
         toast.warning('Please create application first.');
       }
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to submit photograph');
     } finally {
       setUploadingFiles(false);
-      setUploadProgress('');
     }
   };
 
@@ -466,16 +432,14 @@ const BiometricInformation = () => {
       // Upload files using FileUploadService
       for (let i = 0; i < filesToUpload.length; i++) {
         const { file, type, desc } = filesToUpload[i];
-        setUploadProgress(`Uploading ${file.name} (${i + 1}/${filesToUpload.length})`);
         await FileUploadService.uploadFile(appId, file, type, desc);
       }
 
       toast.success('Biometric files uploaded successfully');
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to upload biometric files');
     } finally {
       setUploadingFiles(false);
-      setUploadProgress('');
     }
   };
 
@@ -577,7 +541,7 @@ const BiometricInformation = () => {
         setShowCapturingModal(false);
         setShowFingerprintPreviewModal(true);
         toast.info('👆 Preview ready - Accept to enroll or Retake for better quality');
-      } catch (imageError: any) {
+      } catch {
         // Still show preview modal even if image fails
         setPendingCaptureResult(captureResult);
         setPendingFingerPosition(fingerPosition);
@@ -587,8 +551,7 @@ const BiometricInformation = () => {
         toast.warning('⚠️ Image preview unavailable, but you can still enroll with template');
       }
 
-      setUploadProgress('');
-    } catch (error: any) {
+    } catch {
       toast.error('❌ Fingerprint capture failed. Please try again.');
       setShowCapturingModal(false);
     } finally {
@@ -606,7 +569,6 @@ const BiometricInformation = () => {
 
     try {
       setFingerprintCapturing(true);
-      setUploadProgress('Fetching stored templates for matching...');
 
       const biometricTemplate = {
         template: pendingCaptureResult.template,
@@ -621,7 +583,6 @@ const BiometricInformation = () => {
       if (!templatesResponse.success) {
         toast.error('Failed to fetch templates for matching');
         setFingerprintCapturing(false);
-        setUploadProgress('');
         return;
       }
 
@@ -630,11 +591,7 @@ const BiometricInformation = () => {
       const matchThreshold = 65;
       let matchFound = false;
       let matchedTemplate: any = null;
-      let matchScore = 0;
 
-      setUploadProgress(
-        `Matching against ${templatesResponse.templates.length} stored fingerprints...`
-      );
 
       for (const storedTemplate of templatesResponse.templates) {
         try {
@@ -642,17 +599,15 @@ const BiometricInformation = () => {
           const matchResult = await MantraSDKService.verifyTemplate(
             storedTemplate.template, // Gallery (stored)
             liveTemplate, // Probe (live)
-            matchThreshold
           );
 
           if (matchResult.isMatch || matchResult.score >= matchThreshold) {
             // Match found - stop checking immediately
             matchFound = true;
             matchedTemplate = storedTemplate;
-            matchScore = matchResult.score;
             break; // Exit the loop immediately
           }
-        } catch (matchError) {
+        } catch {
           // Continue checking other templates
         }
       }
@@ -673,12 +628,10 @@ const BiometricInformation = () => {
         setFingerprintPreviewImage(null);
         setPendingCaptureResult(null);
         setFingerprintCapturing(false);
-        setUploadProgress('');
         return; // Exit function - do NOT store fingerprint
       }
 
       // STEP 3: No match found - store the fingerprint
-      setUploadProgress('No duplicate found. Storing fingerprint...');
 
       const storeResponse = await BiometricAPIService.storeFingerprint(
         applicantId,
@@ -690,7 +643,6 @@ const BiometricInformation = () => {
       if (!storeResponse.success) {
         toast.error(`Failed to store fingerprint: ${storeResponse.message}`);
         setFingerprintCapturing(false);
-        setUploadProgress('');
         return;
       }
 
@@ -724,11 +676,10 @@ const BiometricInformation = () => {
       setShowFingerprintPreviewModal(false);
       setFingerprintPreviewImage(null);
       setPendingCaptureResult(null);
-    } catch (error: any) {
+    } catch {
       toast.error('❌ Fingerprint enrollment failed. Please try again.');
     } finally {
       setFingerprintCapturing(false);
-      setUploadProgress('');
     }
   };
 
@@ -796,7 +747,6 @@ const BiometricInformation = () => {
 
     try {
       setUploadingFiles(true);
-      setUploadProgress('Submitting photograph...');
 
       // Convert data URL to Blob synchronously (extremely reliable)
       const dataURLtoBlob = (dataurl: string) => {
@@ -882,7 +832,6 @@ const BiometricInformation = () => {
       setWebcamReady(false);
     } finally {
       setUploadingFiles(false);
-      setUploadProgress('');
     }
   };
 
@@ -1004,16 +953,6 @@ const BiometricInformation = () => {
     return { matchScore: result.score, matched: result.isMatch };
   };
 
-  /** 🔍 Fingerprint & Iris scans */
-  const handleScanFingerprint = async () => {
-    if (!mantraSDKReady || !fingerprintDeviceConnected) {
-      toast.error('Fingerprint device not available. Please check connection.');
-      return;
-    }
-
-    // Use Mantra SDK capture instead
-    await handleCaptureFingerprintMantra(selectedFinger);
-  };
 
   const handleScanIris = async () => {
     try {
@@ -1029,9 +968,17 @@ const BiometricInformation = () => {
 
   return (
     <form className='p-6 space-y-6'>
-      <h2 className='text-xl font-bold'>Biometric Information</h2>
+      <FormStepHeader
+        title="Biometric Information"
+        subtitle="Capture or upload applicant photograph and thumbprint biometrics via Mantra device or manual upload."
+        stepNumber={7}
+        totalSteps={10}
+        applicationId={applicantId}
+        acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+        onRefresh={applicantId ? () => ApplicationService.getApplication(applicantId) : undefined}
+      />
 
-      {(applicantId || almsLicenseId) && (
+      {false && (applicantId || almsLicenseId) && (
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
             {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>
@@ -1352,7 +1299,7 @@ const BiometricInformation = () => {
                 onClick={openWebcamModal}
                 disabled={Boolean(photoPreview || photoSubmitted)}
                 className={`w-full px-4 py-3 text-white rounded-lg font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm ${
-                  Boolean(photoPreview || photoSubmitted)
+                  (photoPreview || photoSubmitted)
                     ? 'bg-gray-300 cursor-not-allowed text-gray-500'
                     : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
                 }`}
@@ -1368,14 +1315,14 @@ const BiometricInformation = () => {
 
               <label
                 className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 text-center transition-all group ${
-                  Boolean(photoPreview || photoSubmitted)
+                  (photoPreview || photoSubmitted)
                     ? 'border-gray-200 bg-gray-100/50 text-gray-400 cursor-not-allowed'
                     : 'border-gray-300 text-gray-600 cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'
                 }`}
               >
                 <span className='text-2xl mb-1 transition-transform group-hover:scale-110'>📤</span>
                 <span className={`text-sm font-semibold transition-colors ${
-                  Boolean(photoPreview || photoSubmitted) ? 'text-gray-400' : 'text-gray-700 group-hover:text-blue-600'
+                  (photoPreview || photoSubmitted) ? 'text-gray-400' : 'text-gray-700 group-hover:text-blue-600'
                 }`}>
                   Upload Photograph
                 </span>

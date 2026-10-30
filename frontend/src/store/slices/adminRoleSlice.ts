@@ -125,10 +125,3 @@ export const {
 
 export default adminRoleSlice.reducer;
 
-// Selectors
-export const selectAdminRoles = (state: { adminRoles: AdminRoleState }) => state.adminRoles.roles;
-export const selectAdminRolesLoading = (state: { adminRoles: AdminRoleState }) => state.adminRoles.loading;
-export const selectAdminRolesError = (state: { adminRoles: AdminRoleState }) => state.adminRoles.error;
-export const selectAdminRolesFilters = (state: { adminRoles: AdminRoleState }) => state.adminRoles.filters;
-export const selectAdminRolesPagination = (state: { adminRoles: AdminRoleState }) => state.adminRoles.pagination;
-export const selectSelectedRoles = (state: { adminRoles: AdminRoleState }) => state.adminRoles.selectedRoles; 

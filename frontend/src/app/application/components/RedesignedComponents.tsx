@@ -4,6 +4,7 @@ import React from 'react';
 import { getStatusStyle } from '../../../utils/statusColors';
 import { formatStatusLabel, formatPhone, humanize, formatDisplayDate } from '../../../utils/formatters';
 import { openAttachment } from '../../../utils/attachmentViewer';
+import { resolveFileHref } from '../../../services/fileHandler';
 import { UserRound, FileText, Eye, EyeOff, Download, FolderOpen } from 'lucide-react';
 
 /**
@@ -143,12 +144,20 @@ export function SummaryCard({
       application?.renewalFileUploads ||
       application?.uploads ||
       [];
-    const photoFile = files.find(
-      (f: any) => String(f?.fileType || f?.type || '').toUpperCase() === 'PHOTOGRAPH'
-    );
-    if (photoFile) {
-      displayPhotoUrl = photoFile.fileUrl || photoFile.url || photoFile.path;
-    }
+    // Same fallbacks the fresh/renewal detail pages normalise the photo with.
+    const urlOf = (f: any) => f?.fileUrl || f?.url || f?.path;
+    const photoFile =
+      files.find((f: any) => String(f?.fileType || f?.type || '').toUpperCase().includes('PHOTOGRAPH') && urlOf(f)) ||
+      files.find((f: any) => {
+        const name = String(f?.fileName || f?.name || '');
+        // Name-only match must still be an image, so a scanned passport.pdf is never shown as the photo.
+        return /(photo|photograph|passport)/i.test(name) && /\.(png|jpe?g|gif|webp)$/i.test(name) && urlOf(f);
+      });
+    const bio = application?.biometricData?.biometricData || application?.biometricData;
+    displayPhotoUrl =
+      (photoFile && urlOf(photoFile)) ||
+      application?.photograph ||
+      (typeof bio?.photo?.url === 'string' ? bio.photo.url : undefined);
   }
 
   return (
@@ -320,8 +329,9 @@ export function DocumentTable({ documents }: { documents: any[] }) {
                       </button>
                       <button
                         onClick={() => {
+                          const raw = doc.url || doc.fileUrl || doc.path || doc.downloadUrl || '';
                           const a = document.createElement('a');
-                          a.href = doc.url || doc.fileUrl || doc.path || doc.downloadUrl || '';
+                          a.href = resolveFileHref(raw) || raw;
                           a.download = doc.name || doc.fileName || 'download';
                           a.rel = 'noopener';
                           document.body.appendChild(a);

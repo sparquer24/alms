@@ -17,6 +17,7 @@ import { fetchData, postData, putData, deleteData } from '../../api/axiosConfig'
 import { useLocationHierarchy } from '../../hooks/useLocationHierarchy';
 import { ROLE_CODES, LOCATION_HIERARCHY_ROLES } from '../../constants';
 import { getUserFromCookie } from '../../utils/authCookies';
+import { getFileSizeError, MB } from '../../utils/fileValidation';
 
 // Types representing API user + transformed UI user
 interface ApiRole {
@@ -143,24 +144,6 @@ export default function UserManagementContent() {
     (authUser as any)?.state?.id ||
     (authUser as any)?.location?.state?.id;
   
-  // Console logs for debugging
-  console.log('🔍 Debug Info:', {
-    userRole,
-    isAdmin,
-    isSuperAdmin,
-    currentUser,
-    authUser,
-    currentUserStateId,
-    'currentUser.stateId': currentUser?.stateId,
-    'currentUser.state': currentUser?.state,
-    'currentUser.location': (currentUser as any)?.location,
-    'currentUser.location.state.id': (currentUser as any)?.location?.state?.id,
-    'authUser.stateId': (authUser as any)?.stateId,
-    'authUser.state': (authUser as any)?.state,
-    'authUser.location': (authUser as any)?.location,
-    'currentUser keys': currentUser ? Object.keys(currentUser) : 'no currentUser',
-    'authUser keys': authUser ? Object.keys(authUser) : 'no authUser',
-  });
   
   // State for fetching roles from API (for SUPER_ADMIN)
   const [allRolesFromAPI, setAllRolesFromAPI] = useState<ApiRole[]>([]);
@@ -175,10 +158,6 @@ export default function UserManagementContent() {
   const locationOptions = locationActions.getSelectOptions();
   
   // Console log for location options
-  console.log('📍 Location Options:', {
-    stateOptions: locationOptions.stateOptions,
-    loadingStates: locationState.loadingStates,
-  });
   
   // Filter state options based on user role
   // ADMIN: Show only their assigned state
@@ -187,10 +166,6 @@ export default function UserManagementContent() {
     ? locationOptions.stateOptions.filter(state => state.value === String(currentUserStateId))
     : locationOptions.stateOptions;
   
-  console.log('✅ Filtered State Options:', {
-    filteredStateOptions,
-    filterApplied: isAdmin && currentUserStateId,
-  });
 
   // Fetch users
   const loadUsers = async () => {
@@ -255,19 +230,10 @@ export default function UserManagementContent() {
 
   // Auto-select state for ADMIN users when modal opens and states are loaded
   useEffect(() => {
-    console.log('🔄 Auto-select State Effect Running:', {
-      showAddModal,
-      isAdmin,
-      currentUserStateId,
-      addUserState: addUser.state,
-      filteredStateOptionsLength: filteredStateOptions.length,
-      loadingStates: locationState.loadingStates,
-    });
 
     if (showAddModal && isAdmin && currentUserStateId && !addUser.state && !locationState.loadingStates) {
       if (filteredStateOptions.length > 0) {
         const stateValue = String(currentUserStateId);
-        console.log('✅ Auto-selecting state:', stateValue);
         setAddUser(prev => ({ ...prev, state: stateValue }));
         locationActions.setSelectedState(stateValue);
       }
@@ -385,6 +351,16 @@ export default function UserManagementContent() {
 
   const handleBulkFile = (file: File) => {
     setBulkError('');
+    if (!/\.csv$/i.test(file.name)) {
+      setBulkError(`"${file.name}" is not a CSV file. Please upload a .csv file.`);
+      return;
+    }
+    const sizeError = getFileSizeError(file, 5 * MB);
+    if (sizeError) {
+      setBulkUsers([]);
+      setBulkError(sizeError);
+      return;
+    }
     Papa.parse(file, {
       header: true,
       complete: (results: any) => {
@@ -410,7 +386,7 @@ export default function UserManagementContent() {
           email: u.email || undefined,
           phoneNo: u.phoneNo || u.phone || undefined,
         });
-      } catch (e) {}
+      } catch {}
     }
     setShowBulkModal(false);
     setBulkUsers([]);
@@ -466,11 +442,6 @@ export default function UserManagementContent() {
 
   // Open Add User modal and initialize state for ADMIN
   const handleOpenAddModal = () => {
-    console.log('🚀 Opening Add User Modal', {
-      isAdmin,
-      currentUserStateId,
-      loadingStates: locationState.loadingStates,
-    });
     // Ensure search input stays empty when opening the modal
     setSearch('');
     setShowAddModal(true);
@@ -479,7 +450,6 @@ export default function UserManagementContent() {
     if (isAdmin && currentUserStateId) {
       setTimeout(() => {
         const stateValue = String(currentUserStateId);
-        console.log('🎯 Setting state on modal open:', stateValue);
         setAddUser(prev => ({ ...prev, state: stateValue }));
         locationActions.setSelectedState(stateValue);
       }, 100); // Small delay to ensure states are loaded
@@ -613,7 +583,6 @@ export default function UserManagementContent() {
     currentPage * itemsPerPage
   );
 
-  const skeletonRows = Array.from({ length: 6 });
 
   return (
     <div className='flex flex-col flex-grow min-h-0'>
@@ -1192,6 +1161,7 @@ export default function UserManagementContent() {
                 <p className='text-sm text-slate-500'>
                   or <span className='text-blue-600 font-medium'>browse files</span>
                 </p>
+                <p className='text-xs text-slate-400 mt-1'>CSV only, max 5 MB</p>
                 <input
                   type='file'
                   accept='.csv'

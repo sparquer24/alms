@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Input, TextArea } from '../elements/Input';
-import { Checkbox } from '../elements/Checkbox';
 import { Select } from '../elements/Select';
 import { FormSkeleton } from '../elements/FormSkeleton';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
 import { useRouter } from 'next/navigation';
@@ -103,7 +103,6 @@ const LicenseHistory = () => {
 		saveFormData,
 		navigateToNext,
 		loadExistingData,
-		setSubmitError,
 		setSubmitSuccess,
 		fieldErrors,
 		setFieldErrors,
@@ -216,7 +215,7 @@ const LicenseHistory = () => {
 				const list = await WeaponsService.getAll();
 				const items = (list || []).map(w => ({ id: w.id, name: w.name })) as Weapon[];
 				setWeapons(items);
-			} catch (e) {
+			} catch {
 				// Fallback weapons if API fails
 				setWeapons([
 					{ id: 1, name: 'Pistol' },
@@ -368,7 +367,7 @@ const LicenseHistory = () => {
 				setFileError(`Failed to upload ${failed.length} file(s). Please try again.`);
 			}
 
-		} catch (error) {
+		} catch {
 			setFileError('Failed to upload files. Please try again.');
 		} finally {
 			setUploading(false);
@@ -384,7 +383,7 @@ const LicenseHistory = () => {
 			if (uploadedFile?.id) {
 				try {
 					await FileUploadService.deleteFile(uploadedFile.id);
-				} catch (error) {
+				} catch {
 					setFileError('Failed to delete file from server. Please try again.');
 					return;
 				}
@@ -662,10 +661,19 @@ const LicenseHistory = () => {
 
 	return (
 		<form className="p-6">
-			<h2 className="text-xl font-bold mb-4">License History</h2>
+			<FormStepHeader
+				title="License History"
+				subtitle="Details of previous applications, suspensions, family member licenses, safe storage, and arms training."
+				stepNumber={5}
+				totalSteps={10}
+				applicationId={applicantId}
+				acknowledgementNo={almsLicenseId ? String(almsLicenseId) : undefined}
+				onRefresh={typeof loadExistingData === 'function' && applicantId ? () => loadExistingData(applicantId) : undefined}
+				isRefreshing={isLoading}
+			/>
 			
 			{/* Display Applicant ID and License ID if available */}
-			{(applicantId || almsLicenseId) && (
+			{false && (applicantId || almsLicenseId) && (
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<div className="flex flex-col"></div>
 					{typeof loadExistingData === 'function' && (
@@ -694,7 +702,7 @@ const LicenseHistory = () => {
 			)}
 
 			<div className="mb-6">
-				<div className="font-semibold mb-2">14. Whether the applicant has applied for -</div>
+				<div className="font-bold text-[#0B1F3A] text-base mb-2">14. Whether the applicant has applied for -</div>
 				<div className="mb-2">(a) Arms License before?</div>
 				<div className="flex gap-6 mb-2">
 					<label className="flex items-center gap-2 cursor-pointer">

@@ -15,6 +15,17 @@ const axiosInstance = axios.create({
 
 // Helper function to extract error message from nested error structure
 const extractErrorMessage = (error: any): string => {
+  const status = error?.response?.status;
+  // Body-size and connection failures come back as HTML/plain pages, not our JSON errors
+  if (status === 413) {
+    return 'The file is too large to upload. Please choose a smaller file (or compress it) and try again.';
+  }
+  if (error?.code === 'ECONNABORTED') {
+    return 'The request took too long and timed out. Please check your internet connection or upload a smaller file.';
+  }
+  if (error?.request && !error?.response) {
+    return 'Could not reach the server. Please check your internet connection and try again.';
+  }
   // Try to extract from nested structure: details.response.error or details.response.message
   if (error?.response?.data?.details?.response?.error) {
     return error.response.data.details.response.error;
@@ -29,9 +40,12 @@ const extractErrorMessage = (error: any): string => {
   if (error?.response?.data?.error) {
     return error.response.data.error;
   }
-  // Check for plain data string
-  if (typeof error?.response?.data === 'string') {
+  // Check for plain data string (skip HTML error pages from proxies/servers)
+  if (typeof error?.response?.data === 'string' && !/^\s*</.test(error.response.data)) {
     return error.response.data;
+  }
+  if (status >= 500) {
+    return 'The server ran into a problem. Please try again in a moment.';
   }
   if (error?.message) {
     return error.message;
@@ -50,11 +64,11 @@ const getTokenFromCookie = (): string | null => {
     try {
       const parsed = JSON.parse(authCookie);
       return parsed.token || parsed.accessToken || parsed.authToken || authCookie;
-    } catch (e) {
+    } catch {
       // If parsing fails, treat as raw token string
       return authCookie;
     }
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -67,7 +81,7 @@ export const setAuthToken = (token: any) => {
     if (token && typeof token === 'object') {
       raw = token.token ?? token.accessToken ?? token.authToken ?? token;
     }
-  } catch (e) {
+  } catch {
     raw = token;
   }
 
@@ -85,7 +99,6 @@ const ensureAuthToken = () => {
     const token = getTokenFromCookie();
     if (token) {
       setAuthToken(token);
-    } else {
     }
   }
 };
@@ -96,7 +109,7 @@ try {
   if (token) {
     setAuthToken(token);
   }
-} catch (e) {
+} catch {
 }
 
 // Request interceptor to ensure token is always attached
@@ -132,7 +145,7 @@ axiosInstance.interceptors.response.use(
         jsCookie.remove('auth');
         jsCookie.remove('user');
         jsCookie.remove('role');
-      } catch (e) {
+      } catch {
         // ignore cookie cleanup errors
       }
       window.location.href = '/login';
@@ -158,7 +171,7 @@ export const fetchData = async (url: string, params = {}) => {
       try {
         // Clear potential invalid auth cookie and redirect
         jsCookie.remove('auth');
-      } catch (e) {
+      } catch {
         // ignore
       }
       window.location.href = '/login';
@@ -182,7 +195,7 @@ export const postData = async (url: string, data: any, options = {}) => {
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) { }
+      try { jsCookie.remove('auth'); } catch { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -203,7 +216,7 @@ export const putData = async (url: string, data: any, options = {}) => {
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) { }
+      try { jsCookie.remove('auth'); } catch { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -224,7 +237,7 @@ export const patchData = async (url: string, data: any, options = {}) => {
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) { }
+      try { jsCookie.remove('auth'); } catch { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -245,7 +258,7 @@ export const deleteData = async (url: string, options = {}) => {
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) { }
+      try { jsCookie.remove('auth'); } catch { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }

@@ -1,12 +1,15 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, X, Sparkles, Award } from 'lucide-react';
-
-// Type assertions for lucide-react icons to fix React 18 compatibility
-const CheckCircleFixed = CheckCircle as any;
-const XFixed = X as any;
-const SparklesFixed = Sparkles as any;
-const AwardFixed = Award as any;
+import {
+  CheckCircle2,
+  X,
+  FileText,
+  Copy,
+  Check,
+  ShieldCheck,
+  ArrowRight,
+  Clock,
+} from 'lucide-react';
 
 interface SuccessModalProps {
   isOpen: boolean;
@@ -14,6 +17,7 @@ interface SuccessModalProps {
   title?: string;
   message?: string;
   applicationId?: string;
+  acknowledgementNo?: string;
   onNavigateHome?: () => void;
   autoRedirectSeconds?: number; // If set, auto-redirects after this many seconds
   hideCloseButton?: boolean; // If true, hides the close button
@@ -22,26 +26,17 @@ interface SuccessModalProps {
 const SuccessModal: React.FC<SuccessModalProps> = ({
   isOpen,
   onClose,
-  title = 'Success!',
-  message = 'Your application has been submitted successfully.',
+  title = 'Application Submitted Successfully!',
+  message = 'Your fresh arms license application has been successfully submitted and forwarded to the licensing authority for verification.',
   applicationId,
+  acknowledgementNo,
   onNavigateHome,
-  autoRedirectSeconds,
+  autoRedirectSeconds = 6,
   hideCloseButton = false,
 }) => {
-  const [showContent, setShowContent] = useState(false);
   const [countdown, setCountdown] = useState(autoRedirectSeconds || 0);
   const [shouldRedirect, setShouldRedirect] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      // Delay content animation slightly after modal opens
-      const timer = setTimeout(() => setShowContent(true), 100);
-      return () => clearTimeout(timer);
-    } else {
-      setShowContent(false);
-    }
-  }, [isOpen]);
+  const [copied, setCopied] = useState(false);
 
   // Auto-redirect countdown effect
   useEffect(() => {
@@ -53,7 +48,6 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
         setCountdown(prev => {
           if (prev <= 1) {
             clearInterval(interval);
-            // Set flag to trigger redirect in separate effect
             setShouldRedirect(true);
             return 0;
           }
@@ -65,7 +59,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
     }
   }, [isOpen, autoRedirectSeconds]);
 
-  // Separate effect to handle redirect - avoids setState during render
+  // Handle redirect navigation
   useEffect(() => {
     if (shouldRedirect && onNavigateHome) {
       onNavigateHome();
@@ -76,160 +70,155 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
   if (!isOpen) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    // Don't allow closing by clicking backdrop if hideCloseButton is true
     if (hideCloseButton) return;
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
 
+  const handleCopyAck = async () => {
+    const textToCopy = acknowledgementNo || applicationId;
+    if (!textToCopy) return;
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(textToCopy);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      // ignore clipboard errors
+    }
+  };
+
   return (
     <div
-      className={`fixed inset-0 bg-black transition-opacity duration-300 flex items-center justify-center z-50 ${
-        isOpen ? 'bg-opacity-60' : 'bg-opacity-0'
-      }`}
+      className='fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-300'
       onClick={handleBackdropClick}
+      role='dialog'
+      aria-modal='true'
+      aria-labelledby='success-modal-title'
     >
-      <div
-        className={`bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 relative transform transition-all duration-500 ${
-          showContent ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'
-        }`}
-      >
-        {/* Decorative elements */}
-        <div className='absolute top-4 left-4 text-green-200 opacity-50'>
-          <SparklesFixed className='w-6 h-6 animate-pulse' />
-        </div>
-        <div className='absolute top-8 right-8 text-emerald-200 opacity-30'>
-          <AwardFixed className='w-5 h-5 animate-pulse' style={{ animationDelay: '0.5s' }} />
-        </div>
+      <div className='relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all duration-300 animate-in fade-in zoom-in-95'>
+        {/* Navy & Gold ALMS Top Stripe */}
+        <div className='h-2 w-full bg-gradient-to-r from-[#0B1F3A] via-[#1E3A8A] to-[#D4AF37]' />
 
-        {/* Close button - hidden if hideCloseButton is true */}
+        {/* Close button */}
         {!hideCloseButton && (
           <button
             onClick={onClose}
-            className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-all duration-200 z-10'
+            className='absolute top-4 right-4 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full p-1.5 transition-all duration-150 z-10'
             aria-label='Close modal'
           >
-            <XFixed className='w-5 h-5' />
+            <X className='w-5 h-5' />
           </button>
         )}
 
-        {/* Success icon with animation */}
-        <div className='flex justify-center mb-6'>
-          <div
-            className={`relative transform transition-all duration-700 ${
-              showContent ? 'scale-100 rotate-0' : 'scale-0 rotate-180'
-            }`}
-          >
-            <div className='w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg'>
-              <CheckCircleFixed className='w-12 h-12 text-white drop-shadow-sm' />
-            </div>
-            {/* Animated ring */}
-            <div className='absolute inset-0 w-20 h-20 border-4 border-green-300 rounded-full animate-ping opacity-20'></div>
-            <div className='absolute inset-0 w-20 h-20 border-2 border-green-400 rounded-full animate-pulse'></div>
+        <div className='p-6 sm:p-8 space-y-6 text-center'>
+          {/* Polished Checkmark Badge */}
+          <div className='w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-emerald-50 border-4 border-emerald-100 flex items-center justify-center text-emerald-600 shadow-inner'>
+            <CheckCircle2 className='w-10 h-10 sm:w-12 sm:h-12 text-emerald-600' />
           </div>
-        </div>
 
-        {/* Title with gradient text */}
-        <h2
-          className={`text-2xl font-bold text-center bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-3 transform transition-all duration-500 delay-200 ${
-            showContent ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-          }`}
-        >
-          {title}
-        </h2>
-
-        {/* Message */}
-        <p
-          className={`text-gray-600 text-center mb-6 leading-relaxed transform transition-all duration-500 delay-300 ${
-            showContent ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-          }`}
-        >
-          {message}
-        </p>
-
-        {/* Application ID display with enhanced styling */}
-        {applicationId && (
-          <div
-            className={`bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4 mb-6 relative overflow-hidden transform transition-all duration-500 delay-400 ${
-              showContent ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-            }`}
-          >
-            {/* Subtle background pattern */}
-            <div className='absolute inset-0 bg-blue-100 opacity-20 transform -skew-y-3'></div>
-            <div className='relative z-10'>
-              <p className='text-sm font-semibold text-blue-700 text-center mb-2 flex items-center justify-center gap-2'>
-                <AwardFixed className='w-4 h-4' />
-                Application ID
-              </p>
-              <p className='text-xl font-mono font-bold text-center text-blue-900 bg-white bg-opacity-50 rounded-lg py-2 px-3 backdrop-blur-sm'>
-                {applicationId}
-              </p>
-            </div>
+          {/* Heading & Subtitle */}
+          <div className='space-y-2'>
+            <h2
+              id='success-modal-title'
+              className='text-2xl sm:text-3xl font-black text-[#0B1F3A] tracking-tight'
+            >
+              {title}
+            </h2>
+            <p className='text-sm sm:text-base text-slate-600 leading-relaxed max-w-md mx-auto'>
+              {message}
+            </p>
           </div>
-        )}
 
-        {/* Action buttons with enhanced styling */}
-        <div
-          className={`flex flex-col gap-3 transform transition-all duration-500 delay-500 ${
-            showContent ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-          }`}
-        >
-          {/* Auto-redirect countdown message */}
-          {autoRedirectSeconds && countdown > 0 && (
-            <div className='text-center text-gray-600 text-sm mb-2'>
-              <div className='flex items-center justify-center gap-2'>
-                <svg className='w-4 h-4 animate-spin' fill='none' viewBox='0 0 24 24'>
-                  <circle
-                    className='opacity-25'
-                    cx='12'
-                    cy='12'
-                    r='10'
-                    stroke='currentColor'
-                    strokeWidth='4'
-                  ></circle>
-                  <path
-                    className='opacity-75'
-                    fill='currentColor'
-                    d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-                  ></path>
-                </svg>
+          {/* Acknowledgement & Application Details Card */}
+          {(acknowledgementNo || applicationId) && (
+            <div className='bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-3 shadow-2xs'>
+              {acknowledgementNo && (
+                <div>
+                  <div className='flex items-center justify-between mb-1.5'>
+                    <span className='text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5'>
+                      <FileText className='w-3.5 h-3.5 text-[#0B1F3A]' />
+                      Acknowledgement Number
+                    </span>
+                    <span className='inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200'>
+                      Submitted
+                    </span>
+                  </div>
+                  <div className='flex items-center justify-between gap-2 bg-white px-3.5 py-2.5 rounded-lg border border-slate-200 shadow-2xs'>
+                    <span className='font-mono font-bold text-base sm:text-lg text-[#0B1F3A] tracking-wider select-all break-all'>
+                      {acknowledgementNo}
+                    </span>
+                    <button
+                      type='button'
+                      onClick={handleCopyAck}
+                      className='inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#0B1F3A] bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-md transition-all duration-150 flex-shrink-0'
+                      title='Copy to clipboard'
+                    >
+                      {copied ? (
+                        <>
+                          <Check className='w-3.5 h-3.5 text-emerald-600' />
+                          <span className='text-emerald-700 font-bold'>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className='w-3.5 h-3.5' />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {applicationId && (
+                <div className='flex items-center justify-between pt-1 border-t border-slate-200/70 text-xs text-slate-500'>
+                  <span>Application Reference ID:</span>
+                  <span className='font-mono font-bold text-slate-800'>
+                    #{applicationId}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Next Steps Guidance Panel */}
+          <div className='bg-blue-50/60 border border-blue-100 rounded-xl p-3.5 text-left text-xs text-slate-600 space-y-1.5'>
+            <div className='font-bold text-[#0B1F3A] flex items-center gap-1.5 text-xs uppercase tracking-wide'>
+              <ShieldCheck className='w-4 h-4 text-[#0B1F3A]' />
+              <span>What Happens Next?</span>
+            </div>
+            <ul className='list-disc list-inside space-y-1 text-slate-600 pl-1'>
+              <li>Your submission is recorded and queued for verification under the Arms Act, 1959.</li>
+              <li>Local police and background checks will be initiated by the licensing office.</li>
+              <li>Track real-time status anytime on your ALMS portal with your Acknowledgement No.</li>
+            </ul>
+          </div>
+
+          {/* Actions & Redirect countdown */}
+          <div className='space-y-3 pt-1'>
+            {autoRedirectSeconds && countdown > 0 && (
+              <div className='flex items-center justify-center gap-2 text-xs text-slate-500'>
+                <Clock className='w-3.5 h-3.5 text-[#0B1F3A] animate-pulse' />
                 <span>
-                  Redirecting to dashboard in <strong>{countdown}</strong> second
-                  {countdown !== 1 ? 's' : ''}...
+                  Redirecting to dashboard in{' '}
+                  <strong className='font-bold text-[#0B1F3A]'>{countdown}</strong>{' '}
+                  second{countdown !== 1 ? 's' : ''}...
                 </span>
               </div>
-            </div>
-          )}
-          {onNavigateHome && !autoRedirectSeconds && (
-            <button
-              onClick={onNavigateHome}
-              className='w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2'
-            >
-              <AwardFixed className='w-5 h-5' />
-              Go to Back
-            </button>
-          )}
-        </div>
+            )}
 
-        {/* Confetti effect (optional - can be styled with CSS) */}
-        <div className='absolute inset-0 pointer-events-none'>
-          <div
-            className='absolute top-10 left-10 w-2 h-2 bg-yellow-400 rounded-full animate-bounce opacity-60'
-            style={{ animationDelay: '0.1s' }}
-          ></div>
-          <div
-            className='absolute top-16 right-12 w-2 h-2 bg-pink-400 rounded-full animate-bounce opacity-60'
-            style={{ animationDelay: '0.3s' }}
-          ></div>
-          <div
-            className='absolute bottom-20 left-8 w-2 h-2 bg-blue-400 rounded-full animate-bounce opacity-60'
-            style={{ animationDelay: '0.5s' }}
-          ></div>
-          <div
-            className='absolute bottom-24 right-6 w-2 h-2 bg-green-400 rounded-full animate-bounce opacity-60'
-            style={{ animationDelay: '0.7s' }}
-          ></div>
+            <button
+              type='button'
+              onClick={onNavigateHome || onClose}
+              className='w-full bg-[#0B1F3A] hover:bg-[#15325B] active:bg-[#071527] text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2 text-sm sm:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B1F3A] focus-visible:ring-offset-2'
+            >
+              <span>Go to Dashboard</span>
+              <ArrowRight className='w-4 h-4' />
+            </button>
+          </div>
         </div>
       </div>
     </div>

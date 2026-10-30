@@ -19,6 +19,7 @@ import LicenseService, {
   LicenseImportRow,
   LicenseImportRollbackResult,
 } from '@/services/licenseService';
+import { getFileSizeError, MB } from '@/utils/fileValidation';
 
 /**
  * Column contract for a bulk license import file. The header labels are what the
@@ -185,6 +186,8 @@ const downloadCsv = (filename: string, header: string[], rows: Array<Array<strin
 };
 
 const PREVIEW_ROW_LIMIT = 200;
+// Rows are sent to the API as JSON, so keep the source file well under the request size limit.
+const MAX_IMPORT_FILE_SIZE = 5 * MB;
 
 interface BulkLicenseImportProps {
   /** Called after a successful import or rollback so the license list can refresh. */
@@ -246,6 +249,11 @@ export default function BulkLicenseImport({ onChanged, onViewLicenses }: BulkLic
   const parseFile = useCallback(
     async (file: File) => {
       resetForNewFile();
+      const sizeError = getFileSizeError(file, MAX_IMPORT_FILE_SIZE);
+      if (sizeError) {
+        setError(sizeError);
+        return;
+      }
       setValidating(true);
       try {
         const buffer = await file.arrayBuffer();
@@ -449,7 +457,7 @@ export default function BulkLicenseImport({ onChanged, onViewLicenses }: BulkLic
                 choose a file
               </button>
             </p>
-            <p className='mt-1 text-xs text-gray-400'>Accepted formats: .csv, .xlsx, .xls</p>
+            <p className='mt-1 text-xs text-gray-400'>Accepted formats: .csv, .xlsx, .xls (max 5 MB)</p>
             <input
               ref={fileInputRef}
               type='file'

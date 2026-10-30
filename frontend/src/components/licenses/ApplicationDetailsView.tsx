@@ -14,13 +14,11 @@ import {
   CreditCard,
   Fingerprint,
   FileCheck,
-  UserCog,
   BadgeCheck,
   Clock3,
   Shield,
   Target,
   ShieldCheck,
-  Crosshair,
   MapPin,
   LocateFixed,
   Package,
@@ -29,20 +27,16 @@ import {
   ClipboardCheck,
   Building2,
   ShieldAlert,
-  AlertTriangle,
   Users,
   TriangleAlert,
   FileWarning,
-  Calendar,
   Ban,
   Scale,
-  FileSearch,
   Building,
   Landmark,
   BriefcaseBusiness,
 } from 'lucide-react';
-import { formatGender, formatStatusLabel, formatApplicationType, formatDisplayDate, formatDisplayDateTime } from '@/utils/formatters';
-import { LazySection } from '@/components/LazySection';
+import { formatGender, formatApplicationType, formatDisplayDate, formatDisplayDateTime } from '@/utils/formatters';
 import { ApplicationHistoryCards } from './ApplicationHistoryCards';
 
 export function ApplicationDetailsView({ application, hideLicenseDetails }: { application: any, hideLicenseDetails?: boolean }) {
@@ -285,15 +279,13 @@ export function ApplicationDetailsView({ application, hideLicenseDetails }: { ap
 
       {/* 4. Uploaded Documents */}
       {application?.fileUploads && application.fileUploads.length > 0 && (
-        <SectionCard
-          title="Uploaded Documents"
-          icon={FileText}
-          iconColorClass="text-indigo-600 bg-indigo-50 border-indigo-100"
-        >
-          <div className="w-full">
-            <DocumentTable documents={application.fileUploads} />
-          </div>
-        </SectionCard>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-6">
+            <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+            Uploaded Documents
+          </h3>
+          <DocumentTable documents={application.fileUploads} />
+        </div>
       )}
 
       {/* 5. Application History (New Vertical Layout) */}

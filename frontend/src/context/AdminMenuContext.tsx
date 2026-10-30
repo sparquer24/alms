@@ -12,7 +12,6 @@ import React, {
 import {
   getMenuItemsForAdminRole,
   AdminMenuItem,
-  getAdminMenuKeyFromPath,
 } from '../config/adminMenuService';
 
 interface AdminMenuContextType {
@@ -70,7 +69,7 @@ export const AdminMenuProvider: React.FC<AdminMenuProviderProps> = ({
           setCachedUserRole(role.toUpperCase());
         }
       }
-    } catch (e) {
+    } catch {
       // ignore cookie parsing errors
     }
 
@@ -112,7 +111,7 @@ export const AdminMenuProvider: React.FC<AdminMenuProviderProps> = ({
         } else {
           sessionStorage.removeItem('activeAdminMenuKey');
         }
-      } catch (e) {
+      } catch {
         // ignore storage errors
       }
     }
@@ -127,7 +126,7 @@ export const AdminMenuProvider: React.FC<AdminMenuProviderProps> = ({
       if (stored) {
         setActiveMenuKey(stored);
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [activeMenuKey]);

@@ -173,31 +173,6 @@ export class RenewalService {
   }
 
   /**
-   * Get all statuses and available actions for workflow
-   */
-  static async getWorkflowStatusesAndActions(): Promise<any> {
-    return apiClient.get('/workflow/statuses-actions');
-  }
-
-  /**
-   * Get renewal applications - fetch applications by type
-   */
-  static async getRenewalApplications(filters?: {
-    page?: number;
-    limit?: number;
-    status?: string;
-  }): Promise<any> {
-    const params = new URLSearchParams({
-      applicationType: 'RenewalApplicationForm',
-      ...(filters?.page && { page: String(filters.page) }),
-      ...(filters?.limit && { limit: String(filters.limit) }),
-      ...(filters?.status && { status: filters.status }),
-    });
-
-    return apiClient.get(`/workflow/applications?${params.toString()}`);
-  }
-
-  /**
    * Handle workflow action (forward, approve, reject, etc.) on renewal application
    * @param applicationId - Renewal ID to perform action on
    * @param actionId - Action ID from Actiones table
@@ -233,62 +208,6 @@ export class RenewalService {
     }
 
     return apiClient.post('/workflow/action', payload);
-  }
-
-  /**
-   * Submit renewal application for workflow (change status to INITIATED)
-   * Equivalent to submitting the form
-   */
-  static async submitRenewalForWorkflow(
-    applicationId: number,
-    actionId: number,
-  ): Promise<any> {
-    return this.handleWorkflowAction(applicationId, actionId, undefined, 'Application submitted for review');
-  }
-
-  /**
-   * Forward renewal application to next user/role
-   */
-  static async forwardRenewalApplication(
-    applicationId: number,
-    actionId: number,
-    nextUserId: number,
-    remarks: string,
-  ): Promise<any> {
-    return this.handleWorkflowAction(applicationId, actionId, nextUserId, remarks);
-  }
-
-  /**
-   * Approve renewal application
-   */
-  static async approveRenewalApplication(
-    applicationId: number,
-    actionId: number,
-    remarks: string,
-  ): Promise<any> {
-    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
-  }
-
-  /**
-   * Reject renewal application
-   */
-  static async rejectRenewalApplication(
-    applicationId: number,
-    actionId: number,
-    remarks: string,
-  ): Promise<any> {
-    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
-  }
-
-  /**
-   * Request additional info from applicant
-   */
-  static async requestInfoRenewalApplication(
-    applicationId: number,
-    actionId: number,
-    remarks: string,
-  ): Promise<any> {
-    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
   }
 }
 

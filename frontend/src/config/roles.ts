@@ -1,7 +1,7 @@
 // This file contains all the role-based configurations for the Arms License Management System Dashboard
 // Roles include Applicant, Zonal Superintendent, DCP, ACP, SHO, etc.
 import jsCookie from "js-cookie";
-import { getMenuItemsForAdminRole, getAdminMenuItems } from "./adminMenuService";
+import { getAdminMenuItems } from "./adminMenuService";
 import { getSuperAdminMenuItems } from "./superAdminMenuService";
 
 // New role config structure for dynamic sidebar
@@ -36,7 +36,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     } else {
       try {
         parsedUser = JSON.parse(token);
-      } catch (err) {
+      } catch {
         // leave parsedUser undefined
         parsedUser = undefined;
       }
@@ -248,4 +248,3 @@ export const RoleTypes = {
   ACO: "ACO",
 } as const;
 
-export type RoleType = (typeof RoleTypes)[keyof typeof RoleTypes];

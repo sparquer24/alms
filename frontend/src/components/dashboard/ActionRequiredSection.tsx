@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { AlertTriangle, ChevronRight, Bell, Clock, Award, FileText, Shield, Loader2 } from 'lucide-react';
@@ -51,7 +51,7 @@ export default function ActionRequiredSection({ items, loading, onItemClick }: A
 
   return (
     <section className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
-      <div className={`px-5 py-3.5 flex items-center justify-between ${criticalCount > 0 ? 'bg-rose-600' : 'bg-[#0F2D52]'}`}>
+      <div className={`px-5 py-3.5 flex items-center justify-between ${criticalCount > 0 ? 'bg-rose-600' : 'bg-[#0B1F3A]'}`}>
         <div className="flex items-center gap-2.5">
           <div className="relative flex h-2.5 w-2.5">
             {totalActions > 0 && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />}
@@ -81,7 +81,7 @@ export default function ActionRequiredSection({ items, loading, onItemClick }: A
                 type="button"
                 onClick={() => onItemClick?.(item.key, item.label)}
                 disabled={item.count === 0}
-                className={`flex flex-col items-center justify-center gap-2 px-4 py-5 transition-all group text-center ${
+                className={`flex flex-col items-center justify-center gap-3 px-5 py-6 transition-all group text-center ${
                   item.count === 0 ? 'bg-gray-50 opacity-50 cursor-default' : `${cfg.bg} cursor-pointer`
                 }`}
               >

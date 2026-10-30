@@ -11,25 +11,3 @@ export const FORM_ROUTES = {
   DECLARATION: '/forms/createFreshApplication/declaration',
 };
 
-export const getNextRoute = (currentRoute: string): string | null => {
-  const routes = Object.values(FORM_ROUTES);
-  const currentIndex = routes.indexOf(currentRoute);
-  return currentIndex !== -1 && currentIndex < routes.length - 1
-    ? routes[currentIndex + 1]
-    : null;
-};
-
-export const getPreviousRoute = (currentRoute: string): string | null => {
-  const routes = Object.values(FORM_ROUTES);
-  const currentIndex = routes.indexOf(currentRoute);
-  return currentIndex > 0 ? routes[currentIndex - 1] : null;
-};
-
-export const getRouteIndex = (route: string): number => {
-  const routes = Object.values(FORM_ROUTES);
-  return routes.indexOf(route);
-};
-
-export const getTotalSteps = (): number => {
-  return Object.values(FORM_ROUTES).length;
-};

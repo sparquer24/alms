@@ -74,24 +74,20 @@ export class RolesController {
     @Query('sortOrder') sortOrder?: string,
     @Req() req?: any,
   ) {
-    try {
-      // Extract roleCode from JWT for role-based filtering
-      const user = req ? (req as any).user : null;
-      const roleCode = user?.roleCode;
+    // Extract roleCode from JWT for role-based filtering
+    const user = req ? (req as any).user : null;
+    const roleCode = user?.roleCode;
 
-      return await this.rolesService.getRoles({
-        id,
-        search,
-        status,
-        page: page ? Number(page) : undefined,
-        limit: limit ? Number(limit) : undefined,
-        sortBy,
-        sortOrder: sortOrder as 'asc' | 'desc',
-        requestingRoleCode: roleCode,
-      });
-    } catch (error) {
-      throw error;
-    }
+    return await this.rolesService.getRoles({
+      id,
+      search,
+      status,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      sortBy,
+      sortOrder: sortOrder as 'asc' | 'desc',
+      requestingRoleCode: roleCode,
+    });
   }
 
   @Get(':id')
@@ -109,15 +105,11 @@ export class RolesController {
     description: 'Role not found',
   })
   async getRoleById(@Param('id') id: string) {
-    try {
-      const role = await this.rolesService.getRoleById(Number(id));
-      if (!role) {
-        throw new BadRequestException('Role not found');
-      }
-      return role;
-    } catch (error) {
-      throw error;
+    const role = await this.rolesService.getRoleById(Number(id));
+    if (!role) {
+      throw new BadRequestException('Role not found');
     }
+    return role;
   }
 
   @Post()
@@ -154,14 +146,10 @@ export class RolesController {
     description: 'Invalid input',
   })
   async createRole(@Body() roleData: any) {
-    try {
-      if (!roleData.name || !roleData.dashboard_title) {
-        throw new BadRequestException('Name and dashboard_title are required');
-      }
-      return await this.rolesService.createRole(roleData);
-    } catch (error) {
-      throw error;
+    if (!roleData.name || !roleData.dashboard_title) {
+      throw new BadRequestException('Name and dashboard_title are required');
     }
+    return await this.rolesService.createRole(roleData);
   }
 
   @Put(':id')
@@ -198,11 +186,7 @@ export class RolesController {
     description: 'Role not found',
   })
   async updateRole(@Param('id') id: string, @Body() roleData: any) {
-    try {
-      return await this.rolesService.updateRole(Number(id), roleData);
-    } catch (error) {
-      throw error;
-    }
+    return await this.rolesService.updateRole(Number(id), roleData);
   }
 
   @Delete(':id')
@@ -220,11 +204,7 @@ export class RolesController {
     description: 'Role not found',
   })
   async deleteRole(@Param('id') id: string) {
-    try {
-      return await this.rolesService.deleteRole(Number(id));
-    } catch (error) {
-      throw error;
-    }
+    return await this.rolesService.deleteRole(Number(id));
   }
 
   @Patch(':id/deactivate')
@@ -238,11 +218,7 @@ export class RolesController {
     description: 'Role deactivated successfully',
   })
   async deactivateRole(@Param('id') id: string) {
-    try {
-      return await this.rolesService.deactivateRole(Number(id));
-    } catch (error) {
-      throw error;
-    }
+    return await this.rolesService.deactivateRole(Number(id));
   }
 
   @Patch(':id/activate')
@@ -256,10 +232,6 @@ export class RolesController {
     description: 'Role activated successfully',
   })
   async activateRole(@Param('id') id: string) {
-    try {
-      return await this.rolesService.activateRole(Number(id));
-    } catch (error) {
-      throw error;
-    }
+    return await this.rolesService.activateRole(Number(id));
   }
 }

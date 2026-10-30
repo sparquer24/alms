@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect } from 'react';
 import { logError } from '../utils/loggingUtils';
 
@@ -33,9 +34,9 @@ export default function Error({
         Try again
       </button>
       <br />
-      <a href='/' style={{ color: 'blue', textDecoration: 'underline' }}>
+      <Link href='/' style={{ color: 'blue', textDecoration: 'underline' }}>
         Go home
-      </a>
+      </Link>
     </div>
   );
 }

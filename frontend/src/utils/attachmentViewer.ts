@@ -13,7 +13,21 @@ export const openAttachment = (att: any) => {
     const fileName = att?.name || att?.fileName || 'attachment';
     if (!rawUrl) return;
 
-    // Delegate to the authenticated file handler
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('alms:open-document-preview', {
+          detail: {
+            url: rawUrl,
+            fileName,
+            fileType: att?.type || att?.fileType || att?.contentType,
+            rawDoc: att,
+          },
+        })
+      );
+      return;
+    }
+
+    // Fallback if window is not available
     openDocumentFile(rawUrl, fileName);
   } catch (e) {
     console.error('Failed to open attachment:', e);

@@ -7,11 +7,9 @@ import Link from 'next/link';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import Footer from '../../../components/Footer';
-import { PageSubHeader, SubHeaderButton } from '@/components/common/PageSubHeader';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 import { useLayout } from '../../../config/layoutContext';
-import { ApplicationApi } from '../../../config/APIClient';
 import { apiClient } from '../../../config/authenticatedApiClient';
 
 import { ApplicationData, LicenseData } from '../../../types';
@@ -19,11 +17,7 @@ import LicenseService from '../../../services/licenseService';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
-import {
-  PageLayoutSkeleton,
-  ApplicationCardSkeleton,
-  ApplicationDetailSkeleton,
-} from '../../../components/Skeleton';
+import { ApplicationDetailSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
 import { LazySection } from '../../../components/LazySection';
 import { RichTextDisplay } from '../../../components/RichTextDisplay';
@@ -79,16 +73,14 @@ import {
   Landmark,
   BriefcaseBusiness,
   MapPinned,
-  FolderOpen,
   Eye,
   Download,
   Printer,
 } from 'lucide-react';
 
-import { humanize, formatGender, formatStatusLabel, formatApplicationType, formatPhone, formatDisplayDate, formatDisplayDateTime } from '../../../utils/formatters';
+import { formatGender, formatStatusLabel, formatApplicationType, formatDisplayDate, formatDisplayDateTime } from '../../../utils/formatters';
 import { normalizeRenewalApplication } from '../../../utils/applicationFormatters';
 import { openAttachment } from '../../../utils/attachmentViewer';
-import { generateApplicationPrintHtml } from '../../../utils/printGenerators';
 import { getStatusStyle } from '../../../utils/statusColors';
 import RenewalApplicationDetailsHeader from '../../../components/renewal/renewalapplicationdetailsheader';
 import RenewalChangesCard from '../../../components/renewal/RenewalChangesCard';
@@ -114,6 +106,16 @@ const isFinalWorkflowStatus = (app: any): boolean => {
   const code = String(app?.workflowStatus?.code || app?.status || '').toUpperCase();
   const name = String(app?.workflowStatus?.name || code).toUpperCase();
   return FINAL_STATUSES.some(s => code === s || name === s);
+};
+
+/** Checks whether the application is still in Draft status (unsubmitted). */
+const isDraftWorkflowStatus = (app: any): boolean => {
+  if (!app) return false;
+  if (app?.isSubmit === false) return true;
+  const code = String(app?.workflowStatus?.code || '').toUpperCase();
+  const name = String(app?.workflowStatus?.name || code).toUpperCase();
+  const generalStatus = String(app?.status || '').toUpperCase();
+  return code === 'DRAFT' || name === 'DRAFT' || generalStatus === 'DRAFT';
 };
 
 /** Signed-in user's id from the `user` cookie (callers fall back to the auth hook's user). */
@@ -154,7 +156,9 @@ const toOriginType = (value: unknown): OriginApp['type'] | null => {
 /**
  * The application the viewed renewal was raised against. The License API's source
  * application is the license's *last* modifying application, which becomes this
- * renewal once it is approved, so in that case step back to the previous one.
+ * renewal once it is approved, so in that case step back to the previous one. A
+ * cancellation holds no applicant data, so it also steps back to the application
+ * the license held before it was cancelled.
  * Note: the License API's `id` is the license PK, not an application id.
  */
 const resolveOriginApp = (license: any, renewalId: string | number | null): OriginApp | null => {
@@ -169,11 +173,18 @@ const resolveOriginApp = (license: any, renewalId: string | number | null): Orig
         : null) ??
     license.sourceApplicationId;
 
-  if (lastType === 'RENEWAL' && renewalId != null && String(lastId) === String(renewalId)) {
+  if (
+    lastType === 'CANCELLATION' ||
+    (lastType === 'RENEWAL' && renewalId != null && String(lastId) === String(renewalId))
+  ) {
     const prevType =
       toOriginType(license.previousModifiedAppType) ?? (license.freshApplicationId ? 'FRESH' : null);
     const prevId =
       license.previousModifiedAppId ?? (prevType === 'FRESH' ? license.freshApplicationId : null);
+    // The viewed renewal itself was the last change before the cancellation.
+    if (prevType === 'RENEWAL' && renewalId != null && String(prevId) === String(renewalId)) {
+      return license.freshApplicationId ? { id: Number(license.freshApplicationId), type: 'FRESH' } : null;
+    }
     return prevType && prevId ? { id: Number(prevId), type: prevType } : null;
   }
 
@@ -193,7 +204,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { setShowHeader, setShowSidebar, headerHeight } = useLayout();
+  const { setShowHeader, setShowSidebar, headerHeight, sidebarCollapsed } = useLayout();
   const [application, setApplication] = useState<ApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
@@ -204,8 +215,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [isForwarding, setIsForwarding] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showTimeline, setShowTimeline] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<
+  const [selectedAction] = useState<
     | 'approve'
     | 'reject'
     | 'return'
@@ -217,7 +227,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   >('approve');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [workflowHistory, setWorkflowHistory] = useState<any[]>([]);
-  const [confirmationDetails, setConfirmationDetails] = useState({
+  const [confirmationDetails] = useState({
     title: '',
     message: '',
     actionButtonText: '',
@@ -226,13 +236,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   });
 
   const [showProceedingsModal, setShowProceedingsModal] = useState(false);
-  const [showProceedingsForm, setShowProceedingsForm] = useState(true);
-  const [showTimelineDetails, setShowTimelineDetails] = useState(false);
-  const [timelineDetails, setTimelineDetails] = useState({
-    user1: false,
-    user2: false,
-    user3: false,
-  });
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
@@ -288,34 +291,16 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
   const currentDisplayApp = useMemo(() => {
     if (isRenewalView && activeTab === 'original' && originalLicenseData) {
-      return originalLicenseData as unknown as ApplicationData;
+      // The License API carries its source application's createdAt but not the
+      // applicationDate the Renewal Info tab is normalised with.
+      const original = originalLicenseData as any;
+      return {
+        ...original,
+        applicationDate: original.applicationDate ?? original.createdAt,
+      } as unknown as ApplicationData;
     }
     return application;
   }, [isRenewalView, activeTab, originalLicenseData, application]);
-
-  // Who holds the file, since when, and whether the signed-in officer can act on it.
-  const assignment = useMemo(() => {
-    if (!application) return null;
-    const currentUserId = readCookieUserId() ?? (user?.id ? Number(user.id) : null);
-    const holder = application.currentUser ?? null;
-    const isFinal = isFinalWorkflowStatus(application);
-    const canAct = Boolean(
-      !isFinal && currentUserId && holder?.id && Number(holder.id) === currentUserId
-    );
-    const lastMovedAt = (workflowHistory || [])
-      .map((h: any) => new Date(h?.createdAt || h?.date || h?.timestamp || '').getTime())
-      .filter((t: number) => Number.isFinite(t))
-      .reduce((max: number, t: number) => Math.max(max, t), 0);
-    return {
-      holder,
-      isFinal,
-      canAct,
-      since: lastMovedAt ? new Date(lastMovedAt) : null,
-      statusLabel: formatStatusLabel(
-        application.workflowStatus || application.status || application.status_id
-      ),
-    };
-  }, [application, user, workflowHistory]);
 
   // Current license, to show what a pending renewal will change on it.
   const [licenseForComparison, setLicenseForComparison] = useState<any | null>(null);
@@ -330,6 +315,39 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       active = false;
     };
   }, [renewalLicenseId]);
+
+  // A renewal still undecided when its license was cancelled or revoked can never proceed.
+  const renewalLicenseClosed = Boolean(
+    isRenewalView &&
+      ['CANCELLED', 'REVOKED'].includes(String(licenseForComparison?.status || '').toUpperCase()) &&
+      String(application?.workflowStatus?.code || '').toUpperCase() !== 'APPROVED'
+  );
+
+  // Who holds the file, since when, and whether the signed-in officer can act on it.
+  const assignment = useMemo(() => {
+    if (!application) return null;
+    const currentUserId = readCookieUserId() ?? (user?.id ? Number(user.id) : null);
+    const holder = application.currentUser ?? null;
+    const isFinal = isFinalWorkflowStatus(application) || renewalLicenseClosed;
+    const isDraft = isDraftWorkflowStatus(application);
+    const canAct = Boolean(
+      !isFinal && !isDraft && currentUserId && holder?.id && Number(holder.id) === currentUserId
+    );
+    const lastMovedAt = (workflowHistory || [])
+      .map((h: any) => new Date(h?.createdAt || h?.date || h?.timestamp || '').getTime())
+      .filter((t: number) => Number.isFinite(t))
+      .reduce((max: number, t: number) => Math.max(max, t), 0);
+    return {
+      holder,
+      isFinal,
+      isDraft,
+      canAct,
+      since: lastMovedAt ? new Date(lastMovedAt) : null,
+      statusLabel: renewalLicenseClosed
+        ? `License ${String(licenseForComparison?.status).toLowerCase()}`
+        : formatStatusLabel(application.workflowStatus || application.status || application.status_id),
+    };
+  }, [application, user, workflowHistory, renewalLicenseClosed, licenseForComparison]);
 
   // Only while undecided: once approved, the license already holds the renewal's values.
   const showRenewalChanges = Boolean(
@@ -428,7 +446,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     const fetchApplication = async () => {
       setLoading(true);
       try {
-        let licenseAppFallback = null;
         if (isRenewalView) {
           const response = await RenewalService.getRenewalForm(applicationId!);
           const renewalData = (response as any)?.data ?? response;
@@ -441,7 +458,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         } else if (isLicenseView) {
           const license = await LicenseService.getLicenseById(Number(applicationId!));
           if (license) {
-            licenseAppFallback = license;
             // Licenses have no application type of their own; without this the
             // screen falls back to labelling the license "Fresh".
             setApplication({ ...license, applicationType: 'Issued License' } as unknown as ApplicationData);
@@ -485,8 +501,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 }
               }
             }
-          } catch (err) {
-            console.debug('[License fetch] No license found for this application');
+          } catch {
           } finally {
             setLicenseLoading(false);
           }
@@ -504,7 +519,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         } catch (err) {
           console.error('Failed to fetch workflow history', err);
         }
-      } catch (error) {
+      } catch {
         setApplication(null);
       } finally {
         setLoading(false);
@@ -629,20 +644,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     setErrorMessage(null);
   }, [errorMessage]);
 
-  const handleSearch = (query: string) => {
-    // Navigate back to main page with search query
-    router.push(`/?search=${encodeURIComponent(query)}`);
-  };
-
-  const handleDateFilter = (startDate: string, endDate: string) => {
-    // Navigate back to main page with date filters
-    router.push(`/?startDate=${startDate}&endDate=${endDate}`);
-  };
-  const handleReset = () => {
-    // Navigate back to main page with no filters
-    router.push('/');
-  };
-
   const handleProcessApplication = async (action: string, reason: string) => {
     if (!application) return;
 
@@ -706,7 +707,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         // Trigger an immediate sidebar counts refresh so the UI updates
         try {
           refreshCounts(true);
-        } catch (e) {
+        } catch {
           /* ignore */
         }
 
@@ -750,7 +751,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         // Trigger an immediate sidebar counts refresh so the UI updates
         try {
           refreshCounts(true);
-        } catch (e) {
+        } catch {
           /* ignore */
         }
 
@@ -780,7 +781,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       // TODO: Fix PDF generation with correct ApplicationData interface
       // await generateApplicationPDF(application);
       setSuccessMessage('PDF generation feature temporarily disabled');
-    } catch (error) {
+    } catch {
       setErrorMessage('Failed to generate PDF. Please try again.');
     } finally {
       setIsPrinting(false);
@@ -832,7 +833,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [isDragging]);
 
   const handleProceedingsSuccess = (message?: string) => {
-    setShowProceedingsForm(false);
     setSuccessMessage(message || 'Proceedings action completed successfully');
 
     // Reload the application data to get the latest workflow history. A renewal
@@ -856,7 +856,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     // Refresh sidebar counts as proceedings may change bucket counts
     try {
       refreshCounts(true);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
 
@@ -879,8 +879,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   return (
     <>
-      <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
-        <Sidebar />
+      <div className='flex h-screen bg-[#F3F5F8] font-sans antialiased overflow-hidden selection:bg-[#0B1F3A] selection:text-white'>
       <Header
         showBackButton
         breadcrumbs={[
@@ -922,8 +921,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hidePrint={true}
       />
       <main
-        className='flex-1 ml-0 h-full overflow-y-auto flex flex-col pt-[72px] md:pt-[86px]'
-        style={headerHeight != null ? { paddingTop: headerHeight + 20 } : undefined}
+        className='flex-1 w-full min-w-0 h-full overflow-y-auto flex flex-col transition-all duration-300 pt-[56px] md:pt-[58px]'
+        style={headerHeight != null ? { paddingTop: headerHeight } : undefined}
       >
         <div className='flex-grow w-full mx-auto '>
         {isRenewalView && application && (
@@ -944,35 +943,41 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         {application && assignment && (
           <div
             className={`mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-5 py-3 print:hidden ${
-              assignment.canAct
-                ? 'border-blue-200 bg-blue-50'
-                : assignment.isFinal
-                  ? 'border-slate-200 bg-slate-50'
-                  : 'border-slate-200 bg-white'
+              assignment.isDraft
+                ? 'border-amber-200 bg-amber-50/70'
+                : assignment.canAct
+                  ? 'border-blue-200 bg-blue-50'
+                  : assignment.isFinal
+                    ? 'border-slate-200 bg-slate-50'
+                    : 'border-slate-200 bg-white'
             }`}
             role='status'
           >
             <div className='flex min-w-0 items-center gap-3'>
               <span
                 className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                  assignment.canAct
-                    ? 'bg-blue-600'
-                    : assignment.isFinal
-                      ? 'bg-slate-400'
-                      : 'bg-amber-500'
+                  assignment.isDraft
+                    ? 'bg-amber-500 animate-pulse'
+                    : assignment.canAct
+                      ? 'bg-blue-600'
+                      : assignment.isFinal
+                        ? 'bg-slate-400'
+                        : 'bg-amber-500'
                 }`}
                 aria-hidden='true'
               />
               <div className='min-w-0'>
                 <p className='text-sm font-semibold text-slate-900'>
-                  {assignment.isFinal
-                    ? `${assignment.statusLabel} — no further action can be taken`
-                    : assignment.canAct
-                      ? 'Pending with you'
-                      : assignment.holder?.username
-                        ? `With ${assignment.holder.username}`
-                        : assignment.statusLabel}
-                  {!assignment.isFinal && assignment.since && formatPendingSince(assignment.since) && (
+                  {assignment.isDraft
+                    ? 'Workflow Status: Draft — Not Yet Submitted'
+                    : assignment.isFinal
+                      ? `${assignment.statusLabel} — no further action can be taken`
+                      : assignment.canAct
+                        ? 'Pending with you'
+                        : assignment.holder?.username
+                          ? `With ${assignment.holder.username}`
+                          : assignment.statusLabel}
+                  {!assignment.isFinal && !assignment.isDraft && assignment.since && formatPendingSince(assignment.since) && (
                     <span className='font-normal text-slate-600'>
                       {' '}
                       {formatPendingSince(assignment.since)}
@@ -982,14 +987,32 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 <p className='truncate text-xs text-slate-500'>
                   {[
                     application.acknowledgementNo && `Ack No: ${application.acknowledgementNo}`,
-                    !assignment.isFinal && `Status: ${assignment.statusLabel}`,
+                    assignment.isDraft
+                      ? 'Application processing is unavailable until submitted'
+                      : !assignment.isFinal && `Status: ${assignment.statusLabel}`,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
               </div>
             </div>
-            {assignment.canAct && (
+            {assignment.isDraft ? (
+              <button
+                type='button'
+                onClick={() => {
+                  const targetRoute = isRenewalView
+                    ? `/forms/renewal?renewalId=${applicationId}`
+                    : `/forms/createFreshApplication/personalInformation?id=${applicationId}`;
+                  router.push(targetRoute);
+                }}
+                className='inline-flex items-center gap-2 rounded-lg bg-[#0B1F3A] hover:bg-[#15325B] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150'
+              >
+                <span>Continue Application</span>
+                <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M14 5l7 7m0 0l-7 7m7-7H3' />
+                </svg>
+              </button>
+            ) : assignment.canAct && (
               <button
                 type='button'
                 onClick={goToActionPanel}
@@ -1012,31 +1035,31 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             <>
               {/* Tab Loading Skeleton — shown when the Origin tab data is being fetched */}
               {isRenewalView && activeTab === 'original' && originalLicenseLoading ? (
-                <div className='p-6 lg:p-8 bg-slate-50/30 transition-opacity duration-300 animate-pulse'>
+                <div className='p-6 lg:p-8 bg-slate-50/30 transition-opacity duration-300'>
                   {/* Application Information Section Skeleton */}
-                  <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8'>
+                  <div className='bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 mb-8'>
                     <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-6'>
                       <div className='flex items-center gap-3'>
-                        <div className='h-10 w-10 rounded-lg bg-gray-200'></div>
-                        <div className='h-6 w-48 bg-gray-200 rounded'></div>
+                        <div className='h-10 w-10 rounded-xl flag-skeleton-shimmer'></div>
+                        <div className='h-6 w-48 rounded flag-skeleton-shimmer'></div>
                       </div>
                       <div className='flex gap-2'>
-                        <div className='h-10 w-32 bg-gray-200 rounded-xl'></div>
-                        <div className='h-10 w-32 bg-gray-200 rounded-xl hidden sm:block'></div>
+                        <div className='h-10 w-32 rounded-xl flag-skeleton-shimmer'></div>
+                        <div className='h-10 w-32 rounded-xl flag-skeleton-shimmer hidden sm:block'></div>
                       </div>
                     </div>
                     <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
                       <div className='lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6'>
                         {[...Array(8)].map((_, i) => (
                           <div key={i} className={`space-y-2 ${i === 0 ? 'md:col-span-2' : ''}`}>
-                            <div className='h-4 w-24 bg-gray-200 rounded'></div>
-                            <div className='h-5 w-48 max-w-full bg-gray-200 rounded'></div>
+                            <div className='h-4 w-24 rounded flag-skeleton-shimmer'></div>
+                            <div className='h-5 w-48 max-w-full rounded flag-skeleton-shimmer'></div>
                           </div>
                         ))}
                       </div>
                       <div className='space-y-6'>
-                        <div className='h-48 w-full bg-gray-200 rounded-2xl'></div>
-                        <div className='h-64 w-full bg-gray-200 rounded-2xl'></div>
+                        <div className='h-48 w-full rounded-2xl flag-skeleton-shimmer'></div>
+                        <div className='h-64 w-full rounded-2xl flag-skeleton-shimmer'></div>
                       </div>
                     </div>
                   </div>
@@ -1045,17 +1068,17 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     {[...Array(3)].map((_, i) => (
                       <div
                         key={i}
-                        className='bg-white rounded-xl border border-slate-200 shadow-sm p-5 h-[400px]'
+                        className='bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 h-[400px]'
                       >
                         <div className='flex items-center gap-3 mb-6'>
-                          <div className='h-10 w-10 rounded-lg bg-gray-200'></div>
-                          <div className='h-5 w-32 bg-gray-200 rounded'></div>
+                          <div className='h-10 w-10 rounded-xl flag-skeleton-shimmer'></div>
+                          <div className='h-5 w-32 rounded flag-skeleton-shimmer'></div>
                         </div>
                         <div className='space-y-5'>
                           {[...Array(5)].map((_, j) => (
                             <div key={j} className='space-y-2'>
-                              <div className='h-3 w-20 bg-gray-200 rounded'></div>
-                              <div className='h-4 w-full bg-gray-200 rounded'></div>
+                              <div className='h-3 w-20 rounded flag-skeleton-shimmer'></div>
+                              <div className='h-4 w-full rounded flag-skeleton-shimmer'></div>
                             </div>
                           ))}
                         </div>
@@ -1064,7 +1087,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   </div>
                   {/* Loading indicator */}
                   <div className='flex flex-col items-center justify-center py-8 text-center'>
-                    <div className='w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4'></div>
+                    <div className='w-10 h-10 border-4 border-slate-200 border-t-[#0B1F3A] rounded-full animate-spin mb-4'></div>
                     <p className='text-sm font-medium text-slate-500'>
                       Loading original license details...
                     </p>
@@ -2117,6 +2140,20 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               );
                             }
 
+                            if (renewalLicenseClosed) {
+                              return (
+                                <div className='rounded-xl border border-red-200 bg-red-50 p-4'>
+                                  <p className='text-sm font-semibold text-red-900'>
+                                    This license has been{' '}
+                                    <span className='uppercase font-bold'>
+                                      {String(licenseForComparison?.status).toLowerCase()}
+                                    </span>
+                                    . Its renewal application can no longer proceed.
+                                  </p>
+                                </div>
+                              );
+                            }
+
                             const currentUserId =
                               readCookieUserId() ?? (user?.id ? Number(user.id) : null);
                             const applicationUserId = Number(displayApp?.currentUser?.id) || null;
@@ -2167,12 +2204,63 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               displayApp?.workflowStatus?.code || ''
                             ).toUpperCase();
                             const isClosed = statusCode === 'CLOSE' || statusName === 'close';
+                            const isDraft = isDraftWorkflowStatus(displayApp);
+
+                            if (isDraft) {
+                              return (
+                                <div className='rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-xs'>
+                                  <div className='flex items-start gap-3.5'>
+                                    <div className='p-2 rounded-full bg-amber-100 text-amber-700 flex-shrink-0 mt-0.5'>
+                                      <svg
+                                        className='w-5 h-5'
+                                        fill='none'
+                                        stroke='currentColor'
+                                        viewBox='0 0 24 24'
+                                      >
+                                        <path
+                                          strokeLinecap='round'
+                                          strokeLinejoin='round'
+                                          strokeWidth={2}
+                                          d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+                                        />
+                                      </svg>
+                                    </div>
+                                    <div className='flex-1'>
+                                      <h4 className='text-sm font-bold text-amber-900 uppercase tracking-wide mb-1'>
+                                        Workflow Status: Draft
+                                      </h4>
+                                      <p className='text-sm text-amber-800 leading-relaxed mb-3'>
+                                        Application Processing cannot be performed while the application is in Draft status. Official proceedings, verifications, and approvals can only be initiated after the application has been submitted.
+                                      </p>
+                                      {displayAppId && (
+                                        <button
+                                          type='button'
+                                          onClick={() => {
+                                            const targetRoute = isRenewalView
+                                              ? `/forms/renewal?renewalId=${displayAppId}`
+                                              : `/forms/createFreshApplication/personalInformation?id=${displayAppId}`;
+                                            router.push(targetRoute);
+                                          }}
+                                          className='inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#0B1F3A] hover:bg-[#15325B] text-white transition-all duration-150 shadow-sm'
+                                        >
+                                          <span>Continue Application Form</span>
+                                          <svg className='w-3.5 h-3.5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M14 5l7 7m0 0l-7 7m7-7H3' />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
 
                             const canTakeAction =
                               currentUserId &&
                               applicationUserId &&
                               currentUserId == applicationUserId &&
-                              !isClosed;
+                              !isClosed &&
+                              !isDraft;
 
                             return canTakeAction ? (
                               <>
@@ -2715,7 +2803,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     actionButtonText={confirmationDetails.actionButtonText}
                     actionButtonColor={confirmationDetails.actionButtonColor}
                   />
-                  {showProceedingsModal && (
+                  {showProceedingsModal && !isDraftWorkflowStatus(application) && (
                     <div className='fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm'>
                       <div className='bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-100'>
                         <div className='flex justify-between items-center p-6 lg:p-8 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50'>
@@ -2840,7 +2928,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           aside,
           nav,
           button,
-          .print\:hidden,
+          .print\\:hidden,
           .flex.h-screen,
           main,
           [data-printable='application-card'] {
@@ -2866,7 +2954,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             background: transparent !important;
           }
           /* Ensure print form container is visible starting immediately on page 1 */
-          .hidden.print\:block {
+          .hidden.print\\:block {
             display: block !important;
             position: relative !important;
             top: 0 !important;

@@ -6,7 +6,6 @@
 
 import { ApplicationApi } from '../config/APIClient';
 import axiosInstance from '../api/axiosConfig';
-import { APIApplication, ApiResponse } from '../types/api';
 import { ApplicationData } from '../types';
 import { statusIdMap } from '../config/statusMap';
 import { normalizeRenewalApplication } from '../utils/applicationFormatters';
@@ -14,7 +13,7 @@ import { normalizeRenewalApplication } from '../utils/applicationFormatters';
 // Simple cache to prevent duplicate API calls
 const apiCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
 
-const getCachedData = (key: string, ttl: number = 30000): any | null => {
+const getCachedData = (key: string): any | null => {
   const cached = apiCache.get(key);
   if (cached && (Date.now() - cached.timestamp) < cached.ttl) {
     return cached.data;
@@ -157,7 +156,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
         };
 
         return resolve(detailedApp);
-      } catch (e) {
+      } catch {
         return undefined;
       }
     })(),
@@ -442,7 +441,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
         .map((application: any) => normalizeRenewalApplication(application, true));
 
       return applications;
-    } catch (error) {
+    } catch {
       return [];
     }
   }
@@ -462,9 +461,8 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
       }
 
       const applications = response.data.map(transformApiApplicationToApplicationData);
-      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (all):', applications.length, 'applications');
       return applications;
-    } catch (error) {
+    } catch {
       return [];
     }
   }
@@ -479,7 +477,6 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
       }
 
       const applications = response.data.map(transformApiApplicationToApplicationData);
-      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (cancel):', applications.length, 'requests');
       return applications;
     } catch (error) {
       console.error('❌ fetchApplicationsByStatusKey (cancel) error:', error);
@@ -490,7 +487,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   // Special handling for 'sent' - use isSent parameter instead of status filtering
   if (key === 'sent') {
     try {
-      const response = await ApplicationApi.getAll({ isSent: true });
+      const response = await ApplicationApi.getAll({ isSent: true, limit: 1000 } as any);
 
       if (!response?.success || !response?.data || !Array.isArray(response.data)) {
         console.warn('⚠️ fetchApplicationsByStatusKey (sent): Invalid response data, returning empty array');
@@ -531,7 +528,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   if (key === 'pending' && (!customStatusIds || customStatusIds.length === 0)) {
     try {
       return await fetchApplicationsByStatus(STATUS_MAP.pending);
-    } catch (error) {
+    } catch {
       return [];
     }
   }
@@ -543,13 +540,8 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
     statusIds = [1];
   }
   // debug: log statusKey -> statusIds mapping
-  try {
-
-    console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey', { statusKey, key, customStatusIds, statusIds });
-  } catch (e) { }
   if (statusIds.length === 0) {
     // debug: no status ids found for this key
-    try { console.debug('[sidebarApiCalls] No statusIds for key', statusKey); } catch (e) { }
     return [];
   }
 
@@ -572,7 +564,7 @@ export const fetchAllApplications = async (params: Record<string, any> = {}): Pr
     // Transform API response to match ApplicationData interface
     const applications = response.data.map(transformApiApplicationToApplicationData);
     return applications;
-  } catch (error) {
+  } catch {
     return [];
   }
 };
@@ -585,7 +577,7 @@ export const fetchApplicationsByStatus = async (status: number[] | string[] | (s
     const cacheKey = `fetchApplicationsByStatus_${JSON.stringify(status)}`;
 
     // Check cache first
-    const cachedData = getCachedData(cacheKey, 30000); // 30 second cache
+    const cachedData = getCachedData(cacheKey);
     if (cachedData) {
       return cachedData;
     }
@@ -593,7 +585,6 @@ export const fetchApplicationsByStatus = async (status: number[] | string[] | (s
     const convertedStatusIds = convertStatusNamesToIds(status);
     if (!convertedStatusIds) {
       // No valid status IDs — skip API call
-      console.debug('[fetchApplicationsByStatus] Empty statusIds after conversion, skipping API call', status);
       return [];
     }
     // Pass statusIds explicitly so the query string reads: ?statusIds=1,8&limit=1000
@@ -613,7 +604,7 @@ export const fetchApplicationsByStatus = async (status: number[] | string[] | (s
     setCachedData(cacheKey, applications, 30000);
 
     return applications;
-  } catch (error) {
+  } catch {
     return [];
   }
 };
@@ -632,24 +623,48 @@ export const fetchApplicationCounts = async (): Promise<{
   closedCount: number;
   cancelledCount: number;
   groundReportCount: number;
+  sentCount: number;
+  freshFormCount: number;
+  cancelFormCount: number;
+  applicationsCount: number;
   allCount: number;
 }> => {
   try {
     const cacheKey = 'fetchApplicationCounts';
 
     // Check cache first - 2 minute cache keeps counts reasonably fresh
-    const cachedData = getCachedData(cacheKey, 120000); // 2 minute cache
+    const cachedData = getCachedData(cacheKey);
     if (cachedData) {
       return cachedData;
     }
     const allActiveStatusIds = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11].join(',');
-    // Fetch counts for essential inbox items and total (All Applications)
-    const [forwarded, returned, redFlagged, reEnquiry, draft, allApps] = await Promise.all([
+    // Fetch counts for essential inbox items, top-level tabs, and total (All Applications)
+    const [forwarded, returned, redFlagged, reEnquiry, draft, sentRes, closed, freshform, cancelReqs, applicationsList, allApps] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
       fetchApplicationsByStatus(STATUS_MAP.reEnquiry),
       fetchApplicationsByStatus(STATUS_MAP.drafts),
+      ApplicationApi.getAll({ isSent: true, limit: 1000 } as any)
+        .then(r => {
+          if (typeof (r as any)?.total === 'number') return (r as any).total;
+          if (Array.isArray((r as any)?.data)) return (r as any).data.length;
+          if (Array.isArray(r)) return r.length;
+          return 0;
+        })
+        .catch(() => 0),
+      fetchApplicationsByStatus(STATUS_MAP.closed),
+      fetchApplicationsByStatusKey('freshform').catch(() => []),
+      ApplicationApi.getAll({ applicationType: 'CancelFormRequest', limit: 1000 } as any)
+        .then(r => {
+          if (typeof (r as any)?.total === 'number') return (r as any).total;
+          if (Array.isArray((r as any)?.data)) return (r as any).data.length;
+          if (Array.isArray(r)) return r.length;
+          return 0;
+        })
+        .catch(() => 0),
+      // Terminal applications tab (e.g. statusIds [9, 3] / CLOSE + APPROVED)
+      fetchApplicationsByStatus(STATUS_MAP.applications).catch(() => []),
       // All Applications: fetch using statusIds to let backend filter (no client-side filtering)
       ApplicationApi.getAll({ statusIds: allActiveStatusIds, limit: 1000 } as any)
         .then(r => (Array.isArray(r?.data) ? r.data.map(transformApiApplicationToApplicationData) : []))
@@ -662,11 +677,15 @@ export const fetchApplicationCounts = async (): Promise<{
       redFlaggedCount: redFlagged.length,
       reEnquiryCount: reEnquiry.length,
       draftCount: draft.length,
+      sentCount: typeof sentRes === 'number' ? sentRes : (Array.isArray(sentRes) ? sentRes.length : 0),
+      closedCount: closed.length,
+      freshFormCount: Array.isArray(freshform) ? freshform.length : 0,
+      cancelFormCount: typeof cancelReqs === 'number' ? cancelReqs : (Array.isArray(cancelReqs) ? cancelReqs.length : 0),
+      applicationsCount: Array.isArray(applicationsList) ? applicationsList.length : 0,
       allCount: allApps.length,
       // Set other counts to 0 for now - can be loaded on-demand
       pendingCount: 0,
       approvedCount: 0,
-      closedCount: 0,
       cancelledCount: 0,
       groundReportCount: 0,
     };
@@ -674,7 +693,7 @@ export const fetchApplicationCounts = async (): Promise<{
     setCachedData(cacheKey, counts, 120000);
 
     return counts;
-  } catch (error) {
+  } catch {
     return {
       forwardedCount: 0,
       returnedCount: 0,
@@ -686,6 +705,10 @@ export const fetchApplicationCounts = async (): Promise<{
       closedCount: 0,
       cancelledCount: 0,
       groundReportCount: 0,
+      sentCount: 0,
+      freshFormCount: 0,
+      cancelFormCount: 0,
+      applicationsCount: 0,
       allCount: 0,
     };
   }
@@ -878,74 +901,6 @@ export const getApplicationsByStatus = (
 };
 
 /**
- * Fetch a specific application by ID
- */
-export const fetchApplicationById = async (id: number): Promise<ApplicationData | null> => {
-  try {
-    const response = await ApplicationApi.getById(id);
-
-    if (!response?.data) {
-      return null;
-    }
-
-    const application = transformApiApplicationToApplicationData(response.data);
-    return application;
-  } catch (error) {
-    return null;
-  }
-};
-
-/**
- * Search applications with filters
- */
-export const searchApplications = async (searchParams: {
-  searchQuery?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-  page?: number;
-  limit?: number;
-}): Promise<{
-  applications: ApplicationData[];
-  total: number;
-  page: number;
-  limit: number;
-}> => {
-  try {
-    const response = await ApplicationApi.getAll(searchParams);
-
-    if (!response?.success || !response?.data || !Array.isArray(response.data)) {
-      return {
-        applications: [],
-        total: 0,
-        page: searchParams.page || 1,
-        limit: searchParams.limit || 10,
-      };
-    }
-
-    const applications = response.data.map(transformApiApplicationToApplicationData);
-
-    // Extract pagination info from the actual API response structure
-    const pagination = (response as any).pagination || {};
-    const result = {
-      applications,
-      total: pagination.total || applications.length,
-      page: pagination.page || searchParams.page || 1,
-      limit: pagination.limit || searchParams.limit || 10,
-    };
-
-    return result;
-  } catch (error) {
-    return {
-      applications: [],
-      total: 0,
-      page: searchParams.page || 1,
-      limit: searchParams.limit || 10,
-    };
-  }
-};
-
-/**
  * Fetch application by Application ID for detailed view
  * Uses API: http://localhost:3000/application-form/{id}
  * 
@@ -957,13 +912,10 @@ export const searchApplications = async (searchParams: {
 export const getApplicationByApplicationId = async (applicationId: string | number): Promise<ApplicationData | null> => {
   try {
     // Make API call to get specific application by ID
-    const start = Date.now();
     const response = await ApplicationApi.getById(Number(applicationId));
-    const took = Date.now() - start;
     // Response may be wrapped in an ApiResponse { success, data } OR may be the raw application object.
-    // Normalize both shapes for downstream processing and log timing for frontend diagnostics.
+    // Normalize both shapes for downstream processing.
 
-    console.debug('[sidebarApiCalls] getApplicationByApplicationId fetch', { applicationId, took, rawResponse: response });
 
     // If API follows wrapped response pattern, extract data
     const detailedApplicationData: any = response && (response as any).data ? (response as any).data : response;
@@ -979,7 +931,7 @@ export const getApplicationByApplicationId = async (applicationId: string | numb
 
     // Return the transformed data that matches the expected ApplicationData interface
     return applicationData;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
+import { getFileSizeError, MB } from '../../../../utils/fileValidation';
 import { FormField } from '../../elements/FormField';
 // @ts-expect-error - dynamic import & react-webcam types can conflict with project React types
 const Webcam = dynamic(() => import('react-webcam').then(mod => mod.default), {
@@ -11,7 +12,6 @@ import RenewalService from '../../../../api/renewalService';
 import { ApplicationService } from '../../../../api/applicationService';
 import MantraSDKService from '../../../../services/mantraSDKService';
 import BiometricAPIService from '../../../../services/biometricAPIService';
-import { openAttachment } from '../../../../utils/attachmentViewer';
 
 type BiometricForm = {
   fingerprint: File | null;
@@ -43,7 +43,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
   },
   ref,
 ) {
-  const { formData, renewalId, onPrevious, onNext, onSaveToDraft, isReadOnly = false, errors = {} } = props;
+  const { formData, renewalId, isReadOnly = false, errors = {} } = props;
   const [form, setForm] = useState<BiometricForm>(initialState);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [streamActive, setStreamActive] = useState(false);
@@ -187,15 +187,9 @@ const BiometricInformation = forwardRef(function BiometricInformation(
         }
 
         // 2. File Size Validation: 20 KB - 5 MB
-        const minSize = 20 * 1024;
-        const maxSize = 5 * 1024 * 1024;
-        if (file.size < minSize) {
-          toast.error('File size too small. Minimum allowed size is 20 KB.');
-          e.target.value = '';
-          return;
-        }
-        if (file.size > maxSize) {
-          toast.error('File size too large. Maximum allowed size is 5 MB.');
+        const sizeError = getFileSizeError(file, 5 * MB, { minBytes: 20 * 1024 });
+        if (sizeError) {
+          toast.error(sizeError);
           e.target.value = '';
           return;
         }
@@ -272,7 +266,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
       } else {
         toast.warning('Please create renewal application first.');
       }
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to submit photograph');
     } finally {
       setUploadingFiles(false);
@@ -320,7 +314,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
         setShowCapturingModal(false);
         setShowFingerprintPreviewModal(true);
         toast.info('👆 Preview ready - Accept to enroll or Retake for better quality');
-      } catch (imageError: any) {
+      } catch {
         setPendingCaptureResult(captureResult);
         setPendingFingerPosition(fingerPosition);
         setFingerprintPreviewImage(null);
@@ -328,7 +322,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
         setShowFingerprintPreviewModal(true);
         toast.warning('⚠️ Image preview unavailable, but you can still enroll with template');
       }
-    } catch (error: any) {
+    } catch {
       toast.error('❌ Fingerprint capture failed. Please try again.');
       setShowCapturingModal(false);
     } finally {
@@ -355,7 +349,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
           const fingerprints = bioData?.fingerprints || [];
           const originalFp = fingerprints.find((f: any) => f.position === pendingFingerPosition);
           if (originalFp && originalFp.template) {
-            const matchResult = await MantraSDKService.verifyTemplate(originalFp.template, pendingCaptureResult.template, 65);
+            const matchResult = await MantraSDKService.verifyTemplate(originalFp.template, pendingCaptureResult.template);
             if (!matchResult.isMatch && matchResult.score < 65) {
               toast.error(`Verification failed: Captured fingerprint does not match the registered ${pendingFingerPosition === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'} from the fresh application.`);
               setFingerprintCapturing(false);
@@ -390,7 +384,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
       setShowFingerprintPreviewModal(false);
       setFingerprintPreviewImage(null);
       setPendingCaptureResult(null);
-    } catch (error: any) {
+    } catch {
       toast.error('❌ Fingerprint enrollment failed. Please try again.');
     } finally {
       setFingerprintCapturing(false);
@@ -752,7 +746,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                 onClick={openWebcamModal}
                 disabled={Boolean(photoPreview || photoSubmitted)}
                 className={`w-full px-4 py-3 text-white rounded-lg font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm ${
-                  Boolean(photoPreview || photoSubmitted)
+                  (photoPreview || photoSubmitted)
                     ? 'bg-gray-300 cursor-not-allowed text-gray-500'
                     : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
                 }`}
@@ -768,14 +762,14 @@ const BiometricInformation = forwardRef(function BiometricInformation(
 
               <label
                 className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 text-center transition-all group ${
-                  Boolean(photoPreview || photoSubmitted)
+                  (photoPreview || photoSubmitted)
                     ? 'border-gray-200 bg-gray-100/50 text-gray-400 cursor-not-allowed'
                     : 'border-gray-300 text-gray-600 cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'
                 }`}
               >
                 <span className='text-2xl mb-1 transition-transform group-hover:scale-110'>📤</span>
                 <span className={`text-sm font-semibold transition-colors ${
-                  Boolean(photoPreview || photoSubmitted) ? 'text-gray-400' : 'text-gray-700 group-hover:text-blue-600'
+                  (photoPreview || photoSubmitted) ? 'text-gray-400' : 'text-gray-700 group-hover:text-blue-600'
                 }`}>
                   Upload Photograph
                 </span>

@@ -92,9 +92,3 @@ export const {
 
 export default adminAuditSlice.reducer;
 
-// Selectors
-export const selectAdminAuditLogs = (state: { adminAudit: AdminAuditState }) => state.adminAudit.logs;
-export const selectAdminAuditLoading = (state: { adminAudit: AdminAuditState }) => state.adminAudit.loading;
-export const selectAdminAuditError = (state: { adminAudit: AdminAuditState }) => state.adminAudit.error;
-export const selectAdminAuditFilters = (state: { adminAudit: AdminAuditState }) => state.adminAudit.filters;
-export const selectAdminAuditPagination = (state: { adminAudit: AdminAuditState }) => state.adminAudit.pagination; 

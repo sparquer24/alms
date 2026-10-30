@@ -6,6 +6,7 @@ import { IoMdMale, IoMdFemale } from 'react-icons/io';
 const IoMdMaleFixed = IoMdMale as any;
 const IoMdFemaleFixed = IoMdFemale as any;
 import { Input } from '../elements/Input';
+import { FormStepHeader } from '../elements/FormStepHeader';
 import { useRouter } from 'next/navigation';
 import FormFooter from '../elements/footer';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
@@ -205,13 +206,6 @@ const PersonalInformation: React.FC = () => {
     router.back();
   };
 
-  // ── Mandatory label helper ──
-  const requiredLabel = (text: string) => (
-    <>
-      {text}
-      <span className='text-red-500 ml-1'>*</span>
-    </>
-  );
 
   if (isMounted && isLoading) {
     return <FormSkeleton title='Personal Information' rows={5} />;
@@ -219,10 +213,19 @@ const PersonalInformation: React.FC = () => {
 
   return (
     <div className='p-6'>
-      <h2 className='text-xl font-bold mb-4'>Personal Information</h2>
+      <FormStepHeader
+        title='Personal Information'
+        subtitle='Please enter the applicant’s basic details and identity information as per government ID.'
+        stepNumber={1}
+        totalSteps={10}
+        applicationId={isMounted ? applicantId : null}
+        acknowledgementNo={isMounted ? (form.acknowledgementNo || almsLicenseId) : null}
+        onRefresh={applicantId ? handleRefreshData : undefined}
+        isRefreshing={isLoading}
+      />
 
       {/* Display Applicant ID if available - only after mount to avoid hydration mismatch */}
-      {isMounted && (applicantId || almsLicenseId) && (
+      {false && isMounted && (applicantId || almsLicenseId) && (
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
             <strong>Application ID: {applicantId ?? '—'}</strong>
@@ -420,6 +423,7 @@ const PersonalInformation: React.FC = () => {
         {/* 7. Aadhaar Number (mandatory) */}
         <Input
           label='7. Aadhar Number'
+          type='tel'
           name='aadharNumber'
           value={form.aadharNumber}
           onChange={handleChange}

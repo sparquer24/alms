@@ -54,13 +54,5 @@ export const apiConfig = {
   },
 };
 
-// Helper function to build full API URLs
-export const buildApiUrl = (endpoint: string): string => {
-  const baseUrl = apiConfig.baseURL.replace(/\/$/, ''); // Remove trailing slash
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  console.info(`Building API URL: ${baseUrl}${cleanEndpoint}`);
-  return `${baseUrl}${cleanEndpoint}`;
-};
-
 // Export individual endpoint groups for easier imports
 export const { auth, users, applications, locations, files, workflow } = apiConfig;

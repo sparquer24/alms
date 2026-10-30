@@ -4,7 +4,6 @@ import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useLayout } from '@/config/layoutContext';
 import { normalizeRole } from '@/utils/roleUtils';
 import { Search, X } from 'lucide-react';
 
@@ -33,8 +32,8 @@ export interface PageSubHeaderProps {
 }
 
 /**
- * Standardized Sticky Page Sub-Header for ALMS Super Admin and Admin pages
- * Provides consistent Navy/Gold theme, breadcrumb title, glassmorphism actions, and sticky positioning.
+ * Standardized Sticky Page Sub-Header for ALMS Portal
+ * Provides consistent Navy (#0B1F3A) / Gold (#D4AF37) theme, breadcrumb title, glassmorphism actions, and sticky positioning.
  */
 export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
   breadcrumbs,
@@ -46,7 +45,6 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
   className = '',
 }) => {
   const { userRole } = useAuth();
-  const { headerHeight } = useLayout();
   const pathname = usePathname();
 
   const effectiveRole = normalizeRole(userRole);
@@ -58,9 +56,9 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
 
   return (
     <div
-      className={`sticky top-1.5 z-30 bg-[#0F2D52]/95 backdrop-blur-md text-white px-4 sm:px-6 lg:px-8 py-2.5 shadow-md border-b border-[#1E3A8A]/50 transition-all ${className}`}
+      className={`sticky top-0 z-30 w-full bg-[#0E2749] text-white border-b border-[#1A3860] px-4 sm:px-6 lg:px-8 py-1.5 shadow-xs transition-all ${className}`}
     >
-      <div className="w-full mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="w-full mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2">
         {/* Left Section: Breadcrumbs / Title */}
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-gray-300 min-w-0">
           {breadcrumbs && breadcrumbs.length > 0 ? (
@@ -68,7 +66,7 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
               <React.Fragment key={idx}>
                 {idx > 0 && <span className="text-gray-400 flex-shrink-0">/</span>}
                 {crumb.isCurrent ? (
-                  <span className="text-[#D4AF37] font-semibold truncate">{crumb.label}</span>
+                  <span className="text-[#D4AF37] font-bold truncate">{crumb.label}</span>
                 ) : crumb.href ? (
                   <Link href={crumb.href} className="hover:text-white transition-colors truncate">
                     {crumb.label}
@@ -92,12 +90,12 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
                 {defaultRoleLabel}
               </Link>
               <span className="text-gray-400 flex-shrink-0">/</span>
-              <span className="text-[#D4AF37] font-semibold truncate">{title}</span>
+              <span className="text-[#D4AF37] font-bold truncate">{title}</span>
             </>
           )}
 
           {metaBadge && (
-            <span className="hidden sm:inline-flex items-center text-gray-400 text-xs font-normal">
+            <span className="hidden sm:inline-flex items-center text-gray-300 text-xs font-normal">
               {typeof metaBadge === 'string' ? `• ${metaBadge.replace(/^[•\s]+/, '')}` : metaBadge}
             </span>
           )}
@@ -105,20 +103,20 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = ({
 
         {/* Right Section: Action Controls / Filters */}
         {actions && (
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {actions}
           </div>
         )}
       </div>
 
       {/* Optional Expanded Multi-Tier Row */}
-      {children && <div className="max-w-7xl mx-auto mt-2 pt-2 border-t border-white/10">{children}</div>}
+      {children && <div className="max-w-7xl mx-auto mt-1.5 pt-1.5 border-t border-white/10">{children}</div>}
     </div>
   );
 };
 
 /* -------------------------------------------------------------------------- */
-/* SubHeader Helper Widgets (Pills, Buttons, Search)                         */
+/* SubHeader Helper Widgets (Pills, Buttons, Search, Select)                 */
 /* -------------------------------------------------------------------------- */
 
 export interface SubHeaderPillOption<T extends string = string> {
@@ -145,28 +143,28 @@ export function SubHeaderPills<T extends string = string>({
 }: SubHeaderPillsProps<T>) {
   return (
     <div
-      className={`flex items-center rounded-lg bg-white/10 p-0.5 border border-white/10 text-xs ${className}`}
+      className={`flex items-center h-7 rounded-lg bg-white/10 p-0.5 border border-white/10 text-xs ${className}`}
     >
       {options.map(item => {
         const isActive = value === item.key;
         const activeClass =
           variant === 'gold'
-            ? 'bg-[#B8860B] text-white shadow-xs'
-            : 'bg-white text-[#0F2D52] shadow-xs';
+            ? 'bg-[#D4AF37] text-[#0B1F3A] font-bold shadow-xs'
+            : 'bg-white text-[#0B1F3A] font-bold shadow-xs';
         return (
           <button
             key={item.key}
             type="button"
             onClick={() => onChange(item.key)}
-            className={`px-2.5 py-1 rounded-md transition-all font-medium flex items-center gap-1 whitespace-nowrap ${
+            className={`h-full px-2.5 rounded-md transition-all font-medium flex items-center gap-1 whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D4AF37] ${
               isActive ? activeClass : 'text-gray-300 hover:text-white'
             }`}
           >
             <span>{item.label}</span>
             {item.count !== undefined && item.count > 0 && (
               <span
-                className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
-                  isActive ? 'bg-black/20 text-white' : 'bg-white/20 text-gray-200'
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  isActive ? 'bg-[#0B1F3A]/20 text-[#0B1F3A]' : 'bg-white/20 text-gray-200'
                 }`}
               >
                 {item.count}
@@ -194,17 +192,17 @@ export const SubHeaderButton: React.FC<SubHeaderButtonProps> = ({
   ...props
 }) => {
   let variantClass =
-    'p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 hover:text-white text-xs flex items-center gap-1.5 transition-colors border border-white/10 disabled:opacity-50';
+    'h-7 px-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 hover:text-white text-xs inline-flex items-center gap-1.5 transition-colors border border-white/10 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]';
 
   if (variant === 'primary') {
     variantClass =
-      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B8860B] hover:bg-[#A0750A] text-xs font-semibold text-white shadow-xs transition-all disabled:opacity-50';
+      'h-7 inline-flex items-center gap-1.5 px-3 rounded-lg bg-[#D4AF37] hover:bg-[#B89628] text-xs font-bold text-[#0B1F3A] shadow-xs transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white';
   } else if (variant === 'success') {
     variantClass =
-      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-xs transition-all disabled:opacity-50';
+      'h-7 inline-flex items-center gap-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-xs transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white';
   } else if (variant === 'danger') {
     variantClass =
-      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-xs font-semibold text-white shadow-xs transition-all disabled:opacity-50';
+      'h-7 inline-flex items-center gap-1.5 px-3 rounded-lg bg-red-600 hover:bg-red-500 text-xs font-semibold text-white shadow-xs transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white';
   }
 
   return (
@@ -229,14 +227,14 @@ export const SubHeaderSearch: React.FC<SubHeaderSearchProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`relative flex-1 min-w-[160px] sm:min-w-[220px] max-w-xs ${className}`}>
+    <div className={`relative flex-1 min-w-[150px] sm:min-w-[200px] max-w-xs ${className}`}>
       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
       <input
         type="text"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-white/10 border border-white/10 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all"
+        className="w-full pl-8 pr-7 h-7 rounded-lg bg-white/10 border border-white/10 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all"
       />
       {value && (
         <button
@@ -244,6 +242,7 @@ export const SubHeaderSearch: React.FC<SubHeaderSearchProps> = ({
           onClick={() => onChange('')}
           className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
           title="Clear search"
+          aria-label="Clear search"
         >
           <X className="w-3 h-3" />
         </button>
@@ -277,10 +276,10 @@ export function SubHeaderSelect<T extends string = string>({
       value={value}
       onChange={e => onChange(e.target.value as T)}
       aria-label={ariaLabel}
-      className={`h-7 px-2.5 py-1 rounded-lg bg-[#0F2D52] border border-white/20 text-xs text-white font-medium focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all cursor-pointer shadow-xs ${className}`}
+      className={`h-7 px-2.5 py-0.5 rounded-lg bg-[#0B1F3A] border border-white/20 text-xs text-white font-medium focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all cursor-pointer shadow-xs ${className}`}
     >
       {options.map(opt => (
-        <option key={opt.value} value={opt.value} className="bg-[#0F2D52] text-white">
+        <option key={opt.value} value={opt.value} className="bg-[#0B1F3A] text-white">
           {opt.label}
         </option>
       ))}

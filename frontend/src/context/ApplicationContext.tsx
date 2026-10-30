@@ -23,7 +23,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (saved) {
         try {
           return JSON.parse(saved);
-        } catch (e) {
+        } catch {
         }
       }
     }
@@ -41,7 +41,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('applications', JSON.stringify(payload));
-      } catch (error) {
+      } catch {
       }
     }
 

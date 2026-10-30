@@ -29,7 +29,6 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
   onClose,
   onSave,
   isSaving = false,
-  errors = {},
 }) => {
   const { colors } = useAdminTheme();
   const [formData, setFormData] = useState<Role>({
@@ -130,7 +129,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
 
     try {
       await onSave(formData);
-    } catch (error) {
+    } catch {
       // Errors are handled by parent component
     }
   };
