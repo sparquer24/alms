@@ -309,7 +309,7 @@ const LicenseDetails = () => {
     if (!file) return;
     setEvidenceError(null);
 
-    const sizeError = getFileSizeError(file, 10 * MB);
+    const sizeError = getFileSizeError(file, 3 * MB);
     if (sizeError) {
       setEvidenceError(sizeError);
       e.target.value = '';
@@ -766,7 +766,7 @@ const LicenseDetails = () => {
                       {uploadingFiles ? 'Uploading...' : totalFiles >= 1 ? 'Document Uploaded' : 'Upload documentary evidence'}
                     </span>
                     <span className='mt-1 block text-xs text-gray-500'>
-                      {totalFiles >= 1 ? 'Remove the current document to upload a new one' : 'PDF, DOC, DOCX, JPG, PNG up to 10MB • Only 1 file allowed'}
+                      {totalFiles >= 1 ? 'Remove the current document to upload a new one' : 'PDF, DOC, DOCX, JPG, PNG up to 3MB • Only 1 file allowed'}
                     </span>
                   </label>
                   <input

@@ -11,7 +11,7 @@ import {
     HttpException,
     HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { BiometricService } from './biometric.service';
 import { BiometricAuditService } from './biometric-audit.service';
 import { BiometricEnrollmentDto, BiometricVerificationDto } from './dto/biometric.dto';
@@ -101,6 +101,7 @@ export class BiometricController {
      */
     @Post('enroll/:applicantId')
     @ApiParam({ name: 'applicantId', description: 'Application ID' })
+    @ApiQuery({ name: 'applicationType', required: false, description: 'Application type (FRESH, RENEWAL)' })
     @ApiOperation({ summary: 'Enroll fingerprint for an applicant' })
     @ApiResponse({
         status: 201,
@@ -118,6 +119,7 @@ export class BiometricController {
     async enrollFingerprint(
         @Param('applicantId') applicantId: string,
         @Body() enrollmentData: BiometricEnrollmentDto,
+        @Query('applicationType') applicationType: string | undefined,
         @Request() req: any,
     ) {
         try {
@@ -125,6 +127,7 @@ export class BiometricController {
                 applicantId,
                 enrollmentData,
                 Number(req.user?.sub) || 0,
+                applicationType,
             );
             return result;
         } catch (error: any) {
@@ -143,6 +146,7 @@ export class BiometricController {
      */
     @Post('store/:applicantId')
     @ApiParam({ name: 'applicantId', description: 'Application ID' })
+    @ApiQuery({ name: 'applicationType', required: false, description: 'Application type (FRESH, RENEWAL)' })
     @ApiOperation({ summary: 'Store fingerprint after client-side validation' })
     @ApiResponse({
         status: 201,
@@ -161,19 +165,23 @@ export class BiometricController {
         @Param('applicantId') applicantId: string,
         @Body() body: {
             fingerPosition: string;
-            fingerTemplate: { template: string; quality: number; captureTime: string };
+            fingerTemplate: { template: string; quality: number; captureTime: string; bitmapData?: string };
             description?: string;
+            applicationType?: string;
         },
+        @Query('applicationType') queryApplicationType: string | undefined,
         @Request() req: any,
     ) {
         try {
             const appId = parseInt(applicantId);
+            const appType = queryApplicationType || body.applicationType;
             const result = await this.biometricService.storeFingerprint(
                 appId,
                 body.fingerPosition,
                 body.fingerTemplate,
                 body.description || `Fingerprint - ${body.fingerPosition}`,
                 Number(req.user?.sub) || 0,
+                appType,
             );
             return result;
         } catch (error: any) {
@@ -192,6 +200,7 @@ export class BiometricController {
      */
     @Post('verify/:applicantId')
     @ApiParam({ name: 'applicantId', description: 'Application ID' })
+    @ApiQuery({ name: 'applicationType', required: false, description: 'Application type (FRESH, RENEWAL)' })
     @ApiOperation({ summary: 'Verify fingerprint against enrolled templates' })
     @ApiResponse({
         status: 200,
@@ -210,6 +219,7 @@ export class BiometricController {
     async verifyFingerprint(
         @Param('applicantId') applicantId: string,
         @Body() verificationData: BiometricVerificationDto,
+        @Query('applicationType') applicationType: string | undefined,
         @Request() req: any,
     ) {
         try {
@@ -217,6 +227,7 @@ export class BiometricController {
                 applicantId,
                 verificationData,
                 Number(req.user?.sub) || 0,
+                applicationType,
             );
             return result;
         } catch (error: any) {
@@ -235,6 +246,7 @@ export class BiometricController {
      */
     @Get('enrolled/:applicantId')
     @ApiParam({ name: 'applicantId', description: 'Application ID' })
+    @ApiQuery({ name: 'applicationType', required: false, description: 'Application type (FRESH, RENEWAL)' })
     @ApiOperation({ summary: 'Get enrolled fingerprints for an applicant' })
     @ApiResponse({
         status: 200,
@@ -254,9 +266,12 @@ export class BiometricController {
     })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Application not found' })
-    async getEnrolledFingerprints(@Param('applicantId') applicantId: string) {
+    async getEnrolledFingerprints(
+        @Param('applicantId') applicantId: string,
+        @Query('applicationType') applicationType?: string,
+    ) {
         try {
-            const fingerprints = await this.biometricService.getEnrolledFingerprints(applicantId);
+            const fingerprints = await this.biometricService.getEnrolledFingerprints(applicantId, applicationType);
             return { success: true, data: fingerprints };
         } catch (error: any) {
             if (error instanceof HttpException) {
@@ -275,6 +290,7 @@ export class BiometricController {
     @Delete(':applicantId/:fingerprintId')
     @ApiParam({ name: 'applicantId', description: 'Application ID' })
     @ApiParam({ name: 'fingerprintId', description: 'Fingerprint ID to delete' })
+    @ApiQuery({ name: 'applicationType', required: false, description: 'Application type (FRESH, RENEWAL)' })
     @ApiOperation({ summary: 'Delete an enrolled fingerprint' })
     @ApiResponse({
         status: 200,
@@ -285,6 +301,7 @@ export class BiometricController {
     async deleteEnrolledFingerprint(
         @Param('applicantId') applicantId: string,
         @Param('fingerprintId') fingerprintId: string,
+        @Query('applicationType') applicationType: string | undefined,
         @Request() req: any,
     ) {
         try {
@@ -292,6 +309,7 @@ export class BiometricController {
                 applicantId,
                 fingerprintId,
                 Number(req.user?.sub) || 0,
+                applicationType,
             );
             return result;
         } catch (error: any) {

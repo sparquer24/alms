@@ -126,7 +126,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     const fetchFingerprints = async () => {
       if (!renewalId) return;
       try {
-        const fingerprints = await BiometricAPIService.getEnrolledFingerprints(renewalId);
+        const fingerprints = await BiometricAPIService.getEnrolledFingerprints(renewalId, 'RENEWAL');
         if (Array.isArray(fingerprints) && fingerprints.length > 0) {
           const mapped = fingerprints.map((fp: any) => ({
             id: fp.id || fp.fingerprintId || null,
@@ -370,7 +370,13 @@ const BiometricInformation = forwardRef(function BiometricInformation(
       // For renewal applications, we do not perform duplicate fingerprint check
       // as the applicant's fingerprint will match their own original record in the system.
       setUploadProgress('Storing fingerprint...');
-      const storeResponse = await BiometricAPIService.storeFingerprint(renewalId, pendingFingerPosition, biometricTemplate, `Captured via Mantra SDK - ${pendingFingerPosition}`);
+      const storeResponse = await BiometricAPIService.storeFingerprint(
+        renewalId,
+        pendingFingerPosition,
+        biometricTemplate,
+        `Captured via Mantra SDK - ${pendingFingerPosition}`,
+        'RENEWAL'
+      );
       if (!storeResponse.success) {
         toast.error(`Failed to store fingerprint: ${storeResponse.message}`);
         setFingerprintCapturing(false);

@@ -17,7 +17,7 @@ import {
   stageRenewalDocument,
 } from '../../../../utils/renewalFileUpload';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -172,8 +172,16 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     // --- File size validation ---
     if (file.size > MAX_FILE_SIZE) {
       onError?.(
-        `File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 10 MB.`
+        `File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 3 MB.`
       );
+      return;
+    }
+
+    // --- Allowed file types validation (PDF, JPG, PNG) ---
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!ext || !allowedExtensions.includes(ext)) {
+      onError?.('Only PDF, JPG, and PNG files are allowed.');
       return;
     }
 
@@ -203,7 +211,16 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
 
     try {
       if (fileId) {
-        await deleteRenewalDocument(fileId);
+        try {
+          await deleteRenewalDocument(fileId);
+        } catch (delErr: any) {
+          // If the file was not found in RenewalFileUploads (e.g. prefilled from Fresh Application or already removed),
+          // continue with local removal so the UI successfully detaches the file.
+          const msg = String(delErr?.response?.data?.message || delErr?.message || '').toLowerCase();
+          if (!msg.includes('not found')) {
+            throw delErr;
+          }
+        }
       }
       const nextFiles = specialEvidenceFiles.filter((_, i) => i !== index);
       onPatch({
@@ -230,10 +247,9 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
           required
           error={errors['weaponReason']}
           options={[
-            { value: 'self_defense', label: 'Self defense' },
-            { value: 'crop_protection', label: 'Crop protection' },
-            { value: 'sports', label: 'Sports / target shooting' },
-            { value: 'business_security', label: 'Business security' },
+            { value: 'SELF_PROTECTION', label: 'Self-Protection' },
+            { value: 'SPORTS', label: 'Sports' },
+            { value: 'HEIRLOOM_POLICY', label: 'Heirloom Policy' },
           ]}
         />
 
@@ -394,7 +410,8 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             required
             error={errors['specialEvidenceUploaded']}
             variant='browseCard'
-            hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB each'
+            acceptedTypes='.pdf,.jpg,.jpeg,.png'
+            hintText='PDF, JPG, PNG up to 3 MB each'
             onFileSelect={isReadOnly ? () => {} : handleEvidenceUpload}
             uploaded={specialEvidenceFiles.length > 0}
             disabled={!renewalId || isReadOnly}
@@ -413,6 +430,30 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
                     : undefined
             }
           />
+          {specialEvidenceFiles.length === 0 && (
+            <div
+              role='alert'
+              className='mt-2.5 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 shadow-xs sm:text-sm'
+            >
+              <svg
+                className='mt-0.5 h-4 w-4 shrink-0 text-red-500'
+                fill='none'
+                viewBox='0 0 24 24'
+                stroke='currentColor'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z'
+                />
+              </svg>
+              <div>
+                <p className='font-semibold text-red-800'>Documentary Evidence Required</p>
+                <p className='mt-0.5'>Please upload Documentary Evidence before proceeding.</p>
+              </div>
+            </div>
+          )}
           {specialEvidenceFiles.map((file, index) => {
             const meta = getDocumentUploadMeta(file);
             const isDeleting = deletingFileId === (meta.id ?? -index);

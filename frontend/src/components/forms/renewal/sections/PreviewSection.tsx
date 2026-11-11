@@ -31,10 +31,14 @@ const isPdfFile = (fileName?: string, fileType?: string) => {
 
 const GENDER_LABELS: Record<string, string> = { MALE: 'Male', FEMALE: 'Female', OTHER: 'Other' };
 const WEAPON_REASON_LABELS: Record<string, string> = {
-  self_defense: 'Self defense',
+  SELF_PROTECTION: 'Self-Protection',
+  self_defense: 'Self-Protection',
+  CROP_PROTECTION: 'Crop protection',
   crop_protection: 'Crop protection',
-  sports: 'Sports / target shooting',
-  business_security: 'Business security',
+  SPORTS: 'Sports',
+  sports: 'Sports',
+  HEIRLOOM_POLICY: 'Heirloom Policy',
+  business_security: 'Heirloom Policy',
 };
 const APPLICATION_RESULT_LABELS: Record<string, string> = {
   approved: 'Approved',

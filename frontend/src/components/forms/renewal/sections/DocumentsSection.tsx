@@ -13,7 +13,7 @@ import { usePrefilledDocumentSync } from '../../../../hooks/usePrefilledDocument
 
 type ErrorsMap = Record<string, string | undefined>;
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB in bytes
 
 const SUPPORTED_FILE_TYPES = [
   'application/pdf',
@@ -124,7 +124,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
 
     // --- File size validation ---
     if (file.size > MAX_FILE_SIZE) {
-      const sizeMsg = `File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 10 MB.`;
+      const sizeMsg = `File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 3 MB.`;
       setFileSizeErrors((prev) => ({ ...prev, [fieldKey]: sizeMsg }));
       onError?.(sizeMsg);
       return;
@@ -243,6 +243,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                 name={key}
                 required={required}
                 variant='browseCard'
+                maxSizeText='Max 3 MB per file'
                 onFileSelect={isReadOnly ? () => {} : handleSelect(key)}
                 uploaded={showUploaded}
                 fileName={

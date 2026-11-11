@@ -28,9 +28,15 @@ export class RenewalFormService {
     try {
       // 1. Verify the license exists in the Licenses table
       const licenseRecord = createRequest.licenseId
-        ? await prisma.licenses.findUnique({ where: { id: createRequest.licenseId } })
+        ? await prisma.licenses.findUnique({
+            where: { id: createRequest.licenseId },
+            include: { endorsedWeapons: true },
+          })
         : createRequest.licenseNumber
-          ? await prisma.licenses.findUnique({ where: { licenseNumber: createRequest.licenseNumber } })
+          ? await prisma.licenses.findUnique({
+              where: { licenseNumber: createRequest.licenseNumber },
+              include: { endorsedWeapons: true },
+            })
           : null;
 
       if (!licenseRecord) {
@@ -83,9 +89,11 @@ export class RenewalFormService {
       // 4. Generate acknowledgement number (unique per renewal)
       const acknowledgementNo = `RAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
-      // 5. If lastModifiedRenewalId exists, prefetch the latest approved renewal data
-      //    to use as the source for pre-filling the new renewal.
+      // 5. Prefetch source data: from latest approved renewal if available,
+      //    otherwise from the approved fresh application.
       let sourceRenewalData: any = null;
+      let freshApp: any = null;
+
       if (licenseRecord.lastModifiedRenewalId) {
         sourceRenewalData = await prisma.renewalFormPersonalDetails.findFirst({
           where: {
@@ -96,7 +104,25 @@ export class RenewalFormService {
             presentAddress: true,
             permanentAddress: true,
             occupationAndBusiness: true,
-            licenseDetails: true,
+            licenseDetails: { include: { requestedWeapons: true } },
+            criminalHistories: true,
+            licenseHistories: true,
+            biometricData: true,
+          },
+        });
+      }
+
+      if (!sourceRenewalData && licenseRecord.freshApplicationId) {
+        freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: licenseRecord.freshApplicationId },
+          include: {
+            presentAddress: true,
+            permanentAddress: true,
+            occupationAndBusiness: true,
+            licenseDetails: { include: { requestedWeapons: true } },
+            criminalHistories: true,
+            licenseHistories: true,
+            biometricData: true,
           },
         });
       }
@@ -111,78 +137,127 @@ export class RenewalFormService {
           throw new BadRequestException('DRAFT status not found in the system.');
         }
 
-        // Copy addresses from the latest approved renewal if available,
-        // otherwise use the provided createRequest data.
+        // Pre-populate address and occupation details from approved source (renewal or fresh application)
         let presentAddressId: number | null = null;
         let permanentAddressId: number | null = null;
         let occupationAndBusinessId: number | null = null;
 
-        if (sourceRenewalData?.presentAddress && sourceRenewalData.presentAddress.addressLine) {
+        const srcPresent = sourceRenewalData?.presentAddress ?? freshApp?.presentAddress;
+        if (srcPresent?.addressLine) {
           try {
             const copiedAddress = await tx.renewalAddressesAndContactDetails.create({
               data: {
-                addressLine: sourceRenewalData.presentAddress.addressLine,
-                stateId: sourceRenewalData.presentAddress.stateId,
-                districtId: sourceRenewalData.presentAddress.districtId,
-                policeStationId: sourceRenewalData.presentAddress.policeStationId,
-                sinceResiding: sourceRenewalData.presentAddress.sinceResiding ? new Date(sourceRenewalData.presentAddress.sinceResiding) : undefined,
-                divisionId: sourceRenewalData.presentAddress.divisionId,
-                zoneId: sourceRenewalData.presentAddress.zoneId,
-                rangeOfficeId: sourceRenewalData.presentAddress.rangeOfficeId || null,
-                telephoneOffice: sourceRenewalData.presentAddress.telephoneOffice || null,
-                telephoneResidence: sourceRenewalData.presentAddress.telephoneResidence || null,
-                officeMobileNumber: sourceRenewalData.presentAddress.officeMobileNumber || null,
-                alternativeMobile: sourceRenewalData.presentAddress.alternativeMobile || null,
+                addressLine: srcPresent.addressLine,
+                stateId: srcPresent.stateId,
+                districtId: srcPresent.districtId,
+                policeStationId: srcPresent.policeStationId,
+                sinceResiding: srcPresent.sinceResiding ? new Date(srcPresent.sinceResiding) : new Date(),
+                divisionId: srcPresent.divisionId,
+                zoneId: srcPresent.zoneId,
+                rangeOfficeId: srcPresent.rangeOfficeId || null,
+                telephoneOffice: srcPresent.telephoneOffice || null,
+                telephoneResidence: srcPresent.telephoneResidence || null,
+                officeMobileNumber: srcPresent.officeMobileNumber || null,
+                alternativeMobile: srcPresent.alternativeMobile || null,
               },
             });
             presentAddressId = copiedAddress.id;
           } catch (addrErr: any) {
-            console.error('Error copying address from last approved renewal:', addrErr.message);
+            console.error('Error copying present address for renewal:', addrErr.message);
+          }
+        } else if (licenseRecord.presentAddressLine && licenseRecord.presentStateId && licenseRecord.presentDistrictId && licenseRecord.presentPoliceStationId) {
+          try {
+            const copiedAddress = await tx.renewalAddressesAndContactDetails.create({
+              data: {
+                addressLine: licenseRecord.presentAddressLine,
+                stateId: licenseRecord.presentStateId,
+                districtId: licenseRecord.presentDistrictId,
+                policeStationId: licenseRecord.presentPoliceStationId,
+                sinceResiding: licenseRecord.validFrom ? new Date(licenseRecord.validFrom) : new Date(),
+                divisionId: licenseRecord.presentDivisionId ?? 1,
+                zoneId: licenseRecord.presentZoneId ?? 1,
+                rangeOfficeId: licenseRecord.presentRangeOfficeId || null,
+              },
+            });
+            presentAddressId = copiedAddress.id;
+          } catch (addrErr: any) {
+            console.error('Error copying present address from license:', addrErr.message);
           }
         }
 
-        // The permanent address gets its own row: sharing the present address row
-        // would make every later edit of one overwrite the other.
-        if (sourceRenewalData?.permanentAddress && sourceRenewalData.permanentAddress.addressLine) {
+        const srcPermanent = sourceRenewalData?.permanentAddress ?? freshApp?.permanentAddress;
+        if (srcPermanent?.addressLine) {
           try {
-            const src = sourceRenewalData.permanentAddress;
             const copiedPermanent = await tx.renewalAddressesAndContactDetails.create({
               data: {
-                addressLine: src.addressLine,
-                stateId: src.stateId,
-                districtId: src.districtId,
-                policeStationId: src.policeStationId,
-                sinceResiding: src.sinceResiding ? new Date(src.sinceResiding) : undefined,
-                divisionId: src.divisionId,
-                zoneId: src.zoneId,
-                rangeOfficeId: src.rangeOfficeId || null,
-                telephoneOffice: src.telephoneOffice || null,
-                telephoneResidence: src.telephoneResidence || null,
-                officeMobileNumber: src.officeMobileNumber || null,
-                alternativeMobile: src.alternativeMobile || null,
+                addressLine: srcPermanent.addressLine,
+                stateId: srcPermanent.stateId,
+                districtId: srcPermanent.districtId,
+                policeStationId: srcPermanent.policeStationId,
+                sinceResiding: srcPermanent.sinceResiding ? new Date(srcPermanent.sinceResiding) : new Date(),
+                divisionId: srcPermanent.divisionId,
+                zoneId: srcPermanent.zoneId,
+                rangeOfficeId: srcPermanent.rangeOfficeId || null,
+                telephoneOffice: srcPermanent.telephoneOffice || null,
+                telephoneResidence: srcPermanent.telephoneResidence || null,
+                officeMobileNumber: srcPermanent.officeMobileNumber || null,
+                alternativeMobile: srcPermanent.alternativeMobile || null,
               },
             });
             permanentAddressId = copiedPermanent.id;
           } catch (addrErr: any) {
-            console.error('Error copying permanent address from last approved renewal:', addrErr.message);
+            console.error('Error copying permanent address for renewal:', addrErr.message);
+          }
+        } else if (licenseRecord.permanentAddressLine && licenseRecord.permanentStateId && licenseRecord.permanentDistrictId && licenseRecord.permanentPoliceStationId) {
+          try {
+            const copiedPermanent = await tx.renewalAddressesAndContactDetails.create({
+              data: {
+                addressLine: licenseRecord.permanentAddressLine,
+                stateId: licenseRecord.permanentStateId,
+                districtId: licenseRecord.permanentDistrictId,
+                policeStationId: licenseRecord.permanentPoliceStationId,
+                sinceResiding: licenseRecord.validFrom ? new Date(licenseRecord.validFrom) : new Date(),
+                divisionId: licenseRecord.permanentDivisionId ?? 1,
+                zoneId: licenseRecord.permanentZoneId ?? 1,
+                rangeOfficeId: licenseRecord.permanentRangeOfficeId || null,
+              },
+            });
+            permanentAddressId = copiedPermanent.id;
+          } catch (addrErr: any) {
+            console.error('Error copying permanent address from license:', addrErr.message);
           }
         }
 
-        if (sourceRenewalData?.occupationAndBusiness) {
+        const srcOcc = sourceRenewalData?.occupationAndBusiness ?? freshApp?.occupationAndBusiness;
+        if (srcOcc?.occupation || srcOcc?.officeAddress) {
           try {
             const copiedOcc = await tx.renewalOccupationAndBusiness.create({
               data: {
-                occupation: sourceRenewalData.occupationAndBusiness.occupation,
-                officeAddress: sourceRenewalData.occupationAndBusiness.officeAddress,
-                stateId: sourceRenewalData.occupationAndBusiness.stateId,
-                districtId: sourceRenewalData.occupationAndBusiness.districtId,
-                cropLocation: sourceRenewalData.occupationAndBusiness.cropLocation || null,
-                areaUnderCultivation: sourceRenewalData.occupationAndBusiness.areaUnderCultivation || null,
+                occupation: srcOcc.occupation || 'N/A',
+                officeAddress: srcOcc.officeAddress || 'N/A',
+                stateId: srcOcc.stateId,
+                districtId: srcOcc.districtId,
+                cropLocation: srcOcc.cropLocation || null,
+                areaUnderCultivation: srcOcc.areaUnderCultivation || null,
               },
             });
             occupationAndBusinessId = copiedOcc.id;
           } catch (occErr: any) {
-            console.error('Error copying occupation from last approved renewal:', occErr.message);
+            console.error('Error copying occupation for renewal:', occErr.message);
+          }
+        } else if ((licenseRecord.occupation || licenseRecord.officeAddress) && licenseRecord.presentStateId && licenseRecord.presentDistrictId) {
+          try {
+            const copiedOcc = await tx.renewalOccupationAndBusiness.create({
+              data: {
+                occupation: licenseRecord.occupation || 'N/A',
+                officeAddress: licenseRecord.officeAddress || 'N/A',
+                stateId: licenseRecord.presentStateId,
+                districtId: licenseRecord.presentDistrictId,
+              },
+            });
+            occupationAndBusinessId = copiedOcc.id;
+          } catch (occErr: any) {
+            console.error('Error copying occupation from license:', occErr.message);
           }
         }
 
@@ -223,6 +298,113 @@ export class RenewalFormService {
             currentUser: true,
           },
         });
+
+        // 5. Populate License Details
+        const srcLicenseDetail = sourceRenewalData?.licenseDetails?.[0] ?? freshApp?.licenseDetails?.[0];
+        const weaponIds: Array<{ id: number }> =
+          srcLicenseDetail?.requestedWeapons?.length
+            ? srcLicenseDetail.requestedWeapons.map((w: any) => ({ id: Number(w.id) })).filter((w: any) => !Number.isNaN(w.id))
+            : licenseRecord.endorsedWeapons?.length
+              ? licenseRecord.endorsedWeapons.map((w: any) => ({ id: Number(w.id) })).filter((w: any) => !Number.isNaN(w.id))
+              : [];
+
+        if (srcLicenseDetail || weaponIds.length > 0 || licenseRecord.needForLicense || licenseRecord.armsCategory) {
+          try {
+            const placeArea = srcLicenseDetail?.licencePlaceArea ?? licenseRecord.licencePlaceArea ?? null;
+            const wildBeasts = srcLicenseDetail?.wildBeastsSpecification ?? null;
+            const placeAreaToSave = wildBeasts
+              ? JSON.stringify({ placeArea: placeArea || '', wildBeasts })
+              : placeArea;
+
+            await tx.renewalLicenseDetails.create({
+              data: {
+                applicationId: application.id,
+                needForLicense: (srcLicenseDetail?.needForLicense ?? licenseRecord.needForLicense) as any,
+                armsCategory: (srcLicenseDetail?.armsCategory ?? licenseRecord.armsCategory) as any,
+                areaOfValidity: srcLicenseDetail?.areaOfValidity ?? licenseRecord.areaOfValidity ?? null,
+                ammunitionDescription: srcLicenseDetail?.ammunitionDescription ?? licenseRecord.ammunitionDescription ?? null,
+                specialConsiderationReason: srcLicenseDetail?.specialConsiderationReason ?? licenseRecord.specialConsiderationReason ?? null,
+                licencePlaceArea: placeAreaToSave,
+                requestedWeapons: weaponIds.length > 0 ? { connect: weaponIds } : undefined,
+              },
+            });
+          } catch (ldErr: any) {
+            console.error('Error copying license details for renewal:', ldErr.message);
+          }
+        }
+
+        // 6. Populate Criminal Histories
+        const srcCriminalHistories = sourceRenewalData?.criminalHistories ?? freshApp?.criminalHistories;
+        if (Array.isArray(srcCriminalHistories) && srcCriminalHistories.length > 0) {
+          for (const ch of srcCriminalHistories) {
+            try {
+              await tx.renewalCriminalHistories.create({
+                data: {
+                  applicationId: application.id,
+                  isConvicted: ch.isConvicted ?? false,
+                  firDetails: ch.firDetails ?? null,
+                  isBondExecuted: ch.isBondExecuted ?? false,
+                  bondDate: ch.bondDate ? new Date(ch.bondDate) : null,
+                  bondPeriod: ch.bondPeriod ?? null,
+                  isProhibited: ch.isProhibited ?? false,
+                  prohibitionDate: ch.prohibitionDate ? new Date(ch.prohibitionDate) : null,
+                  prohibitionPeriod: ch.prohibitionPeriod ?? null,
+                },
+              });
+            } catch (chErr: any) {
+              console.error('Error copying criminal history for renewal:', chErr.message);
+            }
+          }
+        }
+
+        // 7. Populate License Histories
+        const srcLicenseHistories = sourceRenewalData?.licenseHistories ?? freshApp?.licenseHistories;
+        if (Array.isArray(srcLicenseHistories) && srcLicenseHistories.length > 0) {
+          for (const lh of srcLicenseHistories) {
+            try {
+              await tx.renewalLicenseHistories.create({
+                data: {
+                  applicationId: application.id,
+                  hasAppliedBefore: lh.hasAppliedBefore ?? false,
+                  dateAppliedFor: lh.dateAppliedFor ? new Date(lh.dateAppliedFor) : null,
+                  previousAuthorityName: lh.previousAuthorityName ?? null,
+                  previousResult: lh.previousResult ?? null,
+                  hasLicenceSuspended: lh.hasLicenceSuspended ?? false,
+                  suspensionAuthorityName: lh.suspensionAuthorityName ?? null,
+                  suspensionReason: lh.suspensionReason ?? null,
+                  hasFamilyLicence: lh.hasFamilyLicence ?? false,
+                  familyMemberName: lh.familyMemberName ?? null,
+                  familyLicenceNumber: lh.familyLicenceNumber ?? null,
+                  familyWeaponsEndorsed: lh.familyWeaponsEndorsed ?? [],
+                  hasSafePlace: lh.hasSafePlace ?? false,
+                  safePlaceDetails: lh.safePlaceDetails ?? null,
+                  hasTraining: lh.hasTraining ?? false,
+                  trainingDetails: lh.trainingDetails ?? null,
+                },
+              });
+            } catch (lhErr: any) {
+              console.error('Error copying license history for renewal:', lhErr.message);
+            }
+          }
+        }
+
+        // 8. Populate Biometric Data
+        const srcBiometric = sourceRenewalData?.biometricData ?? freshApp?.biometricData;
+        if (srcBiometric) {
+          const bioData = srcBiometric.biometricData ?? srcBiometric;
+          if (bioData && typeof bioData === 'object' && Object.keys(bioData).length > 0) {
+            try {
+              await tx.renewalBiometricDatas.create({
+                data: {
+                  applicationId: application.id,
+                  biometricData: bioData as any,
+                },
+              });
+            } catch (bioErr: any) {
+              console.error('Error copying biometric data for renewal:', bioErr.message);
+            }
+          }
+        }
 
         return application;
       });
@@ -451,6 +633,12 @@ export class RenewalFormService {
         relationUpdates.push((async () => {
           // Update or create license details
           const licenseDetail = application.licenseDetails[0];
+          const wildBeasts = licenseDetails.wildBeastsSpecification?.trim();
+          const rawPlaceArea = licenseDetails.licencePlaceArea?.trim() || '';
+          const placeAreaToSave = wildBeasts
+            ? JSON.stringify({ placeArea: rawPlaceArea, wildBeasts })
+            : (rawPlaceArea || null);
+
           if (licenseDetail) {
             // Combine all updates into a single database call for efficiency
             const licenseUpdateData: any = {
@@ -459,7 +647,7 @@ export class RenewalFormService {
               areaOfValidity: licenseDetails.areaOfValidity,
               ammunitionDescription: licenseDetails.ammunitionDescription,
               specialConsiderationReason: licenseDetails.specialConsiderationReason,
-              licencePlaceArea: licenseDetails.licencePlaceArea,
+              licencePlaceArea: placeAreaToSave,
             };
 
             if (weaponConnections) {
@@ -484,7 +672,7 @@ export class RenewalFormService {
                 ammunitionDescription: licenseDetails.ammunitionDescription,
                 specialConsiderationReason:
                   licenseDetails.specialConsiderationReason,
-                licencePlaceArea: licenseDetails.licencePlaceArea,
+                licencePlaceArea: placeAreaToSave,
                 requestedWeapons: weaponConnections
                   ? {
                       connect: weaponConnections,
@@ -545,7 +733,7 @@ export class RenewalFormService {
       // Handle Biometric Data
       if (patchData.biometricData) {
         relationUpdates.push((async () => {
-          const biometricDataObject = patchData.biometricData;
+          const biometricDataObject: any = patchData.biometricData;
 
           if (typeof biometricDataObject !== 'object' || biometricDataObject === null) {
             throw new BadRequestException('biometricData must be an object');
@@ -555,18 +743,29 @@ export class RenewalFormService {
             where: { applicationId }
           });
 
+          const existingData = (existingBiometric?.biometricData as any) || {};
+
+          // Preserve stored fingerprints if incoming patch does not provide an array of fingerprints
+          const mergedBiometricData = {
+            ...existingData,
+            ...biometricDataObject,
+            fingerprints: Array.isArray(biometricDataObject.fingerprints)
+              ? biometricDataObject.fingerprints
+              : (existingData.fingerprints || biometricDataObject.fingerprints),
+          };
+
           if (existingBiometric) {
             await prisma.renewalBiometricDatas.update({
               where: { applicationId },
               data: {
-                biometricData: biometricDataObject as any
+                biometricData: mergedBiometricData as any
               } as any
             });
           } else {
             await prisma.renewalBiometricDatas.create({
               data: {
                 applicationId,
-                biometricData: biometricDataObject as any
+                biometricData: mergedBiometricData as any
               } as any
             });
           }
@@ -715,6 +914,20 @@ export class RenewalFormService {
         },
       });
       
+      if (Array.isArray(finalApplication?.licenseDetails)) {
+        for (const ld of finalApplication.licenseDetails) {
+          if (ld.licencePlaceArea && typeof ld.licencePlaceArea === 'string' && ld.licencePlaceArea.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(ld.licencePlaceArea);
+              if (parsed && typeof parsed === 'object') {
+                ld.licencePlaceArea = parsed.placeArea ?? ld.licencePlaceArea;
+                ld.wildBeastsSpecification = parsed.wildBeasts ?? null;
+              }
+            } catch {}
+          }
+        }
+      }
+
       return finalApplication;
     } catch (error: any) {
       // Re-throw known exceptions
@@ -799,7 +1012,8 @@ export class RenewalFormService {
       });
 
       if (!file) {
-        throw new NotFoundException('File not found.');
+        // Idempotent: file not found in renewal uploads (e.g. prefilled from Fresh Application or already deleted)
+        return;
       }
 
       // Only allow file deletion if the application is in DRAFT status
@@ -866,7 +1080,7 @@ export class RenewalFormService {
   /**
    * Get renewal application by ID
    */
-  async getApplicationById(applicationId: number): Promise<any> {
+  async getApplicationById(applicationId: number, hasBackfilled = false): Promise<any> {
     try {
       const application = await prisma.renewalFormPersonalDetails.findUnique({
         where: { id: applicationId },
@@ -969,26 +1183,70 @@ export class RenewalFormService {
         throw new NotFoundException('Renewal application not found.');
       }
 
-      // Resolve the fresh application ID linked to this renewal.
-      // The relationship is: renewal.licenseNumber === freshApp.acknowledgementNo
-      let freshApplicationId: number | null = null;
-      if (application.licenseNumber) {
-        const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findFirst({
-          where: { acknowledgementNo: application.licenseNumber },
-          select: { id: true },
-        });
-        if (freshApp) {
-          freshApplicationId = freshApp.id;
-        }
-      }
-
-      // Tell the form which values come from the license and cannot be edited
+      // Resolve the license and fresh application ID linked to this renewal.
       const license = application.licenseId
         ? await prisma.licenses.findUnique({
             where: { id: application.licenseId },
-            include: { endorsedWeapons: { select: { id: true } } },
+            include: { endorsedWeapons: true },
           })
-        : null;
+        : application.licenseNumber
+          ? await prisma.licenses.findUnique({
+              where: { licenseNumber: application.licenseNumber },
+              include: { endorsedWeapons: true },
+            })
+          : null;
+
+      const freshApplicationId = license?.freshApplicationId ?? null;
+
+      // For draft applications, backfill any missing sections from source so they persist in the DB
+      const isMissingPresent = !application.presentAddressId;
+      const isMissingPermanent = !application.permanentAddressId;
+      const isMissingOccupation = !application.occupationAndBusinessId;
+      const isMissingLicenseDetails = !application.licenseDetails || application.licenseDetails.length === 0;
+      const isMissingCriminal = !application.criminalHistories || application.criminalHistories.length === 0;
+      const isMissingLicenseHistory = !application.licenseHistories || application.licenseHistories.length === 0;
+      const isMissingBiometric = !application.biometricData;
+
+      if (
+        !hasBackfilled &&
+        !application.isSubmit &&
+        license &&
+        (isMissingPresent ||
+          isMissingPermanent ||
+          isMissingOccupation ||
+          isMissingLicenseDetails ||
+          isMissingCriminal ||
+          isMissingLicenseHistory ||
+          isMissingBiometric)
+      ) {
+        await this.backfillRenewalSections(application.id, application, license);
+        return this.getApplicationById(applicationId, true);
+      }
+
+      if (Array.isArray(application?.licenseDetails)) {
+        for (const ld of application.licenseDetails) {
+          if (ld.licencePlaceArea && typeof ld.licencePlaceArea === 'string' && ld.licencePlaceArea.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(ld.licencePlaceArea);
+              if (parsed && typeof parsed === 'object') {
+                ld.licencePlaceArea = parsed.placeArea ?? ld.licencePlaceArea;
+                ld.wildBeastsSpecification = parsed.wildBeasts ?? null;
+              }
+            } catch {}
+          }
+          if (!ld.wildBeastsSpecification && license?.freshApplicationId) {
+            try {
+              const freshLd = await prisma.fLAFLicenseDetails.findFirst({
+                where: { applicationId: license.freshApplicationId },
+                select: { wildBeastsSpecification: true },
+              });
+              if (freshLd?.wildBeastsSpecification) {
+                ld.wildBeastsSpecification = freshLd.wildBeastsSpecification;
+              }
+            } catch {}
+          }
+        }
+      }
 
       return {
         ...application,
@@ -1002,6 +1260,260 @@ export class RenewalFormService {
       throw new InternalServerErrorException(
         'An error occurred while retrieving the renewal application.',
       );
+    }
+  }
+
+  /**
+   * Backfill missing section records for an existing draft renewal from its license or fresh application
+   */
+  private async backfillRenewalSections(renewalId: number, application: any, license: any): Promise<void> {
+    try {
+      let sourceRenewalData: any = null;
+      let freshApp: any = null;
+
+      if (license.lastModifiedRenewalId) {
+        sourceRenewalData = await prisma.renewalFormPersonalDetails.findFirst({
+          where: { id: license.lastModifiedRenewalId, isApproved: true },
+          include: {
+            presentAddress: true,
+            permanentAddress: true,
+            occupationAndBusiness: true,
+            licenseDetails: { include: { requestedWeapons: true } },
+            criminalHistories: true,
+            licenseHistories: true,
+            biometricData: true,
+          },
+        });
+      }
+
+      if (!sourceRenewalData && license.freshApplicationId) {
+        freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: license.freshApplicationId },
+          include: {
+            presentAddress: true,
+            permanentAddress: true,
+            occupationAndBusiness: true,
+            licenseDetails: { include: { requestedWeapons: true } },
+            criminalHistories: true,
+            licenseHistories: true,
+            biometricData: true,
+          },
+        });
+      }
+
+      const updates: Record<string, any> = {};
+
+      // 1. Present Address
+      if (!application.presentAddressId) {
+        const srcPresent = sourceRenewalData?.presentAddress ?? freshApp?.presentAddress;
+        if (srcPresent?.addressLine) {
+          const copied = await prisma.renewalAddressesAndContactDetails.create({
+            data: {
+              addressLine: srcPresent.addressLine,
+              stateId: srcPresent.stateId,
+              districtId: srcPresent.districtId,
+              policeStationId: srcPresent.policeStationId,
+              sinceResiding: srcPresent.sinceResiding ? new Date(srcPresent.sinceResiding) : new Date(),
+              divisionId: srcPresent.divisionId,
+              zoneId: srcPresent.zoneId,
+              rangeOfficeId: srcPresent.rangeOfficeId || null,
+              telephoneOffice: srcPresent.telephoneOffice || null,
+              telephoneResidence: srcPresent.telephoneResidence || null,
+              officeMobileNumber: srcPresent.officeMobileNumber || null,
+              alternativeMobile: srcPresent.alternativeMobile || null,
+            },
+          });
+          updates.presentAddressId = copied.id;
+        } else if (license.presentAddressLine && license.presentStateId && license.presentDistrictId && license.presentPoliceStationId) {
+          const copied = await prisma.renewalAddressesAndContactDetails.create({
+            data: {
+              addressLine: license.presentAddressLine,
+              stateId: license.presentStateId,
+              districtId: license.presentDistrictId,
+              policeStationId: license.presentPoliceStationId,
+              sinceResiding: license.validFrom ? new Date(license.validFrom) : new Date(),
+              divisionId: license.presentDivisionId ?? 1,
+              zoneId: license.presentZoneId ?? 1,
+              rangeOfficeId: license.presentRangeOfficeId || null,
+            },
+          });
+          updates.presentAddressId = copied.id;
+        }
+      }
+
+      // 2. Permanent Address
+      if (!application.permanentAddressId) {
+        const srcPermanent = sourceRenewalData?.permanentAddress ?? freshApp?.permanentAddress;
+        if (srcPermanent?.addressLine) {
+          const copied = await prisma.renewalAddressesAndContactDetails.create({
+            data: {
+              addressLine: srcPermanent.addressLine,
+              stateId: srcPermanent.stateId,
+              districtId: srcPermanent.districtId,
+              policeStationId: srcPermanent.policeStationId,
+              sinceResiding: srcPermanent.sinceResiding ? new Date(srcPermanent.sinceResiding) : new Date(),
+              divisionId: srcPermanent.divisionId,
+              zoneId: srcPermanent.zoneId,
+              rangeOfficeId: srcPermanent.rangeOfficeId || null,
+              telephoneOffice: srcPermanent.telephoneOffice || null,
+              telephoneResidence: srcPermanent.telephoneResidence || null,
+              officeMobileNumber: srcPermanent.officeMobileNumber || null,
+              alternativeMobile: srcPermanent.alternativeMobile || null,
+            },
+          });
+          updates.permanentAddressId = copied.id;
+        } else if (license.permanentAddressLine && license.permanentStateId && license.permanentDistrictId && license.permanentPoliceStationId) {
+          const copied = await prisma.renewalAddressesAndContactDetails.create({
+            data: {
+              addressLine: license.permanentAddressLine,
+              stateId: license.permanentStateId,
+              districtId: license.permanentDistrictId,
+              policeStationId: license.permanentPoliceStationId,
+              sinceResiding: license.validFrom ? new Date(license.validFrom) : new Date(),
+              divisionId: license.permanentDivisionId ?? 1,
+              zoneId: license.permanentZoneId ?? 1,
+              rangeOfficeId: license.permanentRangeOfficeId || null,
+            },
+          });
+          updates.permanentAddressId = copied.id;
+        }
+      }
+
+      // 3. Occupation
+      if (!application.occupationAndBusinessId) {
+        const srcOcc = sourceRenewalData?.occupationAndBusiness ?? freshApp?.occupationAndBusiness;
+        if (srcOcc?.occupation || srcOcc?.officeAddress) {
+          const copied = await prisma.renewalOccupationAndBusiness.create({
+            data: {
+              occupation: srcOcc.occupation || 'N/A',
+              officeAddress: srcOcc.officeAddress || 'N/A',
+              stateId: srcOcc.stateId,
+              districtId: srcOcc.districtId,
+              cropLocation: srcOcc.cropLocation || null,
+              areaUnderCultivation: srcOcc.areaUnderCultivation || null,
+            },
+          });
+          updates.occupationAndBusinessId = copied.id;
+        } else if ((license.occupation || license.officeAddress) && license.presentStateId && license.presentDistrictId) {
+          const copied = await prisma.renewalOccupationAndBusiness.create({
+            data: {
+              occupation: license.occupation || 'N/A',
+              officeAddress: license.officeAddress || 'N/A',
+              stateId: license.presentStateId,
+              districtId: license.presentDistrictId,
+            },
+          });
+          updates.occupationAndBusinessId = copied.id;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await prisma.renewalFormPersonalDetails.update({
+          where: { id: renewalId },
+          data: updates,
+        });
+      }
+
+      // 4. License Details
+      if (!application.licenseDetails || application.licenseDetails.length === 0) {
+        const srcLicenseDetail = sourceRenewalData?.licenseDetails?.[0] ?? freshApp?.licenseDetails?.[0];
+        const weaponIds: Array<{ id: number }> =
+          srcLicenseDetail?.requestedWeapons?.length
+            ? srcLicenseDetail.requestedWeapons.map((w: any) => ({ id: Number(w.id) })).filter((w: any) => !Number.isNaN(w.id))
+            : license.endorsedWeapons?.length
+              ? license.endorsedWeapons.map((w: any) => ({ id: Number(w.id) })).filter((w: any) => !Number.isNaN(w.id))
+              : [];
+
+        if (srcLicenseDetail || weaponIds.length > 0 || license.needForLicense || license.armsCategory) {
+          const placeArea = srcLicenseDetail?.licencePlaceArea ?? license.licencePlaceArea ?? null;
+          const wildBeasts = srcLicenseDetail?.wildBeastsSpecification ?? null;
+          const placeAreaToSave = wildBeasts
+            ? JSON.stringify({ placeArea: placeArea || '', wildBeasts })
+            : placeArea;
+
+          await prisma.renewalLicenseDetails.create({
+            data: {
+              applicationId: renewalId,
+              needForLicense: (srcLicenseDetail?.needForLicense ?? license.needForLicense) as any,
+              armsCategory: (srcLicenseDetail?.armsCategory ?? license.armsCategory) as any,
+              areaOfValidity: srcLicenseDetail?.areaOfValidity ?? license.areaOfValidity ?? null,
+              ammunitionDescription: srcLicenseDetail?.ammunitionDescription ?? license.ammunitionDescription ?? null,
+              specialConsiderationReason: srcLicenseDetail?.specialConsiderationReason ?? license.specialConsiderationReason ?? null,
+              licencePlaceArea: placeAreaToSave,
+              requestedWeapons: weaponIds.length > 0 ? { connect: weaponIds } : undefined,
+            },
+          });
+        }
+      }
+
+      // 5. Criminal History
+      if (!application.criminalHistories || application.criminalHistories.length === 0) {
+        const srcCriminalHistories = sourceRenewalData?.criminalHistories ?? freshApp?.criminalHistories;
+        if (Array.isArray(srcCriminalHistories) && srcCriminalHistories.length > 0) {
+          for (const ch of srcCriminalHistories) {
+            await prisma.renewalCriminalHistories.create({
+              data: {
+                applicationId: renewalId,
+                isConvicted: ch.isConvicted ?? false,
+                firDetails: ch.firDetails ?? null,
+                isBondExecuted: ch.isBondExecuted ?? false,
+                bondDate: ch.bondDate ? new Date(ch.bondDate) : null,
+                bondPeriod: ch.bondPeriod ?? null,
+                isProhibited: ch.isProhibited ?? false,
+                prohibitionDate: ch.prohibitionDate ? new Date(ch.prohibitionDate) : null,
+                prohibitionPeriod: ch.prohibitionPeriod ?? null,
+              },
+            });
+          }
+        }
+      }
+
+      // 6. License History
+      if (!application.licenseHistories || application.licenseHistories.length === 0) {
+        const srcLicenseHistories = sourceRenewalData?.licenseHistories ?? freshApp?.licenseHistories;
+        if (Array.isArray(srcLicenseHistories) && srcLicenseHistories.length > 0) {
+          for (const lh of srcLicenseHistories) {
+            await prisma.renewalLicenseHistories.create({
+              data: {
+                applicationId: renewalId,
+                hasAppliedBefore: lh.hasAppliedBefore ?? false,
+                dateAppliedFor: lh.dateAppliedFor ? new Date(lh.dateAppliedFor) : null,
+                previousAuthorityName: lh.previousAuthorityName ?? null,
+                previousResult: lh.previousResult ?? null,
+                hasLicenceSuspended: lh.hasLicenceSuspended ?? false,
+                suspensionAuthorityName: lh.suspensionAuthorityName ?? null,
+                suspensionReason: lh.suspensionReason ?? null,
+                hasFamilyLicence: lh.hasFamilyLicence ?? false,
+                familyMemberName: lh.familyMemberName ?? null,
+                familyLicenceNumber: lh.familyLicenceNumber ?? null,
+                familyWeaponsEndorsed: lh.familyWeaponsEndorsed ?? [],
+                hasSafePlace: lh.hasSafePlace ?? false,
+                safePlaceDetails: lh.safePlaceDetails ?? null,
+                hasTraining: lh.hasTraining ?? false,
+                trainingDetails: lh.trainingDetails ?? null,
+              },
+            });
+          }
+        }
+      }
+
+      // 7. Biometric Data
+      if (!application.biometricData) {
+        const srcBiometric = sourceRenewalData?.biometricData ?? freshApp?.biometricData;
+        if (srcBiometric) {
+          const bioData = srcBiometric.biometricData ?? srcBiometric;
+          if (bioData && typeof bioData === 'object' && Object.keys(bioData).length > 0) {
+            await prisma.renewalBiometricDatas.create({
+              data: {
+                applicationId: renewalId,
+                biometricData: bioData as any,
+              },
+            });
+          }
+        }
+      }
+    } catch (backfillErr: any) {
+      console.error('[RenewalForm] Failed to backfill renewal sections:', backfillErr?.message);
     }
   }
 

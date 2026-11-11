@@ -197,6 +197,7 @@ type RenewalFormState = {
   safeCustodyUploaded?: File | null;
   specialEvidenceUploaded?: File | null;
   specialEvidenceFiles?: (File | any)[];
+  rejectionDocUploaded?: File | any;
   selectedFingerprint?: string;
   signature?: string;
   irisScan?: string;
@@ -446,42 +447,52 @@ const getSexValue = (value: any) => {
 
 const mapLicensePurposeToUiValue = (value?: string) => {
   if (!value) return '';
-  const normalized = String(value).toUpperCase();
+  const normalized = String(value).trim().toUpperCase();
 
   switch (normalized) {
+    case 'SELF_DEFENSE':
+    case 'SELF-DEFENSE':
     case 'SELF_PROTECTION':
-      return 'self_defense';
+    case 'SELF PROTECTION':
+      return 'SELF_PROTECTION';
     case 'SPORTS':
-      return 'sports';
+      return 'SPORTS';
     case 'CROP_PROTECTION':
-      return 'crop_protection';
+    case 'CROP PROTECTION':
+      return 'CROP_PROTECTION';
     case 'HEIRLOOM_POLICY':
-      return 'business_security';
+    case 'BUSINESS_SECURITY':
+    case 'BUSINESS-SECURITY':
+    case 'BUSINESS SECURITY':
+      return 'HEIRLOOM_POLICY';
     default:
-      return String(value);
+      return normalized;
   }
 };
 
 // Reverse mapping: UI value → API enum
 const mapUiValueToLicensePurpose = (value?: string) => {
   if (!value) return '';
-  const normalized = String(value).toLowerCase();
+  const normalized = String(value).trim().toUpperCase();
 
   switch (normalized) {
-    case 'self_defense':
-    case 'self-defense':
-    case 'self protection':
+    case 'SELF_DEFENSE':
+    case 'SELF-DEFENSE':
+    case 'SELF_PROTECTION':
+    case 'SELF PROTECTION':
       return 'SELF_PROTECTION';
-    case 'sports':
+    case 'SPORTS':
       return 'SPORTS';
-    case 'crop_protection':
-    case 'crop protection':
+    case 'CROP_PROTECTION':
+    case 'CROP PROTECTION':
       return 'CROP_PROTECTION';
-    case 'business_security':
-    case 'business-security':
+    case 'HEIRLOOM_POLICY':
+    case 'BUSINESS_SECURITY':
+    case 'BUSINESS-SECURITY':
+    case 'BUSINESS SECURITY':
       return 'HEIRLOOM_POLICY';
     default:
-      return String(value).toUpperCase().replace(/\s+/g, '_');
+      return normalized.replace(/\s+/g, '_');
   }
 };
 
@@ -916,6 +927,19 @@ const mapSpecialEvidenceFields = (data: any) => {
   };
 };
 
+const hasSavedLicenseDetails = (data: any) =>
+  Boolean(Array.isArray(data?.licenseDetails) && data.licenseDetails.length > 0);
+
+const hasDocumentaryEvidence = (data: any): boolean => {
+  if (!data) return false;
+  const files = Array.isArray(data.specialEvidenceFiles)
+    ? data.specialEvidenceFiles
+    : data.specialEvidenceUploaded
+      ? [data.specialEvidenceUploaded]
+      : [];
+  return files.length > 0;
+};
+
 const mapLicenseDetailFields = (data: any) => {
   const primary =
     Array.isArray(data?.licenseDetails) && data.licenseDetails.length
@@ -941,12 +965,35 @@ const mapLicenseDetailFields = (data: any) => {
       primary?.specialConsiderationReason,
       data?.specialConsiderationClaim
     ),
-    formIVPlaceArea: getTextValue(primary?.licencePlaceArea, data?.formIVPlaceArea),
-    formIVWildBeastsSpec: getTextValue(
-      primary?.wildBeastsSpecification,
-      data?.formIVWildBeastsSpec,
-      data?.wildBeastsSpecification
-    ),
+    formIVPlaceArea: (() => {
+      const raw = getTextValue(primary?.licencePlaceArea, data?.formIVPlaceArea);
+      if (typeof raw === 'string' && raw.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(raw);
+          return parsed.placeArea ?? raw;
+        } catch {
+          return raw;
+        }
+      }
+      return raw;
+    })(),
+    formIVWildBeastsSpec: (() => {
+      let wildBeasts = getTextValue(
+        primary?.wildBeastsSpecification,
+        data?.formIVWildBeastsSpec,
+        data?.wildBeastsSpecification
+      );
+      if (!wildBeasts) {
+        const rawPlace = getTextValue(primary?.licencePlaceArea, data?.formIVPlaceArea);
+        if (typeof rawPlace === 'string' && rawPlace.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(rawPlace);
+            if (parsed.wildBeasts) wildBeasts = parsed.wildBeasts;
+          } catch {}
+        }
+      }
+      return wildBeasts;
+    })(),
     requestedWeaponIds,
     weaponId: requestedWeaponIds[0] ? String(requestedWeaponIds[0]) : '',
     weaponType: requestedWeapons[0]
@@ -1676,49 +1723,9 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     irisScan: formData.irisScan || null,
   };
 
-  // Document Uploads
-  const getFileUrlAndName = (fileState: any) => {
-    if (!fileState) return null;
-    if (typeof fileState === 'string') return { fileUrl: fileState, fileName: 'document' };
-    if (fileState.url || fileState.fileUrl) {
-      return {
-        fileUrl: fileState.url || fileState.fileUrl,
-        fileName: fileState.name || fileState.fileName || 'document',
-        fileSize: fileState.size || fileState.fileSize || 0,
-      };
-    }
-    return null;
-  };
-
-  const documentKeysMap: Record<string, string> = {
-    idProofUploaded: 'AADHAR_CARD',
-    panCardUploaded: 'PAN_CARD',
-    trainingCertificateUploaded: 'TRAINING_CERTIFICATE',
-    medicalCertificateUploaded: 'MEDICAL_REPORT',
-    otherStateLicenseUploaded: 'OTHER_STATE_LICENSE',
-    existingArmsLicenseUploaded: 'EXISTING_LICENSE',
-    safeCustodyUploaded: 'SAFE_CUSTODY',
-    photographUploaded: 'PHOTOGRAPH',
-    claimDocsUploaded: 'CLAIM_DOCS',
-    otherUploaded: 'OTHER',
-  };
-
-  const fileUploads: any[] = [];
-  Object.entries(documentKeysMap).forEach(([formKey, fileType]) => {
-    const fileData = getFileUrlAndName((formData as any)[formKey]);
-    if (fileData) {
-      fileUploads.push({
-        fileType,
-        fileUrl: fileData.fileUrl,
-        fileName: fileData.fileName,
-        fileSize: fileData.fileSize || 0,
-      });
-    }
-  });
-
-  if (fileUploads.length > 0) {
-    payload.fileUploads = fileUploads;
-  }
+  // Document Uploads: Saved individually via POST /renewal-forms/:id/upload-file.
+  // The renewal PATCH endpoint does not process file uploads, and omitting them
+  // prevents serializing large base64 data URLs into the request body.
 
   payload.acceptanceFlags = {
     isDeclarationAccepted: Boolean(formData.declaration?.agreeToTruth),
@@ -1788,10 +1795,267 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
   };
 };
 
-const buildFormDataFromRenewalRecord = async (renewalData: any, _licenseId: string) => {
-  // When a renewal record exists, use it as the sole source of truth.
-  // Do NOT fetch fresh application data — renewal data takes full precedence.
-  return buildRootDataFromRenewal(renewalData);
+const mergeRenewalStateOverFresh = (
+  fresh: RenewalFormState,
+  renewal: RenewalFormState,
+  renewalData: any
+): RenewalFormState => {
+  // Start with fresh application data as the baseline so unedited/unsupported fields are never lost
+  const merged: RenewalFormState = { ...fresh };
+
+  merged.renewalApplicationId = renewal.renewalApplicationId || fresh.renewalApplicationId;
+  merged.licenseId = renewal.licenseId || fresh.licenseId;
+  merged.licenseNumber = renewal.licenseNumber || fresh.licenseNumber;
+  merged.acknowledgementNo = renewal.acknowledgementNo || fresh.acknowledgementNo;
+  merged.applicationType = renewal.applicationType || fresh.applicationType || 'Renewal';
+
+  const applyIfPresent = (key: keyof RenewalFormState) => {
+    const renewalValue = renewal[key];
+    if (renewalValue === undefined || renewalValue === null) return;
+    if (typeof renewalValue === 'string') {
+      if (renewalValue.trim() !== '') {
+        (merged as any)[key] = renewalValue;
+      }
+    } else if (Array.isArray(renewalValue)) {
+      if (renewalValue.length > 0) {
+        (merged as any)[key] = renewalValue;
+      }
+    } else if (typeof renewalValue === 'number') {
+      (merged as any)[key] = renewalValue;
+    } else if (typeof renewalValue === 'boolean') {
+      (merged as any)[key] = renewalValue;
+    } else if (typeof renewalValue === 'object') {
+      if (Object.keys(renewalValue).length > 0) {
+        (merged as any)[key] = renewalValue;
+      }
+    }
+  };
+
+  // 1. Personal Details
+  const personalKeys: (keyof RenewalFormState)[] = [
+    'applicantName',
+    'applicantMiddleName',
+    'applicantLastName',
+    'fatherName',
+    'motherName',
+    'maritalStatus',
+    'nationality',
+    'applicantGender',
+    'applicantDateOfBirth',
+    'placeOfBirth',
+    'applicantIdType',
+    'applicantIdNumber',
+    'aadharNumber',
+    'panNumber',
+    'applicantMobile',
+    'applicantEmail',
+    'filledBy',
+    'dobInWords',
+  ];
+  personalKeys.forEach(applyIfPresent);
+
+  // 2. Address Details (Present Address)
+  const presentAddressKeys: (keyof RenewalFormState)[] = [
+    'presentAddress',
+    'presentState',
+    'presentDistrict',
+    'presentRangeOffice',
+    'presentZone',
+    'presentDivision',
+    'presentPoliceStation',
+    'presentStateName',
+    'presentDistrictName',
+    'presentRangeOfficeName',
+    'presentZoneName',
+    'presentDivisionName',
+    'presentPoliceStationName',
+    'jurisdictionPoliceStation',
+    'presentPincode',
+    'residingSince',
+    'sameAsPresent',
+    'officePhone',
+    'residencePhone',
+    'officeMobile',
+    'alternativeMobile',
+  ];
+  if (hasSavedAddress(getPresentAddress(renewalData))) {
+    presentAddressKeys.forEach(applyIfPresent);
+  }
+
+  // Address Details (Permanent Address)
+  const permanentAddressKeys: (keyof RenewalFormState)[] = [
+    'permanentAddress',
+    'permanentState',
+    'permanentDistrict',
+    'permanentRangeOffice',
+    'permanentZone',
+    'permanentDivision',
+    'permanentPoliceStation',
+    'permanentStateName',
+    'permanentDistrictName',
+    'permanentRangeOfficeName',
+    'permanentZoneName',
+    'permanentDivisionName',
+    'permanentPoliceStationName',
+    'permanentPincode',
+  ];
+  if (hasSavedAddress(renewalData?.permanentAddress)) {
+    permanentAddressKeys.forEach(applyIfPresent);
+  }
+
+  // 3. Occupation and Business
+  const occupationKeys: (keyof RenewalFormState)[] = [
+    'occupation',
+    'officeBusinessAddress',
+    'officeBusinessState',
+    'officeBusinessDistrict',
+    'officeBusinessStateName',
+    'officeBusinessDistrictName',
+    'cropProtectionLocation',
+    'cultivatedArea',
+  ];
+  if (hasSavedOccupation(renewalData)) {
+    occupationKeys.forEach(applyIfPresent);
+  }
+
+  // 4. Criminal History
+  if (hasSavedCriminal(renewalData)) {
+    merged.convictedStatus = renewal.convictedStatus;
+    merged.bondStatus = renewal.bondStatus;
+    merged.prohibitedStatus = renewal.prohibitedStatus;
+    const criminalKeys: (keyof RenewalFormState)[] = [
+      'bondSentenceDate',
+      'bondPeriod',
+      'prohibitedSentenceDate',
+      'prohibitedPeriod',
+      'firNumber',
+      'underSection',
+      'policeStationCriminal',
+      'criminalUnit',
+      'criminalDistrict',
+      'criminalState',
+      'offence',
+      'sentence',
+      'sentenceDate',
+      'firDetailsList',
+    ];
+    criminalKeys.forEach(applyIfPresent);
+  }
+
+  // 5. License Details
+  const licenseDetailsKeys: (keyof RenewalFormState)[] = [
+    'armsOptionType',
+    'areaOfValidity',
+    'ammunitionDescription',
+    'specialConsiderationClaim',
+    'formIVPlaceArea',
+    'formIVWildBeastsSpec',
+    'weaponType',
+    'weaponId',
+    'requestedWeaponIds',
+    'weaponReason',
+    'licenseValidity',
+    'licenseType',
+    'specialEvidenceUploaded',
+    'specialEvidenceFiles',
+  ];
+  if (hasSavedLicenseDetails(renewalData)) {
+    licenseDetailsKeys.forEach(applyIfPresent);
+  }
+
+  // 6. License History
+  if (hasSavedLicenseHistory(renewalData)) {
+    merged.hasPreviousLicense = renewal.hasPreviousLicense;
+    merged.hasAppliedBefore = renewal.hasAppliedBefore;
+    merged.licenseRevokedOrSuspended = renewal.licenseRevokedOrSuspended;
+    merged.familyMemberHasLicense = renewal.familyMemberHasLicense;
+    merged.hasSafeCustody = renewal.hasSafeCustody;
+    merged.hasTrainingUnderRule10 = renewal.hasTrainingUnderRule10;
+    const licenseHistoryKeys: (keyof RenewalFormState)[] = [
+      'previousApplicationDetails',
+      'applicationDate',
+      'authorityAppliedTo',
+      'applicationResult',
+      'revokedByAuthority',
+      'revokedReason',
+      'familyMemberName',
+      'familyLicenseNumber',
+      'weaponEndorsedList',
+      'safeCustodyDetails',
+      'trainingDetails',
+      'rejectionDocUploaded',
+    ];
+    licenseHistoryKeys.forEach(applyIfPresent);
+  }
+
+  // 7. Biometric Information
+  if (hasSavedBiometric(renewalData)) {
+    const biometricKeys: (keyof RenewalFormState)[] = [
+      'selectedFingerprint',
+      'signature',
+      'irisScan',
+    ];
+    biometricKeys.forEach(applyIfPresent);
+  }
+
+  // 8. Documents Uploaded
+  const docUploadKeys: (keyof RenewalFormState)[] = [
+    'idProofUploaded',
+    'addressProofUploaded',
+    'photographUploaded',
+    'panCardUploaded',
+    'characterCertificateUploaded',
+    'medicalCertificateUploaded',
+    'trainingCertificateUploaded',
+    'otherStateLicenseUploaded',
+    'existingArmsLicenseUploaded',
+    'safeCustodyUploaded',
+    'specialEvidenceUploaded',
+    'specialEvidenceFiles',
+    'rejectionDocUploaded',
+  ];
+  docUploadKeys.forEach(applyIfPresent);
+
+  if (renewal.rejectionDocUploaded) {
+    merged.rejectionDocUploaded = renewal.rejectionDocUploaded;
+  }
+
+  // 9. Declaration
+  if (renewal.declaration) {
+    merged.declaration = {
+      agreeToTruth: renewal.declaration.agreeToTruth ?? fresh.declaration.agreeToTruth,
+      understandLegalConsequences:
+        renewal.declaration.understandLegalConsequences ?? fresh.declaration.understandLegalConsequences,
+      agreeToTerms: renewal.declaration.agreeToTerms ?? fresh.declaration.agreeToTerms,
+    };
+  }
+  if (renewal.hasSubmittedTrueInfo !== undefined) {
+    merged.hasSubmittedTrueInfo = renewal.hasSubmittedTrueInfo;
+  }
+
+  return merged;
+};
+
+const buildFormDataFromRenewalRecord = async (renewalData: any, resolvedLicenseId: string) => {
+  const renewalState = buildRootDataFromRenewal(renewalData);
+
+  const lookupId = getTextValue(resolvedLicenseId, renewalData?.licenseId, renewalData?.licenseNumber);
+  if (!lookupId) {
+    return renewalState;
+  }
+
+  try {
+    const licenseResponse = await ApplicationService.getLicense(lookupId);
+    const freshData = extractData(licenseResponse);
+    if (freshData) {
+      const freshState = buildFieldStateFromFreshApplication(lookupId, freshData);
+      return mergeRenewalStateOverFresh(freshState, renewalState, renewalData);
+    }
+  } catch (err) {
+    console.warn('Unable to fetch fallback license/fresh application data:', err);
+  }
+
+  return renewalState;
 };
 
 const loadExistingRenewalByLicenseNumber = async (
@@ -2419,6 +2683,23 @@ function RenewalFormPageContent() {
         if (!prevErrs?.rejectionDocUploaded) return prevErrs;
         const { rejectionDocUploaded: _cleared, ...rest } = prevErrs;
         return rest;
+      });
+    }
+    if ('specialEvidenceUploaded' in patch || 'specialEvidenceFiles' in patch) {
+      const files = Array.isArray(patch.specialEvidenceFiles)
+        ? patch.specialEvidenceFiles
+        : patch.specialEvidenceUploaded
+          ? [patch.specialEvidenceUploaded]
+          : [];
+      setLicenseDetailsErrors(prevErrs => {
+        if (!prevErrs) return prevErrs;
+        const copy = { ...prevErrs };
+        if (files.length > 0) {
+          delete copy.specialEvidenceUploaded;
+        } else {
+          copy.specialEvidenceUploaded = 'Please upload Documentary Evidence before proceeding.';
+        }
+        return copy;
       });
     }
   };
@@ -3053,6 +3334,9 @@ function RenewalFormPageContent() {
     if (!selectedWeaponIds.length) {
       errs['requestedWeaponIds'] = 'Select at least one weapon type (16b)';
     }
+    if (!hasDocumentaryEvidence(data)) {
+      errs['specialEvidenceUploaded'] = 'Please upload Documentary Evidence before proceeding.';
+    }
     return errs;
   };
 
@@ -3315,7 +3599,7 @@ function RenewalFormPageContent() {
       case 'biometric':
         return { biometricData: full.biometricData };
       case 'documents':
-        return full.fileUploads ? { fileUploads: full.fileUploads } : {};
+        return {};
       default:
         return {};
     }
@@ -3386,6 +3670,11 @@ function RenewalFormPageContent() {
       if (Object.keys(sectionErrors).length > 0) {
         setLicenseDetailsErrors(sectionErrors);
         scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
+        if (sectionErrors.specialEvidenceUploaded) {
+          toast.error('Please upload Documentary Evidence before proceeding.');
+          setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
+          return;
+        }
       }
     } else if (sectionKey === 'licenseHistory') {
       sectionErrors = validateLicenseHistory(formData);
@@ -3417,6 +3706,32 @@ function RenewalFormPageContent() {
       const dataToSave = fileFields
         ? await commitStagedDocuments(activeRenewalId, formData, fileFields)
         : formData;
+
+      // Documents are uploaded individually via POST /renewal-forms/:id/upload-file
+      // and do not need a whole-record PATCH call.
+      if (sectionKey === 'documents') {
+        setFormData(dataToSave);
+        setSectionCompleted(prev => ({ ...prev, documents: true }));
+        if (!navigate) {
+          toast.success('Draft saved successfully.');
+          return;
+        }
+        toast.success('Documents saved successfully.');
+
+        // Auto-navigate to the next incomplete section or preview
+        const startIdx = SECTION_FLOW_ORDER.indexOf(
+          sectionKey as (typeof SECTION_FLOW_ORDER)[number]
+        );
+        const nextIncomplete = SECTION_FLOW_ORDER.slice(startIdx + 1).find(
+          key => !sectionCompleted[key]
+        );
+        const target = nextIncomplete ?? 'preview';
+
+        setCurrentStepIndex(STEP_KEYS.indexOf(target as (typeof STEP_KEYS)[number]));
+        scrollToSectionTop(target);
+        return;
+      }
+
       const sectionPayload = buildSectionSpecificPayload(sectionKey, dataToSave);
       if (Object.keys(sectionPayload).length === 0) {
         toast.warning('No data to save for this section.');
@@ -3455,6 +3770,15 @@ function RenewalFormPageContent() {
   const handleNextStep = (key: string) => {
     if (isReadOnly) {
       setShowReadOnlyModal(true);
+      return;
+    }
+    if (key === 'licenseDetails' && !hasDocumentaryEvidence(formData)) {
+      toast.error('Please upload Documentary Evidence before proceeding.');
+      setLicenseDetailsErrors(prev => ({
+        ...prev,
+        specialEvidenceUploaded: 'Please upload Documentary Evidence before proceeding.',
+      }));
+      scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
       return;
     }
     if (key === 'preview') {
@@ -3651,6 +3975,15 @@ function RenewalFormPageContent() {
       return;
     }
     const key = STEP_KEYS[currentStepIndex];
+    if (key === 'licenseDetails' && !hasDocumentaryEvidence(formData)) {
+      toast.error('Please upload Documentary Evidence before proceeding.');
+      setLicenseDetailsErrors(prev => ({
+        ...prev,
+        specialEvidenceUploaded: 'Please upload Documentary Evidence before proceeding.',
+      }));
+      scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
+      return;
+    }
     if (key === 'preview' || key === 'declaration') {
       persistRenewalForm(false);
       return;
@@ -4719,7 +5052,7 @@ function RenewalFormPageContent() {
                     renewalId={activeRenewalId}
                     isSyncingPrefilled={isSyncingEvidence}
                     onChange={handleChange}
-                    onPatch={patch => setFormData(prev => ({ ...prev, ...patch }))}
+                    onPatch={handleFormPatch}
                     onError={setError}
                     onStatus={setStatusMessage}
                     errors={licenseDetailsErrors}
@@ -4791,9 +5124,22 @@ function RenewalFormPageContent() {
               errors={STEP_ERRORS[currentStepIndex]}
               // Buttons stay enabled: clicking validates the section and highlights
               // every missing field, instead of silently greying out the buttons.
+              disableActions={
+                STEP_KEYS[currentStepIndex] === 'licenseDetails' &&
+                !hasDocumentaryEvidence(formData)
+              }
               disableSaveDraft={
-                STEP_KEYS[currentStepIndex] === 'documents'
-                  ? !hasStagedRenewalDocuments(formData, RENEWAL_DOCUMENT_FIELD_KEYS)
+                STEP_KEYS[currentStepIndex] === 'licenseDetails' &&
+                !hasDocumentaryEvidence(formData)
+                  ? true
+                  : STEP_KEYS[currentStepIndex] === 'documents'
+                    ? !hasStagedRenewalDocuments(formData, RENEWAL_DOCUMENT_FIELD_KEYS)
+                    : undefined
+              }
+              disabledTooltip={
+                STEP_KEYS[currentStepIndex] === 'licenseDetails' &&
+                !hasDocumentaryEvidence(formData)
+                  ? 'Please upload Documentary Evidence before proceeding.'
                   : undefined
               }
             />
