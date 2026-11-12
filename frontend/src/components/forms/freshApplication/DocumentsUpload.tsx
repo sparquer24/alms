@@ -396,7 +396,7 @@ const DocumentsUpload = () => {
 											</label>
 										)}
 										<span className="text-xs text-gray-500 mt-1">
-											{hasUploaded ? 'Remove the current document to replace it' : 'Max 10 MB • Only 1 file allowed'}
+											{hasUploaded ? 'Remove the current document to replace it' : 'Max 3 MB • Only 1 file allowed'}
 										</span>
 										{fileError[docType] && (
 											<span className="text-xs text-red-500 mt-1">{fileError[docType]}</span>

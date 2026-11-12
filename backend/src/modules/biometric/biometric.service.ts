@@ -10,6 +10,7 @@ declare global {
     namespace PrismaNamespace {
         interface PrismaClient {
             fLAFBiometricDatas: any;
+            renewalBiometricDatas: any;
         }
     }
 }
@@ -30,12 +31,14 @@ export class BiometricService {
      * @param validationData - Fingerprint template to validate
      * @param applicationId - Application ID for storage
      * @param userId - User ID performing the action (for audit)
+     * @param applicationType - Optional application type hint ('FRESH' | 'RENEWAL')
      * @returns Promise with validation result
      */
     async validateFingerprintUniqueness(
         validationData: FingerprintValidationDto,
         applicationId: number,
         userId: number,
+        applicationType?: string,
     ): Promise<FingerprintValidationResponse> {
         try {
             // Validate input data
@@ -188,18 +191,10 @@ export class BiometricService {
 
             // *** FINGERPRINT IS UNIQUE - STORE IT IN DATABASE ***
 
-            // Validate application exists
-            const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-                where: { id: applicationId },
-            });
-
-            if (!application) {
-                throw new HttpException(
-                    { success: false, message: 'Application not found' },
-                    HttpStatus.NOT_FOUND,
-                );
-            }
-
+            // Validate application exists and resolve type
+            const resolved = await this.resolveApplication(applicationId, applicationType, userId);
+            const targetAppId = resolved.applicationId;
+            const isRenewal = resolved.type === 'RENEWAL';
 
             // Generate fingerprint ID (hash of template for identification)
             const fingerprintHash = crypto
@@ -207,12 +202,16 @@ export class BiometricService {
                 .update(validationData.fingerTemplate.template)
                 .digest('hex');
 
-            // Get or create biometric data record from FLAFBiometricDatas table
-            let biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
-                where: { applicationId: applicationId },
-            });
+            // Get or create biometric data record
+            let biometricRecord = isRenewal
+                ? await (this.prisma as any).renewalBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                })
+                : await (this.prisma as any).fLAFBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                });
 
-            const existingData = biometricRecord?.biometricData as any || {};
+            const existingData = (biometricRecord?.biometricData as any) || {};
             const enrolledAt = new Date().toISOString();
 
             const biometricPayload = {
@@ -233,34 +232,51 @@ export class BiometricService {
             };
 
             // Create or update biometric data record
-            if (biometricRecord) {
-                biometricRecord = await (this.prisma as any).fLAFBiometricDatas.update({
-                    where: { applicationId: applicationId },
-                    data: { biometricData: biometricPayload },
-                });
+            if (isRenewal) {
+                if (biometricRecord) {
+                    biometricRecord = await (this.prisma as any).renewalBiometricDatas.update({
+                        where: { applicationId: targetAppId },
+                        data: { biometricData: biometricPayload },
+                    });
+                } else {
+                    biometricRecord = await (this.prisma as any).renewalBiometricDatas.create({
+                        data: {
+                            applicationId: targetAppId,
+                            biometricData: biometricPayload,
+                        },
+                    });
+                }
             } else {
-                biometricRecord = await (this.prisma as any).fLAFBiometricDatas.create({
-                    data: {
-                        applicationId: applicationId,
-                        biometricData: biometricPayload,
-                    },
-                });
+                if (biometricRecord) {
+                    biometricRecord = await (this.prisma as any).fLAFBiometricDatas.update({
+                        where: { applicationId: targetAppId },
+                        data: { biometricData: biometricPayload },
+                    });
+                } else {
+                    biometricRecord = await (this.prisma as any).fLAFBiometricDatas.create({
+                        data: {
+                            applicationId: targetAppId,
+                            biometricData: biometricPayload,
+                        },
+                    });
+                }
             }
 
             // Log to audit trail
             await this.auditService.logBiometricAction(
-                applicationId,
+                targetAppId,
                 userId,
                 'ENROLL',
                 validationData.fingerPosition,
                 {
                     quality: validationData.fingerTemplate.quality,
                     description: validationData.description,
+                    applicationType: resolved.type,
                 },
             );
 
             this.logger.log(
-                `Fingerprint enrolled successfully for application ${applicationId}, position: ${validationData.fingerPosition}`,
+                `Fingerprint enrolled successfully for ${resolved.type} application ${targetAppId}, position: ${validationData.fingerPosition}`,
             );
 
             return {
@@ -283,12 +299,14 @@ export class BiometricService {
      * @param applicantId - Application ID
      * @param enrollmentData - Enrollment request with template
      * @param userId - User ID performing the enrollment (for audit)
+     * @param applicationType - Optional application type hint ('FRESH' | 'RENEWAL')
      * @returns Promise with enrollment result
      */
     async enrollFingerprint(
         applicantId: string,
         enrollmentData: BiometricEnrollmentDto,
         userId: number,
+        applicationType?: string,
     ): Promise<{
         success: boolean;
         fingerprintId?: string;
@@ -297,18 +315,11 @@ export class BiometricService {
     }> {
         try {
             const appId = parseInt(applicantId);
-
-            // Validate application exists
-            const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-                where: { id: appId },
-            });
-
-            if (!application) {
-                throw new HttpException(
-                    { success: false, message: 'Application not found' },
-                    HttpStatus.NOT_FOUND,
-                );
+            if (isNaN(appId)) {
+                throw new HttpException({ success: false, message: 'Invalid application ID' }, HttpStatus.BAD_REQUEST);
             }
+
+            const resolved = await this.resolveApplication(appId, applicationType, userId);
 
             // *** CRITICAL: Validate fingerprint uniqueness BEFORE storing ***
             // Note: This method now also stores the fingerprint if unique
@@ -319,8 +330,9 @@ export class BiometricService {
                     matchThreshold: 65,
                     description: enrollmentData.description,
                 },
-                appId,
+                resolved.applicationId,
                 userId,
+                resolved.type,
             );
 
             if (validationResult.exists) {
@@ -365,12 +377,14 @@ export class BiometricService {
      * @param applicantId - Application ID
      * @param verificationData - Verification request with template
      * @param userId - User ID performing verification
+     * @param applicationType - Optional application type hint ('FRESH' | 'RENEWAL')
      * @returns Promise with verification result
      */
     async verifyFingerprint(
         applicantId: string,
         verificationData: BiometricVerificationDto,
         userId: number,
+        applicationType?: string,
     ): Promise<{
         success: boolean;
         isMatch: boolean;
@@ -380,25 +394,42 @@ export class BiometricService {
     }> {
         try {
             const appId = parseInt(applicantId);
+            if (isNaN(appId)) {
+                throw new HttpException({ success: false, message: 'Invalid application ID' }, HttpStatus.BAD_REQUEST);
+            }
 
-            // Validate application exists
-            const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-                where: { id: appId },
-            });
+            const resolved = await this.resolveApplication(appId, applicationType, userId);
+            const targetAppId = resolved.applicationId;
+            const isRenewal = resolved.type === 'RENEWAL';
 
-            if (!application) {
+            // Get biometric record
+            let biometricRecord = isRenewal
+                ? await (this.prisma as any).renewalBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                })
+                : await (this.prisma as any).fLAFBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                });
+
+            // For renewal, if no biometric record exists on renewalBiometricDatas yet,
+            // fall back to linked fresh application's biometrics
+            if (isRenewal && !biometricRecord) {
+                const freshAppId = resolved.application?.licenses?.freshApplicationId;
+                if (freshAppId) {
+                    biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
+                        where: { applicationId: freshAppId },
+                    });
+                }
+            }
+
+            if (!biometricRecord) {
                 throw new HttpException(
-                    { success: false, message: 'Application not found' },
-                    HttpStatus.NOT_FOUND,
+                    { success: false, message: 'No enrolled fingerprints found' },
+                    HttpStatus.BAD_REQUEST,
                 );
             }
 
-            // Get biometric record from FLAFBiometricDatas table
-            const biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
-                where: { applicationId: appId },
-            });
-
-            const biometricData = biometricRecord?.biometricData as any || {};
+            const biometricData = (biometricRecord?.biometricData as any) || {};
             const storedFingerprints = biometricData.fingerprints || [];
 
             if (storedFingerprints.length === 0) {
@@ -439,7 +470,7 @@ export class BiometricService {
 
             // Log verification attempt
             await this.auditService.logBiometricAction(
-                parseInt(applicantId),
+                targetAppId,
                 userId,
                 'VERIFY',
                 bestMatch.fingerPosition || 'UNKNOWN',
@@ -447,11 +478,12 @@ export class BiometricService {
                     isMatch: bestMatch.isMatch,
                     matchScore: bestMatch.score,
                     threshold: matchThreshold,
+                    applicationType: resolved.type,
                 },
             );
 
             this.logger.log(
-                `Fingerprint verification for application ${applicantId}: ${bestMatch.isMatch ? 'MATCHED' : 'NO_MATCH'}`,
+                `Fingerprint verification for ${resolved.type} application ${targetAppId}: ${bestMatch.isMatch ? 'MATCHED' : 'NO_MATCH'}`,
             );
 
             return {
@@ -480,21 +512,43 @@ export class BiometricService {
     /**
      * Get enrolled fingerprints for an application
      * @param applicantId - Application ID
+     * @param applicationType - Optional application type hint ('FRESH' | 'RENEWAL')
      * @returns Promise with list of enrolled fingerprints (without sensitive data)
      */
-    async getEnrolledFingerprints(applicantId: string): Promise<any[]> {
+    async getEnrolledFingerprints(applicantId: string, applicationType?: string): Promise<any[]> {
         try {
             const appId = parseInt(applicantId);
+            if (isNaN(appId)) return [];
 
-            const biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
-                where: { applicationId: appId },
-            });
+            const resolved = await this.resolveApplication(appId, applicationType).catch(() => null);
+            if (!resolved) {
+                return [];
+            }
+
+            const targetAppId = resolved.applicationId;
+            let biometricRecord = resolved.type === 'RENEWAL'
+                ? await (this.prisma as any).renewalBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                })
+                : await (this.prisma as any).fLAFBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                });
+
+            // For renewal, if no renewal biometric record exists yet, fall back to linked fresh application
+            if (resolved.type === 'RENEWAL' && !biometricRecord) {
+                const freshAppId = resolved.application?.licenses?.freshApplicationId;
+                if (freshAppId) {
+                    biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
+                        where: { applicationId: freshAppId },
+                    });
+                }
+            }
 
             if (!biometricRecord) {
                 return [];
             }
 
-            const biometricData = biometricRecord.biometricData as any || {};
+            const biometricData = (biometricRecord.biometricData as any) || {};
             const fingerprints = biometricData.fingerprints || [];
 
             // Return fingerprints without sensitive template data
@@ -504,6 +558,7 @@ export class BiometricService {
                 quality: fp.quality,
                 enrolledAt: fp.enrolledAt,
                 description: fp.description,
+                bitmapData: fp.bitmapData,
                 // Do NOT return: template, templateHash
             }));
         } catch (error: any) {
@@ -517,19 +572,32 @@ export class BiometricService {
      * @param applicantId - Application ID
      * @param fingerprintId - Fingerprint ID to delete
      * @param userId - User ID performing deletion
+     * @param applicationType - Optional application type hint ('FRESH' | 'RENEWAL')
      * @returns Promise with deletion result
      */
     async deleteEnrolledFingerprint(
         applicantId: string,
         fingerprintId: string,
         userId: number,
+        applicationType?: string,
     ): Promise<{ success: boolean; message: string }> {
         try {
             const appId = parseInt(applicantId);
+            if (isNaN(appId)) {
+                throw new HttpException({ success: false, message: 'Invalid application ID' }, HttpStatus.BAD_REQUEST);
+            }
 
-            const biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
-                where: { applicationId: appId },
-            });
+            const resolved = await this.resolveApplication(appId, applicationType, userId);
+            const targetAppId = resolved.applicationId;
+            const isRenewal = resolved.type === 'RENEWAL';
+
+            const biometricRecord = isRenewal
+                ? await (this.prisma as any).renewalBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                })
+                : await (this.prisma as any).fLAFBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                });
 
             if (!biometricRecord) {
                 throw new HttpException(
@@ -538,7 +606,7 @@ export class BiometricService {
                 );
             }
 
-            const biometricData = biometricRecord.biometricData as any || {};
+            const biometricData = (biometricRecord.biometricData as any) || {};
             const fingerprints = biometricData.fingerprints || [];
 
             const originalCount = fingerprints.length;
@@ -556,21 +624,28 @@ export class BiometricService {
                 fingerprints: updatedFingerprints,
             };
 
-            await (this.prisma as any).fLAFBiometricDatas.update({
-                where: { applicationId: appId },
-                data: { biometricData: updatedBiometricData },
-            });
+            if (isRenewal) {
+                await (this.prisma as any).renewalBiometricDatas.update({
+                    where: { applicationId: targetAppId },
+                    data: { biometricData: updatedBiometricData },
+                });
+            } else {
+                await (this.prisma as any).fLAFBiometricDatas.update({
+                    where: { applicationId: targetAppId },
+                    data: { biometricData: updatedBiometricData },
+                });
+            }
 
             // Log deletion
             await this.auditService.logBiometricAction(
-                appId,
+                targetAppId,
                 userId,
                 'DELETE',
                 fingerprintId,
-                { reason: 'Fingerprint deleted by user' },
+                { reason: 'Fingerprint deleted by user', applicationType: resolved.type },
             );
 
-            this.logger.log(`Fingerprint ${fingerprintId} deleted for application ${applicantId}`);
+            this.logger.log(`Fingerprint ${fingerprintId} deleted for ${resolved.type} application ${targetAppId}`);
 
             return {
                 success: true,
@@ -584,7 +659,7 @@ export class BiometricService {
             }
 
             throw new HttpException(
-                { success: false, message: 'Failed to delete fingerprint' },
+                { success: false, message: error.message || 'Failed to delete fingerprint' },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
@@ -677,22 +752,39 @@ export class BiometricService {
         message: string;
     }> {
         try {
-            // Fetch ALL biometric records from the database
-            const allBiometricRecords = await (this.prisma as any).fLAFBiometricDatas.findMany({
-                include: {
-                    application: {
-                        select: {
-                            id: true,
-                            almsLicenseId: true,
-                            firstName: true,
-                            middleName: true,
-                            lastName: true,
+            // Fetch biometric records from both Fresh and Renewal tables
+            const [allFreshRecords, allRenewalRecords] = await Promise.all([
+                (this.prisma as any).fLAFBiometricDatas.findMany({
+                    include: {
+                        application: {
+                            select: {
+                                id: true,
+                                almsLicenseId: true,
+                                firstName: true,
+                                middleName: true,
+                                lastName: true,
+                            },
                         },
                     },
-                },
-            });
+                }),
+                (this.prisma as any).renewalBiometricDatas.findMany({
+                    include: {
+                        application: {
+                            select: {
+                                id: true,
+                                licenseNumber: true,
+                                renewalLicenseId: true,
+                                firstName: true,
+                                middleName: true,
+                                lastName: true,
+                            },
+                        },
+                    },
+                }),
+            ]);
 
-            this.logger.log(`Fetching templates from ${allBiometricRecords.length} biometric records`);
+            const totalRecords = allFreshRecords.length + allRenewalRecords.length;
+            this.logger.log(`Fetching templates from ${totalRecords} biometric records (${allFreshRecords.length} fresh, ${allRenewalRecords.length} renewal)`);
 
             const templates: Array<{
                 applicationId: number;
@@ -703,21 +795,29 @@ export class BiometricService {
                 enrolledAt?: string;
             }> = [];
 
-            for (const record of allBiometricRecords) {
-                const biometricData = record.biometricData as any || {};
+            const seenTemplateHashes = new Set<string>();
+
+            // Process Fresh records
+            for (const record of allFreshRecords) {
+                if (excludeApplicationId && record.applicationId === excludeApplicationId) {
+                    continue;
+                }
+
+                const biometricData = (record.biometricData as any) || {};
                 const storedFingerprints = biometricData.fingerprints || [];
 
                 for (const storedFingerprint of storedFingerprints) {
                     try {
+                        const hashKey = storedFingerprint.templateHash || storedFingerprint.template;
+                        if (hashKey) {
+                            seenTemplateHashes.add(hashKey);
+                        }
 
                         const applicantName = [
                             record.application?.firstName,
                             record.application?.middleName,
                             record.application?.lastName,
                         ].filter(Boolean).join(' ');
-
-                        // Debug log - check template format
-                        this.logger.debug(`Template for app ${record.applicationId}: length=${storedFingerprint.template?.length}, preview=${storedFingerprint.template?.substring(0, 30)}...`);
 
                         templates.push({
                             applicationId: record.applicationId,
@@ -728,8 +828,47 @@ export class BiometricService {
                             enrolledAt: storedFingerprint.enrolledAt,
                         });
                     } catch (decryptError) {
-                        this.logger.warn(`Failed to decrypt template for app ${record.applicationId}: ${decryptError}`);
-                        // Continue with other fingerprints
+                        this.logger.warn(`Failed to process template for app ${record.applicationId}: ${decryptError}`);
+                    }
+                }
+            }
+
+            // Process Renewal records (excluding duplicates already registered in fresh)
+            for (const record of allRenewalRecords) {
+                if (excludeApplicationId && record.applicationId === excludeApplicationId) {
+                    continue;
+                }
+
+                const biometricData = (record.biometricData as any) || {};
+                const storedFingerprints = biometricData.fingerprints || [];
+
+                for (const storedFingerprint of storedFingerprints) {
+                    try {
+                        const hashKey = storedFingerprint.templateHash || storedFingerprint.template;
+                        if (hashKey && seenTemplateHashes.has(hashKey)) {
+                            // Already present in fresh records, skip duplicate template
+                            continue;
+                        }
+                        if (hashKey) {
+                            seenTemplateHashes.add(hashKey);
+                        }
+
+                        const applicantName = [
+                            record.application?.firstName,
+                            record.application?.middleName,
+                            record.application?.lastName,
+                        ].filter(Boolean).join(' ');
+
+                        templates.push({
+                            applicationId: record.applicationId,
+                            almsLicenseId: record.application?.renewalLicenseId || record.application?.licenseNumber || undefined,
+                            applicantName: applicantName || 'Unknown',
+                            fingerPosition: storedFingerprint.position,
+                            template: storedFingerprint.template,
+                            enrolledAt: storedFingerprint.enrolledAt,
+                        });
+                    } catch (decryptError) {
+                        this.logger.warn(`Failed to process template for renewal app ${record.applicationId}: ${decryptError}`);
                     }
                 }
             }
@@ -751,12 +890,167 @@ export class BiometricService {
     }
 
     /**
+     * Resolve whether an applicationId refers to a FRESH or RENEWAL application.
+     * Supports:
+     * - Explicit type hints (FRESH / RENEWAL)
+     * - Automatic resolution across FreshLicenseApplicationPersonalDetails and RenewalFormPersonalDetails
+     * - Fallback resolution if a License ID is passed
+     * - Disambiguation if the same numeric ID exists in both tables
+     */
+    async resolveApplication(
+        applicationId: number,
+        applicationTypeHint?: string,
+        userId?: number,
+    ): Promise<{
+        type: 'FRESH' | 'RENEWAL';
+        applicationId: number;
+        application: any;
+    }> {
+        if (!applicationId || isNaN(applicationId)) {
+            throw new HttpException(
+                { success: false, message: 'Invalid application ID' },
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        const normalizedHint = applicationTypeHint?.trim().toUpperCase();
+
+        // 1. Explicit RENEWAL hint
+        if (normalizedHint === 'RENEWAL') {
+            const renewalApp = await this.prisma.renewalFormPersonalDetails.findUnique({
+                where: { id: applicationId },
+                include: { licenses: true },
+            });
+            if (renewalApp) {
+                return { type: 'RENEWAL', applicationId: renewalApp.id, application: renewalApp };
+            }
+            // Check if applicationId was a license ID
+            const license = await this.prisma.licenses.findUnique({
+                where: { id: applicationId },
+                select: { renewalApplicationId: true, lastModifiedRenewalId: true },
+            });
+            const linkedRenewalId = license?.lastModifiedRenewalId ?? license?.renewalApplicationId;
+            if (linkedRenewalId) {
+                const linkedApp = await this.prisma.renewalFormPersonalDetails.findUnique({
+                    where: { id: linkedRenewalId },
+                    include: { licenses: true },
+                });
+                if (linkedApp) {
+                    return { type: 'RENEWAL', applicationId: linkedApp.id, application: linkedApp };
+                }
+            }
+            throw new HttpException(
+                { success: false, message: 'Application not found' },
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        // 2. Explicit FRESH hint
+        if (normalizedHint === 'FRESH') {
+            const freshApp = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+                where: { id: applicationId },
+            });
+            if (freshApp) {
+                return { type: 'FRESH', applicationId: freshApp.id, application: freshApp };
+            }
+            // Check if applicationId was a license ID
+            const license = await this.prisma.licenses.findUnique({
+                where: { id: applicationId },
+                select: { freshApplicationId: true },
+            });
+            if (license?.freshApplicationId) {
+                const linkedApp = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+                    where: { id: license.freshApplicationId },
+                });
+                if (linkedApp) {
+                    return { type: 'FRESH', applicationId: linkedApp.id, application: linkedApp };
+                }
+            }
+            throw new HttpException(
+                { success: false, message: 'Application not found' },
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        // 3. No hint: Probe both tables
+        const [freshApp, renewalApp] = await Promise.all([
+            this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+                where: { id: applicationId },
+            }),
+            this.prisma.renewalFormPersonalDetails.findUnique({
+                where: { id: applicationId },
+                include: { licenses: true },
+            }),
+        ]);
+
+        // Only renewal application exists
+        if (!freshApp && renewalApp) {
+            return { type: 'RENEWAL', applicationId: renewalApp.id, application: renewalApp };
+        }
+
+        // Only fresh application exists
+        if (freshApp && !renewalApp) {
+            return { type: 'FRESH', applicationId: freshApp.id, application: freshApp };
+        }
+
+        // Both exist: Disambiguate
+        if (freshApp && renewalApp) {
+            if (userId) {
+                const renewalMatchesUser = renewalApp.currentUserId === userId || renewalApp.previousUserId === userId;
+                const freshMatchesUser = freshApp.currentUserId === userId || freshApp.previousUserId === userId;
+                if (renewalMatchesUser && !freshMatchesUser) {
+                    return { type: 'RENEWAL', applicationId: renewalApp.id, application: renewalApp };
+                }
+                if (freshMatchesUser && !renewalMatchesUser) {
+                    return { type: 'FRESH', applicationId: freshApp.id, application: freshApp };
+                }
+            }
+            if (renewalApp.isSubmit === false && freshApp.isSubmit === true) {
+                return { type: 'RENEWAL', applicationId: renewalApp.id, application: renewalApp };
+            }
+            if (freshApp.isSubmit === false && renewalApp.isSubmit === true) {
+                return { type: 'FRESH', applicationId: freshApp.id, application: freshApp };
+            }
+            // Default to FRESH for backwards compatibility
+            return { type: 'FRESH', applicationId: freshApp.id, application: freshApp };
+        }
+
+        // Neither exists directly: check if applicationId is a License ID
+        const license = await this.prisma.licenses.findUnique({
+            where: { id: applicationId },
+            select: { freshApplicationId: true, renewalApplicationId: true, lastModifiedRenewalId: true },
+        });
+        if (license) {
+            const renewalId = license.lastModifiedRenewalId ?? license.renewalApplicationId;
+            if (renewalId) {
+                const app = await this.prisma.renewalFormPersonalDetails.findUnique({
+                    where: { id: renewalId },
+                    include: { licenses: true },
+                });
+                if (app) return { type: 'RENEWAL', applicationId: app.id, application: app };
+            }
+            if (license.freshApplicationId) {
+                const app = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+                    where: { id: license.freshApplicationId },
+                });
+                if (app) return { type: 'FRESH', applicationId: app.id, application: app };
+            }
+        }
+
+        throw new HttpException(
+            { success: false, message: 'Application not found' },
+            HttpStatus.NOT_FOUND,
+        );
+    }
+
+    /**
      * Store a fingerprint directly (called after client-side validation passes)
      * @param applicationId - Application ID
      * @param fingerPosition - Finger position
      * @param template - Template data
      * @param description - Optional description
      * @param userId - User ID for audit
+     * @param applicationType - Optional application type hint ('FRESH' | 'RENEWAL')
      * @returns Promise with storage result
      */
     async storeFingerprint(
@@ -765,6 +1059,7 @@ export class BiometricService {
         template: { template: string; quality: number; captureTime: string; bitmapData?: string },
         description: string,
         userId: number,
+        applicationType?: string,
     ): Promise<{
         success: boolean;
         fingerprintId: string;
@@ -772,17 +1067,10 @@ export class BiometricService {
         message: string;
     }> {
         try {
-            // Validate application exists
-            const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-                where: { id: applicationId },
-            });
-
-            if (!application) {
-                throw new HttpException(
-                    { success: false, message: 'Application not found' },
-                    HttpStatus.NOT_FOUND,
-                );
-            }
+            // Validate application exists and resolve type
+            const resolved = await this.resolveApplication(applicationId, applicationType, userId);
+            const targetAppId = resolved.applicationId;
+            const isRenewal = resolved.type === 'RENEWAL';
 
             // Generate fingerprint ID (hash of template for identification)
             const fingerprintHash = crypto
@@ -791,11 +1079,30 @@ export class BiometricService {
                 .digest('hex');
 
             // Get or create biometric data record
-            let biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
-                where: { applicationId: applicationId },
-            });
+            let biometricRecord = isRenewal
+                ? await (this.prisma as any).renewalBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                })
+                : await (this.prisma as any).fLAFBiometricDatas.findUnique({
+                    where: { applicationId: targetAppId },
+                });
 
-            const existingData = biometricRecord?.biometricData as any || {};
+            let existingData = (biometricRecord?.biometricData as any) || {};
+
+            // If renewal and no biometric record exists yet on renewalBiometricDatas,
+            // inherit non-fingerprint biometric data (photo, signature) from linked fresh application
+            if (isRenewal && !biometricRecord) {
+                const freshAppId = resolved.application?.licenses?.freshApplicationId;
+                if (freshAppId) {
+                    const freshBio = await (this.prisma as any).fLAFBiometricDatas.findUnique({
+                        where: { applicationId: freshAppId },
+                    });
+                    if (freshBio?.biometricData) {
+                        existingData = { ...(freshBio.biometricData as any) };
+                    }
+                }
+            }
+
             const enrolledAt = new Date().toISOString();
 
             // Store ONLY the latest fingerprint (replace existing fingerprints array)
@@ -817,30 +1124,46 @@ export class BiometricService {
             };
 
             // Create or update biometric data record
-            if (biometricRecord) {
-                await (this.prisma as any).fLAFBiometricDatas.update({
-                    where: { applicationId: applicationId },
-                    data: { biometricData: biometricPayload },
-                });
+            if (isRenewal) {
+                if (biometricRecord) {
+                    await (this.prisma as any).renewalBiometricDatas.update({
+                        where: { applicationId: targetAppId },
+                        data: { biometricData: biometricPayload },
+                    });
+                } else {
+                    await (this.prisma as any).renewalBiometricDatas.create({
+                        data: {
+                            applicationId: targetAppId,
+                            biometricData: biometricPayload,
+                        },
+                    });
+                }
             } else {
-                await (this.prisma as any).fLAFBiometricDatas.create({
-                    data: {
-                        applicationId: applicationId,
-                        biometricData: biometricPayload,
-                    },
-                });
+                if (biometricRecord) {
+                    await (this.prisma as any).fLAFBiometricDatas.update({
+                        where: { applicationId: targetAppId },
+                        data: { biometricData: biometricPayload },
+                    });
+                } else {
+                    await (this.prisma as any).fLAFBiometricDatas.create({
+                        data: {
+                            applicationId: targetAppId,
+                            biometricData: biometricPayload,
+                        },
+                    });
+                }
             }
 
             // Audit log
             await this.auditService.logBiometricAction(
-                applicationId,
+                targetAppId,
                 userId,
                 'FINGERPRINT_ENROLLED',
                 fingerPosition,
-                { quality: template.quality }
+                { quality: template.quality, applicationType: resolved.type }
             );
 
-            this.logger.log(`Fingerprint stored for application ${applicationId} at position ${fingerPosition}`);
+            this.logger.log(`Fingerprint stored for ${resolved.type} application ${targetAppId} at position ${fingerPosition}`);
 
             return {
                 success: true,

@@ -23,6 +23,7 @@ interface FormFooterProps {
   /** Overrides disableActions for Save to Draft only (a draft may be incomplete). */
   disableSaveDraft?: boolean;
   errors?: Record<string, string>;
+  disabledTooltip?: string;
 }
 
 const FormFooter = ({
@@ -36,6 +37,7 @@ const FormFooter = ({
   disableActions = false,
   disableSaveDraft,
   errors,
+  disabledTooltip,
 }: FormFooterProps) => {
   const errorEntries = errors ? Object.entries(errors).filter(([_, msg]) => msg && msg.trim()) : [];
   // Which button started the current save, so only that one shows the spinner
@@ -128,6 +130,7 @@ const FormFooter = ({
                 onSaveToDraft?.();
               }}
               disabled={isLoading || (disableSaveDraft ?? disableActions)}
+              title={isLoading || (disableSaveDraft ?? disableActions) ? disabledTooltip : undefined}
               suppressHydrationWarning
               className='flex items-center justify-center gap-2 border border-amber-300 bg-amber-50 text-amber-900 font-semibold px-4 py-2.5 rounded-xl hover:bg-amber-100 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px] text-xs sm:text-sm shadow-xs'
             >
@@ -163,6 +166,7 @@ const FormFooter = ({
                 onNext?.();
               }}
               disabled={isLoading || disableActions}
+              title={isLoading || disableActions ? disabledTooltip : undefined}
               suppressHydrationWarning
               className='flex items-center justify-center gap-2 bg-[#0B1F3A] hover:bg-[#15325B] text-white font-bold px-6 py-2.5 rounded-xl shadow-md transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px] text-xs sm:text-sm'
             >

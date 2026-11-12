@@ -166,8 +166,8 @@ const BiometricInformation = () => {
           return;
         }
 
-        // 2. File Size Validation: 20 KB - 5 MB
-        const sizeError = getFileSizeError(file, 5 * MB, { minBytes: 20 * 1024 });
+        // 2. File Size Validation: 20 KB - 3 MB
+        const sizeError = getFileSizeError(file, 3 * MB, { minBytes: 20 * 1024 });
         if (sizeError) {
           toast.error(sizeError);
           e.target.value = '';
@@ -765,13 +765,13 @@ const BiometricInformation = () => {
 
       // Webcam Photo Size Validation (Webcam captures are automatically 480x480, min 2 KB)
       const minSize = 2 * 1024;
-      const maxSize = 5 * 1024 * 1024;
+      const maxSize = 3 * 1024 * 1024;
       if (blob.size < minSize) {
         toast.error('Captured photograph size is too small. Please ensure your camera is working correctly.');
         return;
       }
       if (blob.size > maxSize) {
-        toast.error('Captured photograph size is too large (over 5 MB).');
+        toast.error('Captured photograph size is too large (over 3 MB).');
         return;
       }
 
@@ -1287,7 +1287,7 @@ const BiometricInformation = () => {
         </div>
         
         <p className='text-sm text-gray-500 mb-4 leading-relaxed'>
-          Upload a recent passport-size photograph (JPG, JPEG, PNG, max 5 MB) or capture using your webcam.
+          Upload a recent passport-size photograph (JPG, JPEG, PNG, max 3 MB) or capture using your webcam.
         </p>
 
         <div className='grid md:grid-cols-2 gap-6 items-stretch'>
@@ -1326,7 +1326,7 @@ const BiometricInformation = () => {
                 }`}>
                   Upload Photograph
                 </span>
-                <span className='text-xs text-gray-400 mt-1'>Supports JPG, JPEG, PNG (20 KB - 5 MB)</span>
+                <span className='text-xs text-gray-400 mt-1'>Supports JPG, JPEG, PNG (20 KB - 3 MB)</span>
                 <input
                   type='file'
                   name='photograph'

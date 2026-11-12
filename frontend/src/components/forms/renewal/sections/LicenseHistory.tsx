@@ -19,7 +19,7 @@ type WeaponItem = {
   value: string;
 };
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -129,7 +129,7 @@ const LicenseHistory = forwardRef(function LicenseHistory(
 
     // File size validation
     if (file.size > MAX_FILE_SIZE) {
-      onError?.(`File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 10 MB.`);
+      onError?.(`File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 3 MB.`);
       return;
     }
 
@@ -219,7 +219,8 @@ const LicenseHistory = forwardRef(function LicenseHistory(
                 name='rejectionDocUploaded'
                 required
                 variant='browseCard'
-                hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB each'
+                acceptedTypes='.pdf,.doc,.docx,.jpg,.jpeg,.png'
+                hintText='PDF, DOC, DOCX, JPG, PNG up to 3 MB each'
                 onFileSelect={isReadOnly ? () => {} : handleRejectionDocUpload}
                 uploaded={showRejectionDoc}
                 fileName={showRejectionDoc ? rejectionDocMeta.fileName : undefined}

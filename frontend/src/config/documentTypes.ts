@@ -18,49 +18,49 @@ export const DOCUMENT_TYPE_MAPPING: Record<string, DocumentTypeMapping> = {
     displayName: 'Aadhar Card',
     fileType: 'AADHAR_CARD',
     acceptedTypes: '.jpg,.jpeg,.png,.pdf',
-    maxSize: 10,
+    maxSize: 3,
     description: 'Upload your Aadhar Card (front and back)'
   },
   'PAN Card': {
     displayName: 'PAN Card',
     fileType: 'PAN_CARD',
     acceptedTypes: '.jpg,.jpeg,.png,.pdf',
-    maxSize: 10,
+    maxSize: 3,
     description: 'Upload your PAN Card'
   },
   'Training certificate': {
     displayName: 'Training Certificate',
     fileType: 'TRAINING_CERTIFICATE',
     acceptedTypes: '.jpg,.jpeg,.png,.pdf',
-    maxSize: 10,
+    maxSize: 3,
     description: 'Upload your training certificate'
   },
   'Other state Arms License': {
     displayName: 'Other State Arms License',
     fileType: 'OTHER_STATE_LICENSE',
     acceptedTypes: '.jpg,.jpeg,.png,.pdf',
-    maxSize: 10,
+    maxSize: 3,
     description: 'Upload other state arms license'
   },
   'Existing Arms License': {
     displayName: 'Existing Arms License',
     fileType: 'EXISTING_LICENSE',
     acceptedTypes: '.jpg,.jpeg,.png,.pdf',
-    maxSize: 10,
+    maxSize: 3,
     description: 'Upload existing arms license'
   },
   'Safe custody': {
     displayName: 'Safe Custody',
     fileType: 'SAFE_CUSTODY',
     acceptedTypes: '.jpg,.jpeg,.png,.pdf',
-    maxSize: 10,
+    maxSize: 3,
     description: 'Upload safe custody documents'
   },
   'Medical Reports': {
     displayName: 'Medical Reports',
     fileType: 'MEDICAL_REPORT',
     acceptedTypes: '.jpg,.jpeg,.png,.pdf',
-    maxSize: 10,
+    maxSize: 3,
     description: 'Upload medical reports'
   }
 };

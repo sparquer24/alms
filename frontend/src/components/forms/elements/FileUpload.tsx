@@ -15,6 +15,7 @@ interface FileUploadProps {
   variant?: 'default' | 'browseCard';
   hintText?: string;
   disabled?: boolean;
+  maxSizeText?: string;
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
@@ -30,6 +31,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   variant = 'default',
   hintText,
   disabled = false,
+  maxSizeText,
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -90,7 +92,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4-4m0 0l4 4m-4-4v12" />
               </svg>
               <span className={`underline text-sm mt-1 ${disabled ? 'pointer-events-none' : ''}`}>Browse</span>
-              <span className="text-[11px] text-gray-500 mt-1">Max 10 MB per file</span>
+              <span className="text-[11px] text-gray-500 mt-1">{maxSizeText || 'Max 10 MB per file'}</span>
             </span>
           )}
 

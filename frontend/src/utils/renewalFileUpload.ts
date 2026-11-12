@@ -293,6 +293,7 @@ export async function commitStagedRenewalDocuments(
     Object.assign(patch, fieldPatch);
     onFieldSaved?.(fieldPatch);
   }
+
   return patch;
 }
 
@@ -330,7 +331,17 @@ export async function syncPendingRenewalDocuments(
 
   // An unsaved evidence pick is uploaded by commitStagedRenewalDocuments on save.
   if (!includeEvidence || isStagedRenewalDocument(formData.specialEvidenceUploaded)) {
-    return patch;
+    const includeRejectionDoc =
+    !options?.fieldKeys || options.fieldKeys.includes('rejectionDocUploaded');
+  if (includeRejectionDoc && !isStagedRenewalDocument(formData.rejectionDocUploaded)) {
+    const meta = getDocumentUploadMeta(formData.rejectionDocUploaded);
+    if (meta.fileUrl && !meta.id) {
+      const uploaded = await uploadRenewalDocumentFromExisting(renewalId, 'rejectionDocUploaded', meta);
+      if (uploaded) patch.rejectionDocUploaded = uploaded;
+    }
+  }
+
+  return patch;
   }
 
   const syncedEvidence: RenewalFileMeta[] = [];
@@ -351,6 +362,16 @@ export async function syncPendingRenewalDocuments(
     patch.specialEvidenceUploaded = syncedEvidence[syncedEvidence.length - 1];
   }
 
+  const includeRejectionDoc =
+    !options?.fieldKeys || options.fieldKeys.includes('rejectionDocUploaded');
+  if (includeRejectionDoc && !isStagedRenewalDocument(formData.rejectionDocUploaded)) {
+    const meta = getDocumentUploadMeta(formData.rejectionDocUploaded);
+    if (meta.fileUrl && !meta.id) {
+      const uploaded = await uploadRenewalDocumentFromExisting(renewalId, 'rejectionDocUploaded', meta);
+      if (uploaded) patch.rejectionDocUploaded = uploaded;
+    }
+  }
+
   return patch;
 }
 
@@ -368,11 +389,20 @@ export function hasPendingRenewalDocuments(formData: Record<string, any>): boole
     ? [formData.specialEvidenceUploaded]
     : [];
 
-  return evidenceList.some((file) => {
+  if (evidenceList.some((file) => {
     if (isStagedRenewalDocument(file)) return false;
     const meta = getDocumentUploadMeta(file);
     return Boolean(meta.fileUrl && !meta.id);
-  });
+  })) {
+    return true;
+  }
+
+  if (!isStagedRenewalDocument(formData.rejectionDocUploaded)) {
+    const meta = getDocumentUploadMeta(formData.rejectionDocUploaded);
+    if (meta.fileUrl && !meta.id) return true;
+  }
+
+  return false;
 }
 
 /** POST upload-file for all prefilled documents (fresh app or renewal without file ids) */
@@ -391,6 +421,9 @@ export async function applyPrefilledDocumentUploads(
   }
   if (Array.isArray(patch.specialEvidenceFiles)) {
     count += (patch.specialEvidenceFiles as RenewalFileMeta[]).filter((f) => f.id).length;
+  }
+  if (patch.rejectionDocUploaded) {
+    count += 1;
   }
 
   if (!count) {

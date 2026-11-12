@@ -23,12 +23,14 @@ export class BiometricAPIService {
     /**
      * Get enrolled fingerprints for an applicant
      * @param applicantId - Application ID
+     * @param applicationType - Optional application type ('FRESH' | 'RENEWAL')
      * @returns Promise with array of enrolled fingerprints
      */
-    static async getEnrolledFingerprints(applicantId: string): Promise<any[]> {
+    static async getEnrolledFingerprints(applicantId: string, applicationType?: string): Promise<any[]> {
         try {
+            const query = applicationType ? `?applicationType=${encodeURIComponent(applicationType)}` : '';
             const response = await fetch(
-                `/api${this.BASE_PATH}/enrolled/${encodeURIComponent(applicantId)}`
+                `/api${this.BASE_PATH}/enrolled/${encodeURIComponent(applicantId)}${query}`
             );
             if (response.status === 404) return [];
             if (!response.ok) throw new Error('Failed to fetch enrolled fingerprints');
@@ -81,13 +83,15 @@ export class BiometricAPIService {
      * @param fingerPosition - Finger position
      * @param template - Biometric template
      * @param description - Optional description
+     * @param applicationType - Optional application type ('FRESH' | 'RENEWAL')
      * @returns Promise with storage result
      */
     static async storeFingerprint(
         applicantId: string,
         fingerPosition: string,
         template: BiometricTemplate,
-        description?: string
+        description?: string,
+        applicationType?: string,
     ): Promise<{
         success: boolean;
         fingerprintId?: string;
@@ -95,12 +99,14 @@ export class BiometricAPIService {
         message: string;
     }> {
         try {
+            const query = applicationType ? `?applicationType=${encodeURIComponent(applicationType)}` : '';
             const response = await postData(
-                `${this.BASE_PATH}/store/${encodeURIComponent(applicantId)}`,
+                `${this.BASE_PATH}/store/${encodeURIComponent(applicantId)}${query}`,
                 {
                     fingerPosition,
                     fingerTemplate: template,
                     description: description || `Fingerprint - ${fingerPosition}`,
+                    applicationType,
                 }
             );
 
