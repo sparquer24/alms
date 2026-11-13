@@ -915,7 +915,8 @@ export class RenewalFormService {
       });
       
       if (Array.isArray(finalApplication?.licenseDetails)) {
-        for (const ld of finalApplication.licenseDetails) {
+        for (const rawLd of finalApplication.licenseDetails) {
+          const ld = rawLd as typeof rawLd & { wildBeastsSpecification?: string | null };
           if (ld.licencePlaceArea && typeof ld.licencePlaceArea === 'string' && ld.licencePlaceArea.startsWith('{')) {
             try {
               const parsed = JSON.parse(ld.licencePlaceArea);
@@ -1224,7 +1225,8 @@ export class RenewalFormService {
       }
 
       if (Array.isArray(application?.licenseDetails)) {
-        for (const ld of application.licenseDetails) {
+        for (const rawLd of application.licenseDetails) {
+          const ld = rawLd as typeof rawLd & { wildBeastsSpecification?: string | null };
           if (ld.licencePlaceArea && typeof ld.licencePlaceArea === 'string' && ld.licencePlaceArea.startsWith('{')) {
             try {
               const parsed = JSON.parse(ld.licencePlaceArea);
