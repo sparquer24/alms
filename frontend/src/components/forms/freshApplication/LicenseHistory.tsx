@@ -33,6 +33,9 @@ const validateLicenseHistory = (formData: any) => {
 			const resultErr = validateSelect(history.previousResult ?? '', true, { required: 'Result is required' });
 			if (resultErr) errors.appliedResult = resultErr;
 
+			if (history.previousResult === 'rejected' && (!history.rejectedLicenseFiles || history.rejectedLicenseFiles.length === 0)) {
+				errors.rejectedFiles = 'Rejection document is required when result is Rejected.';
+			}
 		}
 		
 		if (history.hasLicenceSuspended) {
@@ -47,7 +50,15 @@ const validateLicenseHistory = (formData: any) => {
 			if (nameErr) errors.familyName = nameErr;
 			const licErr = validateGeneralText(history.familyLicenceNumber ?? '', true, { required: 'License number is required' });
 			if (licErr) errors.familyLicenseNumber = licErr;
-			if (!history.familyWeaponsEndorsed || history.familyWeaponsEndorsed.length === 0) {
+			
+			// Every displayed weapon dropdown must have a valid selection
+			const hasWeapons = Array.isArray(history.familyWeaponsEndorsed) && history.familyWeaponsEndorsed.length > 0;
+			const hasUnselectedWeapons = Boolean(
+				history.hasUnselectedFamilyWeapons ||
+				(Array.isArray(history.familyWeapons) && history.familyWeapons.some((w: any) => !w || w === 0 || isNaN(Number(w))))
+			);
+
+			if (!hasWeapons || hasUnselectedWeapons) {
 				errors.familyWeapons = 'Please select a weapon.';
 			}
 		}
@@ -84,7 +95,6 @@ const LicenseHistory = () => {
 	const [trainingDetails, setTrainingDetails] = useState('');
 	const [weapons, setWeapons] = useState<Weapon[]>([]);
 	const [loadingWeapons, setLoadingWeapons] = useState(false);
-	const [validationSummary, setValidationSummary] = useState<Record<string, string>>({});
 	
 	// Ref to prevent backend data from overwriting fresh form data (useRef to avoid re-renders)
 	const isUpdatingFormRef = useRef(false);
@@ -398,6 +408,13 @@ const LicenseHistory = () => {
 				delete newProgress[fileKey];
 				return newProgress;
 			});
+
+			if (appliedDetails.result === 'rejected' && rejectedFiles.length <= 1) {
+				setFieldErrors((prev: any) => ({
+					...prev,
+					rejectedFiles: 'Rejection document is required when result is Rejected.',
+				}));
+			}
 		}
 		
 		setFileError('');
@@ -476,10 +493,12 @@ const LicenseHistory = () => {
 	};
 
 	const handleWeaponChange = (famIdx: number, weapIdx: number, e: React.ChangeEvent<HTMLSelectElement>) => {
-		const weaponId = parseInt(e.target.value);
+		const val = e.target.value;
+		const parsed = val ? parseInt(val) : 0;
+		const weaponId = isNaN(parsed) ? 0 : parsed;
 		const currentWeapons = familyDetails[famIdx]?.weapons || [];
 		// Prevent selecting a weapon that's already chosen in another slot
-		if (currentWeapons.some((w, wi) => w === weaponId && wi !== weapIdx)) {
+		if (weaponId !== 0 && currentWeapons.some((w, wi) => w === weaponId && wi !== weapIdx)) {
 			setFieldErrors((prev: any) => ({ ...prev, [`familyWeapon_${weapIdx}`]: 'This weapon is already selected' }));
 			return;
 		}
@@ -491,6 +510,10 @@ const LicenseHistory = () => {
 	};
 
 	const addWeapon = (famIdx: number) => {
+		const currentWeapons = familyDetails[famIdx]?.weapons || [];
+		if (weapons.length > 0 && currentWeapons.length >= weapons.length) {
+			return;
+		}
 		setFamilyDetails(prev => prev.map((fam, i) => 
 			i === famIdx ? { ...fam, weapons: [...fam.weapons, 0] } : fam
 		));
@@ -503,6 +526,11 @@ const LicenseHistory = () => {
 			// If last weapon is removed, reset to empty selection
 			return { ...fam, weapons: remaining.length > 0 ? remaining : [0] };
 		}));
+		setFieldErrors((prev: any) => {
+			const next = { ...prev };
+			delete next[`familyWeapon_${weapIdx}`];
+			return next;
+		});
 	};
 
 	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
@@ -567,6 +595,15 @@ const LicenseHistory = () => {
 			hasFamilyLicence: family === 'yes',
 			familyMemberName: family === 'yes' && familyDetails.length > 0 ? familyDetails[0].name || null : null,
 			familyLicenceNumber: family === 'yes' && familyDetails.length > 0 ? familyDetails[0].licenseNumber || null : null,
+			hasUnselectedFamilyWeapons: family === 'yes' && (
+				familyDetails.length === 0 ||
+				familyDetails.some(fam => 
+					!fam.weapons || 
+					fam.weapons.length === 0 || 
+					fam.weapons.some(w => !w || w === 0 || isNaN(Number(w)))
+				)
+			),
+			familyWeapons: family === 'yes' && familyDetails.length > 0 ? familyDetails[0].weapons : [],
 			familyWeaponsEndorsed: family === 'yes' && familyDetails.length > 0 
 				? familyDetails[0].weapons
 					.filter(weaponId => weaponId !== 0)
@@ -586,7 +623,6 @@ const LicenseHistory = () => {
 	const isFormValid = useMemo(() => {
 		const transformed = { licenseHistories: transformFormData() };
 		const errs = validateLicenseHistory(transformed);
-		setValidationSummary(errs);
 		return Object.keys(errs).length === 0;
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [appliedBefore, appliedDetails, rejectedFiles, uploadedFiles, suspended, suspendedDetails, family, familyDetails, safePlace, safePlaceDetails, training, trainingDetails, weapons]);
@@ -766,10 +802,29 @@ const LicenseHistory = () => {
 								name="result" 
 								value={appliedDetails.result} 
 								onChange={(e: any) => {
-									setAppliedDetails(prev => ({ ...prev, result: e.target.value }));
-									const err = validateSelect(e.target.value, true, { required: 'Result is required' });
-									setFieldErrors((prev: any) => ({ ...prev, appliedResult: err }));
+									const val = e.target.value;
+									setAppliedDetails(prev => ({ ...prev, result: val }));
+									const err = validateSelect(val, true, { required: 'Result is required' });
+									setFieldErrors((prev: any) => {
+										const next = { ...prev, appliedResult: err };
+										if (val !== 'rejected') {
+											delete next.rejectedFiles;
+										} else if (rejectedFiles.length === 0 && uploadedFiles.length === 0) {
+											next.rejectedFiles = 'Rejection document is required when result is Rejected.';
+										}
+										return next;
+									});
 								}} 
+								onBlur={() => {
+									const err = validateSelect(appliedDetails.result, true, { required: 'Result is required' });
+									setFieldErrors((prev: any) => {
+										const next = { ...prev, appliedResult: err };
+										if (appliedDetails.result === 'rejected' && rejectedFiles.length === 0 && uploadedFiles.length === 0) {
+											next.rejectedFiles = 'Rejection document is required when result is Rejected.';
+										}
+										return next;
+									});
+								}}
 								options={[
 									{ value: 'approved', label: 'Approved' },
 									{ value: 'rejected', label: 'Rejected' },
@@ -1016,19 +1071,48 @@ const LicenseHistory = () => {
 									<Select
 										label={`Weapon ${widx + 1}`}
 										name={`weapon-${widx}`}
-										value={String(weaponId)}
+										value={weaponId && weaponId !== 0 ? String(weaponId) : ''}
 										onChange={e => handleWeaponChange(idx, widx, e as any)}
+										onBlur={() => {
+											if (!weaponId || weaponId === 0) {
+												setFieldErrors((prev: any) => ({
+													...prev,
+													familyWeapons: 'Please select a weapon.',
+												}));
+											}
+										}}
 										disabled={loadingWeapons}
 										required
 										error={weaponId === 0 ? (fieldErrors[`familyWeapon_${widx}`] || (fieldErrors.familyWeapons ? 'Please select a weapon.' : '')) : fieldErrors[`familyWeapon_${widx}`]}
 										options={weapons
 											.filter(weapon => !fam.weapons.some((w, wi) => w === weapon.id && wi !== widx))
 											.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
-										placeholder={loadingWeapons ? 'Loading weapons...' : 'Select Weapon'}
+										placeholder={loadingWeapons ? 'Loading weapons...' : 'Select the Endorsed Weapon'}
 									/>
 								</div>
-								<button type="button" className="bg-blue-900 text-white px-2 py-1 rounded" onClick={() => addWeapon(idx)}>+</button>
-								{weaponId !== 0 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}
+								<button 
+									type="button" 
+									className={`px-2 py-1 rounded text-white ${
+										loadingWeapons || weapons.length === 0 || fam.weapons.length >= weapons.length
+											? 'bg-gray-400 cursor-not-allowed opacity-50'
+											: 'bg-blue-900 hover:bg-blue-800'
+									}`} 
+									onClick={() => addWeapon(idx)}
+									disabled={loadingWeapons || weapons.length === 0 || fam.weapons.length >= weapons.length}
+									title={fam.weapons.length >= weapons.length ? 'All available weapons have been added' : 'Add weapon'}
+								>
+									+
+								</button>
+								{(weaponId !== 0 || fam.weapons.length > 1) && (
+									<button 
+										type="button" 
+										className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded" 
+										onClick={() => removeWeapon(idx, widx)}
+										title="Remove weapon"
+									>
+										-
+									</button>
+								)}
 							</div>
 						))}
 						{familyDetails.length > 1 && <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 mt-2" onClick={() => removeFamily(idx)}>- Remove</button>}
@@ -1125,18 +1209,6 @@ const LicenseHistory = () => {
 					/>
 				)}
 			</div>
-			
-			{/* Show validation errors when Next is disabled */}
-			{!isFormValid && Object.keys(validationSummary).length > 0 && (
-				<div className="mb-4 p-3 bg-red-50 border border-red-300 rounded">
-					<div className="text-sm font-semibold text-red-700 mb-1">Please fix the following to proceed:</div>
-					<ul className="list-disc list-inside text-sm text-red-600">
-						{Object.entries(validationSummary).map(([key, msg]) => (
-							<li key={key}>{msg}</li>
-						))}
-					</ul>
-				</div>
-			)}
 
 			<FormFooter
 				onSaveToDraft={handleSaveToDraft}

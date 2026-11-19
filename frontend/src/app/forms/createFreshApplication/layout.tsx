@@ -25,6 +25,84 @@ const stepToSlug = (name: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
+const MANDATORY_SECTIONS = [
+  { index: 0, name: 'Personal Information' },
+  { index: 1, name: 'Address Details' },
+  { index: 2, name: 'Occupation/Business' },
+  { index: 3, name: 'Criminal History' },
+  { index: 4, name: 'License History' },
+  { index: 5, name: 'License Details' },
+  { index: 6, name: 'Biometric Information' },
+  { index: 7, name: 'Documents Upload' },
+];
+
+const isStepComplete = (data: any, stepIndex: number): boolean => {
+  if (!data) return false;
+  switch (stepIndex) {
+    case 0: // Personal Information
+      return Boolean(data.firstName || data.personalDetails?.firstName);
+    case 1: { // Address Details
+      const hasPresent = Boolean(
+        data.presentAddress ||
+        (Array.isArray(data.addresses) && data.addresses.some((a: any) => (a.type || '').toLowerCase() === 'present' || a.addressLine))
+      );
+      const hasPermanent = Boolean(
+        data.permanentAddress ||
+        (Array.isArray(data.addresses) && (data.addresses.some((a: any) => (a.type || '').toLowerCase() === 'permanent') || data.addresses.length >= 2)) ||
+        data.presentAddress
+      );
+      return hasPresent && hasPermanent;
+    }
+    case 2: // Occupation/Business
+      return Boolean(
+        data.occupationAndBusiness &&
+        (data.occupationAndBusiness.occupation || (typeof data.occupationAndBusiness === 'object' && Object.keys(data.occupationAndBusiness).length > 0))
+      );
+    case 3: // Criminal History
+      return Boolean(Array.isArray(data.criminalHistories) && data.criminalHistories.length > 0);
+    case 4: // License History
+      return Boolean(
+        (Array.isArray(data.licenseHistories) && data.licenseHistories.length > 0) ||
+        (Array.isArray(data.licenseHistory) && data.licenseHistory.length > 0)
+      );
+    case 5: // License Details
+      return Boolean(Array.isArray(data.licenseDetails) && data.licenseDetails.length > 0);
+    case 6: { // Biometric Information
+      const biometric = data.biometricData?.biometricData || data.biometricData;
+      const hasFingerprints = Boolean(
+        biometric?.fingerprints && Array.isArray(biometric.fingerprints) && biometric.fingerprints.length > 0
+      );
+      const hasPhoto = Boolean(
+        (Array.isArray(data.fileUploads) && data.fileUploads.some((f: any) => (f.fileType || '').toUpperCase() === 'PHOTOGRAPH')) ||
+        biometric?.photo
+      );
+      return hasFingerprints || hasPhoto;
+    }
+    case 7: // Documents Upload
+      return Boolean(
+        Array.isArray(data.fileUploads) &&
+        data.fileUploads.some((f: any) => {
+          const ft = (f.fileType || '').toUpperCase();
+          return ft === 'AADHAR_CARD' || (!['PHOTOGRAPH', 'REJECTED_LICENSE', 'OTHER'].includes(ft) && ft.length > 0);
+        })
+      );
+    default:
+      return false;
+  }
+};
+
+const getMissingMandatorySections = (data: any): string[] => {
+  if (!data) {
+    return MANDATORY_SECTIONS.map(s => s.name);
+  }
+  return MANDATORY_SECTIONS.filter(s => !isStepComplete(data, s.index)).map(s => s.name);
+};
+
+const areAllMandatorySectionsComplete = (data: any): boolean => {
+  if (!data) return false;
+  return MANDATORY_SECTIONS.every(s => isStepComplete(data, s.index));
+};
+
 function LayoutSkeleton() {
   return (
     <div className='relative min-h-screen flex flex-col overflow-x-hidden bg-[#eef2f9]'>
@@ -136,28 +214,28 @@ function FreshApplicationLayoutContent({
     isNavigatingRef.current = false;
   }, [pathname]);
 
-  const getLockedSteps = (data: any, currentIdx: number, hasAppId: boolean): Set<number> => {
+  const getLockedSteps = (data: any, hasAppId: boolean): Set<number> => {
     const unlocked = new Set<number>();
     unlocked.add(0);
 
     if (data) {
-      if (data.firstName) unlocked.add(1);
-      if (data.presentAddress || data.addresses?.length > 0) unlocked.add(2);
-      if (data.occupationAndBusiness) unlocked.add(3);
-      if (data.criminalHistories?.length > 0) unlocked.add(4);
-      if (data.licenseHistories?.length > 0) unlocked.add(5);
-      if (data.licenseDetails?.length > 0) unlocked.add(6);
-      const hasBiometric = data.biometricData?.biometricData?.fingerprints?.length > 0
-        || data.biometricData?.fingerprints?.length > 0
-        || data.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
-      if (hasBiometric) unlocked.add(7);
-      // Preview step (index 8) is always unlocked so users can preview their application at any time
-      unlocked.add(8);
+      let allPreviousComplete = true;
+      for (let i = 0; i < 8; i++) {
+        if (allPreviousComplete && isStepComplete(data, i)) {
+          unlocked.add(i + 1);
+        } else {
+          allPreviousComplete = false;
+        }
+      }
+
+      // Preview (index 8) and Declaration (index 9) unlock ONLY when all 8 mandatory sections are complete
+      if (allPreviousComplete) {
+        unlocked.add(8);
+        unlocked.add(9);
+      }
     } else if (hasAppId) {
       unlocked.add(1);
     }
-
-    unlocked.add(currentIdx);
 
     const locked = new Set<number>();
     for (let i = 0; i < steps.length; i++) {
@@ -169,6 +247,10 @@ function FreshApplicationLayoutContent({
   useEffect(() => {
     const checkEditable = async () => {
       if (!applicantId) {
+        if (currentStep >= 8) {
+          router.replace('/forms/createFreshApplication/personal-information');
+          setValidationError('Please complete all mandatory sections before accessing Preview or Declaration & Submit.');
+        }
         setAllowedToEdit(true);
         return;
       }
@@ -179,6 +261,19 @@ function FreshApplicationLayoutContent({
         const code = data?.workflowStatus?.code || data?.status?.code || null;
         if (String(code).toUpperCase() === 'DRAFT') {
           setAllowedToEdit(true);
+          if (currentStep >= 8) {
+            const missing = getMissingMandatorySections(data);
+            if (missing.length > 0) {
+              const firstIncompleteIdx = MANDATORY_SECTIONS.find(s => !isStepComplete(data, s.index))?.index ?? 0;
+              const targetSlug = stepToSlug(steps[firstIncompleteIdx]);
+              const currentParams = new URLSearchParams(searchParams ? searchParams.toString() : '');
+              const qs = currentParams.toString();
+              router.replace(`/forms/createFreshApplication/${targetSlug}${qs ? `?${qs}` : ''}`);
+              setValidationError(
+                `Please complete the following mandatory sections before accessing ${steps[currentStep]}:\n• ${missing.join('\n• ')}`
+              );
+            }
+          }
         } else {
           setAllowedToEdit(false);
           router.push('/');
@@ -188,13 +283,13 @@ function FreshApplicationLayoutContent({
       }
     };
     checkEditable();
-  }, [applicantId, router, pathname]);
+  }, [applicantId, router, pathname, currentStep, searchParams]);
 
   useEffect(() => {
     if (allowedToEdit) {
-      setLockedSteps(getLockedSteps(applicationData, currentStep, !!applicantId));
+      setLockedSteps(getLockedSteps(applicationData, !!applicantId));
     }
-  }, [applicationData, allowedToEdit, currentStep, applicantId]);
+  }, [applicationData, allowedToEdit, applicantId]);
 
   const handleStepClick = async (idx: number) => {
     if (isNavigatingRef.current) return;
@@ -211,39 +306,19 @@ function FreshApplicationLayoutContent({
       else router.push(path);
     };
 
-    if (idx === declarationIndex) {
+    if (idx === previewIndex || idx === declarationIndex) {
       if (applicantId) {
         try {
           const resp = await ApplicationService.getApplication(applicantId as string);
           const latestData = resp?.data || null;
           setApplicationData(latestData);
 
-          const missingFields: string[] = [];
-          if (!latestData) {
-            setValidationError('Application data not loaded. Please complete all steps first.');
-            isNavigatingRef.current = false;
-            return;
-          }
-
-          if (!latestData.presentAddress) missingFields.push('Present Address');
-          if (!latestData.permanentAddress) missingFields.push('Permanent Address');
-          if (!latestData.occupationAndBusiness) missingFields.push('Occupation/Business Information');
-
-          const biometricData = latestData.biometricData?.biometricData || latestData.biometricData;
-          const hasFingerprints = biometricData?.fingerprints && Array.isArray(biometricData.fingerprints) && biometricData.fingerprints.length > 0;
-          const hasPhoto = latestData.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
-          if (!hasFingerprints && !hasPhoto) {
-            missingFields.push('Biometric Information (Photograph or Fingerprint)');
-          }
-
-          const uploadedFilesCount = latestData.fileUploads?.length || 0;
-          if (!latestData.fileUploads || !Array.isArray(latestData.fileUploads) || uploadedFilesCount < 3) {
-            const remaining = 3 - uploadedFilesCount;
-            missingFields.push(`Document Uploads (Need ${remaining} more document${remaining > 1 ? 's' : ''}, minimum 3 required)`);
-          }
+          const missingFields = getMissingMandatorySections(latestData);
 
           if (missingFields.length > 0) {
-            setValidationError(`Please complete the following before submitting:\n• ${missingFields.join('\n• ')}`);
+            setValidationError(
+              `Please complete the following mandatory sections before proceeding to ${steps[idx]}:\n• ${missingFields.join('\n• ')}`
+            );
             isNavigatingRef.current = false;
             return;
           }
@@ -253,11 +328,14 @@ function FreshApplicationLayoutContent({
           return;
         }
       } else {
-        setValidationError('Please create and save an application first.');
+        setValidationError(`Please complete all mandatory sections before proceeding to ${steps[idx]}.`);
         isNavigatingRef.current = false;
         return;
       }
       setValidationError(null);
+    } else if (lockedSteps.has(idx)) {
+      isNavigatingRef.current = false;
+      return;
     }
 
     if (idx === previewIndex) {
@@ -326,7 +404,11 @@ function FreshApplicationLayoutContent({
           className='rounded-2xl bg-white border border-slate-200/80 shadow-xl w-full max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] flex flex-col p-0 animate-step-transition overflow-hidden'
           key={pathname || ''}
         >
-          {children}
+          {currentStep >= 8 && (!applicationData || !areAllMandatorySectionsComplete(applicationData)) ? (
+            <LayoutSkeleton />
+          ) : (
+            children
+          )}
         </div>
       </div>
 
@@ -358,7 +440,7 @@ function FreshApplicationLayoutContent({
                 <div className='whitespace-pre-line text-amber-800 text-sm'>{validationError}</div>
               </div>
               <p className='text-gray-600 text-sm'>
-                You must complete all the required sections before proceeding to the Declaration & Submit step.
+                You must complete all the required sections before proceeding to the Preview or Declaration & Submit step.
               </p>
             </div>
             <div className='border-t border-gray-200 px-6 py-4 bg-gray-50 flex justify-end'>

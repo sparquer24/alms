@@ -29,6 +29,10 @@ const Preview = () => {
 
   // Navigation handlers
   const handleNext = () => {
+    if (!applicationData) {
+      setError('Application data not loaded. Please complete all mandatory sections first.');
+      return;
+    }
     const idToUse = applicationId || acknowledgementNo;
     if (idToUse) {
       const url = new URL(FORM_ROUTES.DECLARATION, window.location.origin);

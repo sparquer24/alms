@@ -60,6 +60,44 @@ const BiometricInformation = () => {
   const [pendingFingerPosition, setPendingFingerPosition] = useState<string>('RIGHT_THUMB');
   const [selectedFinger, setSelectedFinger] = useState<string>('RIGHT_THUMB');
 
+  // Toast IDs to prevent duplicate active toasts in react-toastify
+  const FINGERPRINT_DEVICE_TOAST_ID = 'fingerprint-device-connected-toast';
+  const FINGERPRINT_NOT_CONNECTED_TOAST_ID = 'fingerprint-device-not-connected-toast';
+
+  // Ref to track whether the success toast has already been displayed for the current connection session
+  const hasNotifiedDeviceConnectedRef = useRef(false);
+
+  /**
+   * Updates the fingerprint device connection state and triggers notifications.
+   * Ensures the success toast is displayed only once per connection session,
+   * avoiding duplicates from multiple detection events, API responses, or re-renders.
+   * Resets when disconnected so reconnecting triggers the toast again.
+   */
+  const handleDeviceConnectionStatus = (isConnected: boolean, isInitialCheck = false) => {
+    setFingerprintDeviceConnected(isConnected);
+
+    if (isConnected) {
+      if (!hasNotifiedDeviceConnectedRef.current) {
+        hasNotifiedDeviceConnectedRef.current = true;
+        toast.dismiss(FINGERPRINT_NOT_CONNECTED_TOAST_ID);
+        toast.info('Fingerprint device detected and ready', {
+          toastId: FINGERPRINT_DEVICE_TOAST_ID,
+        });
+      }
+    } else {
+      // Device is disconnected: reset notification flag so subsequent reconnection can notify again
+      hasNotifiedDeviceConnectedRef.current = false;
+      toast.dismiss(FINGERPRINT_DEVICE_TOAST_ID);
+
+      if (isInitialCheck) {
+        toast.warning(
+          'Fingerprint device not connected. Use Settings → Diagnostics to troubleshoot.',
+          { toastId: FINGERPRINT_NOT_CONNECTED_TOAST_ID }
+        );
+      }
+    }
+  };
+
   // Device diagnostics/settings states
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
   const [diagnosticResults, setDiagnosticResults] = useState<any>({});
@@ -224,29 +262,64 @@ const BiometricInformation = () => {
     }
   };
 
-  /** 🧹 Clean up preview on unmount */
+  // Initialize Mantra SDK and monitor device connectivity
   useEffect(() => {
-    // Initialize Mantra SDK
+    let isSubscribed = true;
+
     const initializeMantra = async () => {
-      const initialized = await MantraSDKService.initialize();
-      setMantraSDKReady(initialized);
+      try {
+        const initialized = await MantraSDKService.initialize();
+        if (!isSubscribed) return;
+        setMantraSDKReady(initialized);
 
-      if (initialized) {
-        // Check device connectivity
-        const deviceStatus = await MantraSDKService.isDeviceConnected();
-        setFingerprintDeviceConnected(deviceStatus.isConnected);
-
-        if (deviceStatus.isConnected) {
-          toast.info('Fingerprint device detected and ready');
+        if (initialized) {
+          const deviceStatus = await MantraSDKService.isDeviceConnected();
+          if (!isSubscribed) return;
+          handleDeviceConnectionStatus(deviceStatus.isConnected, true);
         } else {
-          // Show warning with suggestion to use diagnostics
-          toast.warning(
-            'Fingerprint device not connected. Use Settings → Diagnostics to troubleshoot.'
-          );
+          handleDeviceConnectionStatus(false, true);
+        }
+      } catch {
+        if (isSubscribed) {
+          handleDeviceConnectionStatus(false, true);
         }
       }
     };
 
+    initializeMantra();
+
+    // Re-check device status when window regains focus or USB device connection changes
+    const handleDeviceCheck = async () => {
+      try {
+        const deviceStatus = await MantraSDKService.isDeviceConnected();
+        if (isSubscribed) {
+          handleDeviceConnectionStatus(deviceStatus.isConnected, false);
+        }
+      } catch {
+        // ignore background check errors
+      }
+    };
+
+    window.addEventListener('focus', handleDeviceCheck);
+
+    const nav = typeof navigator !== 'undefined' ? (navigator as any) : null;
+    if (nav?.usb?.addEventListener) {
+      nav.usb.addEventListener('connect', handleDeviceCheck);
+      nav.usb.addEventListener('disconnect', handleDeviceCheck);
+    }
+
+    return () => {
+      isSubscribed = false;
+      window.removeEventListener('focus', handleDeviceCheck);
+      if (nav?.usb?.removeEventListener) {
+        nav.usb.removeEventListener('connect', handleDeviceCheck);
+        nav.usb.removeEventListener('disconnect', handleDeviceCheck);
+      }
+    };
+  }, []);
+
+  /** 🧹 Fetch existing application biometric data and clean up preview on unmount */
+  useEffect(() => {
     // Fetch existing application biometric data to render and merge when patching.
     const loadExisting = async () => {
       if (!applicantId) return;
@@ -319,7 +392,6 @@ const BiometricInformation = () => {
     // Expose loadExisting callback on component scope for deletion/reload operations
     (window as any)._loadBiometricExisting = loadExisting;
 
-    initializeMantra();
     loadExisting();
 
     return () => {
@@ -491,12 +563,14 @@ const BiometricInformation = () => {
       const deviceStatus = await MantraSDKService.isDeviceConnected();
 
       if (!deviceStatus.isConnected) {
+        handleDeviceConnectionStatus(false);
         toast.error('Fingerprint device disconnected. Check Settings → Diagnostics.');
-        setFingerprintDeviceConnected(false);
         setShowDeviceSettings(true);
         setShowCapturingModal(false);
         return;
       }
+
+      handleDeviceConnectionStatus(true);
 
       // Prompt user to place finger on device
       setCapturingStep('Place your finger on the scanner...');
@@ -879,6 +953,7 @@ const BiometricInformation = () => {
 
   const testCheckDevice = async () => {
     const result = await MantraSDKService.isDeviceConnected();
+    handleDeviceConnectionStatus(result.isConnected);
     if (!result.isConnected) {
       throw new Error(result.errorMessage || 'Device not connected');
     }
@@ -888,8 +963,10 @@ const BiometricInformation = () => {
   const testGetConnectedDevice = async () => {
     const result = await MantraSDKService.getConnectedDeviceList();
     if (!result || result.length === 0) {
+      handleDeviceConnectionStatus(false);
       throw new Error('No connected devices found');
     }
+    handleDeviceConnectionStatus(true);
     return { devices: result };
   };
 
