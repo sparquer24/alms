@@ -129,7 +129,7 @@ export const Input: React.FC<InputProps> = ({
     }
   };
 
-  const displayError = error || (touched ? localError : '');
+  const displayError = error !== undefined ? error : (touched ? localError : '');
 
   return (
     <div className="w-full">
@@ -251,7 +251,7 @@ export const TextArea: React.FC<TextAreaProps> = ({
     }
   };
 
-  const displayError = error || (touched ? localError : '');
+  const displayError = error !== undefined ? error : (touched ? localError : '');
 
   return (
     <div className="w-full">

@@ -21,6 +21,18 @@ const initialProvision = {
 	dateOfSentence: '',
 };
 
+const PROVISION_FIELD_LABELS: Record<string, string> = {
+	firNumber: 'FIR Number',
+	underSection: 'Under Section',
+	policeStation: 'Police Station',
+	unit: 'Unit',
+	district: 'District',
+	state: 'State',
+	offence: 'Offence',
+	sentence: 'Sentence',
+	dateOfSentence: 'Date of Sentence',
+};
+
 const initialState = {
 	criminalHistories: [] as any[],
 };
@@ -67,16 +79,16 @@ const validateCriminalHistory = (formData: any) => {
 	}
 
 	if (history.isBondExecuted) {
-		const bondDateErr = validateDate(history.bondDate ?? '', true, undefined, { required: 'Bond date is required' });
+		const bondDateErr = validateDate(history.bondDate ?? '', true, undefined, { required: 'Date of Sentence is required' });
 		if (bondDateErr) errors.bondDate = bondDateErr;
-		const bondPeriodErr = validateGeneralText(history.bondPeriod ?? '', true, { required: 'Bond period is required' });
+		const bondPeriodErr = validateGeneralText(history.bondPeriod ?? '', true, { required: 'Period of which bound is required' });
 		if (bondPeriodErr) errors.bondPeriod = bondPeriodErr;
 	}
 
 	if (history.isProhibited) {
-		const prohibDateErr = validateDate(history.prohibitionDate ?? '', true, undefined, { required: 'Prohibition date is required' });
+		const prohibDateErr = validateDate(history.prohibitionDate ?? '', true, undefined, { required: 'Date of Sentence is required' });
 		if (prohibDateErr) errors.prohibitionDate = prohibDateErr;
-		const prohibPeriodErr = validateGeneralText(history.prohibitionPeriod ?? '', true, { required: 'Prohibition period is required' });
+		const prohibPeriodErr = validateGeneralText(history.prohibitionPeriod ?? '', true, { required: 'Period of which bound is required' });
 		if (prohibPeriodErr) errors.prohibitionPeriod = prohibPeriodErr;
 	}
 
@@ -186,15 +198,16 @@ const CriminalHistory = () => {
 
 		// Real-time validation
 		const errorKey = `${name}_${idx}`;
-		const fieldLabel = name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1');
+		const fieldLabel = PROVISION_FIELD_LABELS[name] || (name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1'));
+		const requiredMsg = `${fieldLabel} is required`;
 		if (name === 'dateOfSentence') {
-			const err = validateDate(processedValue, true, undefined, { required: 'Date of Sentence is required' });
+			const err = validateDate(processedValue, true, undefined, { required: requiredMsg });
 			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		} else if (alphaOnlyFields.includes(name)) {
-			const err = validateText(processedValue, true, { required: `${fieldLabel} is required` });
+			const err = validateText(processedValue, true, { required: requiredMsg });
 			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		} else {
-			const err = validateGeneralText(processedValue, true, { required: `${fieldLabel} is required` });
+			const err = validateGeneralText(processedValue, true, { required: requiredMsg });
 			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		}
 	};
@@ -207,14 +220,16 @@ const CriminalHistory = () => {
 		}
 		const errorKey = `${name}_${idx}`;
 		const alphaOnlyFields = ['state', 'district'];
+		const fieldLabel = PROVISION_FIELD_LABELS[name] || (name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1'));
+		const requiredMsg = `${fieldLabel} is required`;
 		if (name === 'dateOfSentence') {
-			const err = validateDate(trimmed, true, undefined, { required: 'Date of Sentence is required' });
+			const err = validateDate(trimmed, true, undefined, { required: requiredMsg });
 			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		} else if (alphaOnlyFields.includes(name)) {
-			const err = validateText(trimmed, true, { required: 'This field is required' });
+			const err = validateText(trimmed, true, { required: requiredMsg });
 			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		} else {
-			const err = validateGeneralText(trimmed, true, { required: 'This field is required' });
+			const err = validateGeneralText(trimmed, true, { required: requiredMsg });
 			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		}
 	};
@@ -249,8 +264,21 @@ const CriminalHistory = () => {
 		setBondDetails(d => ({ ...d, [field]: processedValue }));
 		const errorKey = field === 'dateOfSentence' ? 'bondDate' : 'bondPeriod';
 		const err = field === 'dateOfSentence'
-			? validateDate(processedValue, true, undefined, { required: 'Bond date is required' })
-			: validateGeneralText(processedValue, true, { required: 'Bond period is required' });
+			? validateDate(processedValue, true, undefined, { required: 'Date of Sentence is required' })
+			: validateGeneralText(processedValue, true, { required: 'Period of which bound is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+	};
+
+	const handleBondBlur = (field: 'dateOfSentence' | 'period', e: React.FocusEvent<HTMLInputElement>) => {
+		const value = e.target.value;
+		const trimmed = value.trim();
+		if (trimmed !== value) {
+			setBondDetails(d => ({ ...d, [field]: trimmed }));
+		}
+		const errorKey = field === 'dateOfSentence' ? 'bondDate' : 'bondPeriod';
+		const err = field === 'dateOfSentence'
+			? validateDate(trimmed, true, undefined, { required: 'Date of Sentence is required' })
+			: validateGeneralText(trimmed, true, { required: 'Period of which bound is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
@@ -263,8 +291,21 @@ const CriminalHistory = () => {
 		setProhibitedDetails(d => ({ ...d, [field]: processedValue }));
 		const errorKey = field === 'dateOfSentence' ? 'prohibitionDate' : 'prohibitionPeriod';
 		const err = field === 'dateOfSentence'
-			? validateDate(processedValue, true, undefined, { required: 'Prohibition date is required' })
-			: validateGeneralText(processedValue, true, { required: 'Prohibition period is required' });
+			? validateDate(processedValue, true, undefined, { required: 'Date of Sentence is required' })
+			: validateGeneralText(processedValue, true, { required: 'Period of which bound is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+	};
+
+	const handleProhibitedBlur = (field: 'dateOfSentence' | 'period', e: React.FocusEvent<HTMLInputElement>) => {
+		const value = e.target.value;
+		const trimmed = value.trim();
+		if (trimmed !== value) {
+			setProhibitedDetails(d => ({ ...d, [field]: trimmed }));
+		}
+		const errorKey = field === 'dateOfSentence' ? 'prohibitionDate' : 'prohibitionPeriod';
+		const err = field === 'dateOfSentence'
+			? validateDate(trimmed, true, undefined, { required: 'Date of Sentence is required' })
+			: validateGeneralText(trimmed, true, { required: 'Period of which bound is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
@@ -434,7 +475,16 @@ const CriminalHistory = () => {
 				</div>
 				
 				{fieldErrors.conviction_general && (
-					<p className="text-red-500 text-xs mb-4">{fieldErrors.conviction_general}</p>
+					<div className="flex items-center gap-1.5 text-red-600 text-xs font-medium mb-4 animate-fadeIn">
+						<svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+							<path
+								fillRule="evenodd"
+								d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+								clipRule="evenodd"
+							/>
+						</svg>
+						<span>{fieldErrors.conviction_general}</span>
+					</div>
 				)}
 
 				{convicted === 'yes' && provisions.map((prov, idx) => (
@@ -593,6 +643,7 @@ const CriminalHistory = () => {
 							type="date" 
 							value={bondDetails.dateOfSentence} 
 							onChange={e => handleBondChange('dateOfSentence', e.target.value)} 
+							onBlur={e => handleBondBlur('dateOfSentence', e)}
 							placeholder="DD/MM/YYYY" 
 							error={fieldErrors.bondDate}
 							required
@@ -602,6 +653,7 @@ const CriminalHistory = () => {
 							name="period" 
 							value={bondDetails.period} 
 							onChange={e => handleBondChange('period', e.target.value)} 
+							onBlur={e => handleBondBlur('period', e)}
 							placeholder="e.g., 12 Months" 
 							error={fieldErrors.bondPeriod}
 							required
@@ -651,6 +703,7 @@ const CriminalHistory = () => {
 							type="date" 
 							value={prohibitedDetails.dateOfSentence} 
 							onChange={e => handleProhibitedChange('dateOfSentence', e.target.value)} 
+							onBlur={e => handleProhibitedBlur('dateOfSentence', e)}
 							placeholder="DD/MM/YYYY" 
 							error={fieldErrors.prohibitionDate}
 							required
@@ -660,6 +713,7 @@ const CriminalHistory = () => {
 							name="period" 
 							value={prohibitedDetails.period} 
 							onChange={e => handleProhibitedChange('period', e.target.value)} 
+							onBlur={e => handleProhibitedBlur('period', e)}
 							placeholder="e.g., 24 Months" 
 							error={fieldErrors.prohibitionPeriod}
 							required

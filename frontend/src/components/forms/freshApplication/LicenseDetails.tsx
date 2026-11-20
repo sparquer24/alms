@@ -56,9 +56,10 @@ const licenseDetailRules: FieldRule[] = [
     name: 'weaponSelection',
     type: 'custom',
     required: true,
+    errorMessages: { required: 'Select weapon types is required.' },
     customValidator: (_, form) => {
       const d = form.licenseDetails?.[0];
-      return (d?.requestedWeaponIds?.length > 0) ? '' : 'Please select at least one weapon';
+      return (d?.requestedWeaponIds?.length > 0) ? '' : 'Select weapon types is required.';
     },
   },
   {
@@ -159,6 +160,9 @@ const LicenseDetails = () => {
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
 
+  const formRef = React.useRef(form);
+  formRef.current = form;
+
   // Helper function to safely get license detail
   const getLicenseDetail = () => {
     return form.licenseDetails?.[0] || {};
@@ -219,7 +223,9 @@ const LicenseDetails = () => {
     setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleBlur = (
+    e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     const trimmed = value.trim();
     if (trimmed !== value) {
@@ -243,36 +249,37 @@ const LicenseDetails = () => {
     const weaponId = Number(e.target.value);
     if (!e.target.value || weaponId === 0 || isNaN(weaponId)) return; // Skip placeholder / invalid
 
-    setForm((prev: any) => {
-      // Ensure licenseDetails array exists and has at least one element
-      const currentLicenseDetails = prev.licenseDetails || [{}];
-      const currentDetail = currentLicenseDetails[0] || {};
-      const currentWeapons = currentDetail.requestedWeaponIds || [];
+    const currentForm = formRef.current;
+    const currentLicenseDetails = currentForm.licenseDetails || [{}];
+    const currentDetail = currentLicenseDetails[0] || {};
+    const currentWeapons = currentDetail.requestedWeaponIds || [];
 
-      const updatedWeapons = currentWeapons.includes(weaponId)
-        ? currentWeapons.filter((id: number) => id !== weaponId)
-        : [...currentWeapons, weaponId];
-
-      const newForm = {
-        ...prev,
-        licenseDetails: [
-          {
-            ...currentDetail,
-            requestedWeaponIds: updatedWeapons,
-          },
-        ],
-      };
-      return newForm;
-    });
-
-    // Real-time validation for weapon selection
-    const detail = getLicenseDetail();
-    const currentWeapons = detail.requestedWeaponIds || [];
-    const newIds = currentWeapons.includes(weaponId)
+    const updatedWeapons = currentWeapons.includes(weaponId)
       ? currentWeapons.filter((id: number) => id !== weaponId)
       : [...currentWeapons, weaponId];
-    const updatedForm = { ...form, licenseDetails: [{ ...detail, requestedWeaponIds: newIds }] };
-    const { error } = validation.processChange('weaponSelection', '', updatedForm);
+
+    const newForm = {
+      ...currentForm,
+      licenseDetails: [
+        {
+          ...currentDetail,
+          requestedWeaponIds: updatedWeapons,
+        },
+        ...(currentLicenseDetails.slice(1) || []),
+      ],
+    };
+
+    formRef.current = newForm;
+    setForm(newForm);
+
+    // Real-time validation for weapon selection
+    const { error } = validation.processChange('weaponSelection', '', newForm);
+    setFieldErrors((prev: any) => ({ ...prev, weaponSelection: error }));
+  };
+
+  const handleWeaponBlur = () => {
+    const currentForm = formRef.current;
+    const { error } = validation.processBlur('weaponSelection', '', currentForm);
     setFieldErrors((prev: any) => ({ ...prev, weaponSelection: error }));
   };
 
@@ -581,6 +588,7 @@ const LicenseDetails = () => {
               name='needForLicense'
               value={getLicenseDetail().needForLicense || ''}
               onChange={handleChange}
+              onBlur={handleBlur as any}
               options={[
                 { value: 'SELF_PROTECTION', label: 'Self-Protection' },
                 { value: 'SPORTS', label: 'Sports' },
@@ -619,16 +627,27 @@ const LicenseDetails = () => {
                 Permissible
               </label>
             </div>
-            {fieldErrors.armsCategory && <p className="text-red-500 text-xs mt-1">{fieldErrors.armsCategory}</p>}
+            {fieldErrors.armsCategory && (
+              <div className="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-1.5 animate-fadeIn">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>{fieldErrors.armsCategory}</span>
+              </div>
+            )}
             <div className='mb-2'>(b) Select weapon types (multiple allowed)</div>
             <Select
               name='weaponSelection'
               value=""
               onChange={handleWeaponChange as any}
+              onBlur={handleWeaponBlur}
               disabled={loadingWeapons}
               placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}
               options={weapons.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
-              required
               error={fieldErrors.weaponSelection}
             />
             {/* Display selected weapons */}
@@ -701,7 +720,18 @@ const LicenseDetails = () => {
                 Throughout India
               </label>
             </div>
-            {fieldErrors.areaOfValidity && <p className="text-red-500 text-xs mt-1">{fieldErrors.areaOfValidity}</p>}
+            {fieldErrors.areaOfValidity && (
+              <div className="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-1.5 animate-fadeIn">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>{fieldErrors.areaOfValidity}</span>
+              </div>
+            )}
             {getLicenseDetail().areaOfValidity === 'Throughout India' && (
               <p className='mt-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs text-yellow-800'>
                 A license valid throughout India cannot be approved locally: the Commissioner of
@@ -741,7 +771,16 @@ const LicenseDetails = () => {
               placeholder='e.g., Threat perception due to business disputes'
             />
             {fieldErrors.specialConsiderationReason && (
-              <p className="text-red-500 text-xs mt-1">{fieldErrors.specialConsiderationReason}</p>
+              <div className="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-1.5 animate-fadeIn">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>{fieldErrors.specialConsiderationReason}</span>
+              </div>
             )}
 
             {/* Document Upload Section */}
@@ -940,7 +979,16 @@ const LicenseDetails = () => {
                 placeholder='e.g., Hyderabad District'
               />
               {fieldErrors.licencePlaceArea && (
-                <p className="text-red-500 text-xs mt-1">{fieldErrors.licencePlaceArea}</p>
+                <div className="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-1.5 animate-fadeIn">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>{fieldErrors.licencePlaceArea}</span>
+                </div>
               )}
             </div>
 
@@ -961,7 +1009,16 @@ const LicenseDetails = () => {
                 placeholder='e.g., Wild boar and Nilgai as per permit'
               />
               {fieldErrors.wildBeastsSpecification && (
-                <p className="text-red-500 text-xs mt-1">{fieldErrors.wildBeastsSpecification}</p>
+                <div className="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-1.5 animate-fadeIn">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>{fieldErrors.wildBeastsSpecification}</span>
+                </div>
               )}
             </div>
           </div>

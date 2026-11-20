@@ -480,6 +480,7 @@ const DocumentsUpload = () => {
 				onNext={handleNext}
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
+				errors={fileError}
 			/>
 
 			{/* Document Preview Modal */}

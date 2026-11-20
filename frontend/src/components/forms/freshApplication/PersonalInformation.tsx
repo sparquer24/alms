@@ -35,25 +35,154 @@ const initialState = {
 // ─── Validation Rules ─────────────────────────────────────────────────────────
 
 const personalInfoRules: FieldRule[] = [
-  { name: 'firstName', type: 'text', required: true },
-  { name: 'middleName', type: 'text', required: false },
-  { name: 'lastName', type: 'text', required: true },
-  { name: 'filledBy', type: 'text', required: true },
-  { name: 'parentOrSpouseName', type: 'text', required: true },
-  { name: 'sex', type: 'select', required: true, errorMessages: { required: 'Please select Gender.' } },
-  { name: 'placeOfBirth', type: 'text', required: true },
-  { name: 'dateOfBirth', type: 'date', required: true, noFuture: true, minAge: 21, maxAge: 150, errorMessages: { noFuture: 'Date of Birth cannot be a future date.', minAge: 'Applicant must be at least 21 years old.', maxAge: 'Applicant must not be older than 150 years.' } },
-  { name: 'panNumber', type: 'pan', required: true },
-  { name: 'aadharNumber', type: 'aadhaar', required: true, errorMessages: { format: 'Aadhaar Number must contain exactly 12 digits.' } },
+  {
+    name: 'firstName',
+    type: 'text',
+    required: true,
+    errorMessages: { required: 'First Name is required' },
+  },
+  {
+    name: 'middleName',
+    type: 'text',
+    required: false,
+  },
+  {
+    name: 'lastName',
+    type: 'text',
+    required: true,
+    errorMessages: { required: 'Last Name is required' },
+  },
+  {
+    name: 'filledBy',
+    type: 'text',
+    required: true,
+    errorMessages: { required: 'Application filled by is required' },
+  },
+  {
+    name: 'parentOrSpouseName',
+    type: 'text',
+    required: true,
+    errorMessages: { required: 'Parent/Spouse Name is required' },
+  },
+  {
+    name: 'sex',
+    type: 'select',
+    required: true,
+    errorMessages: { required: 'Gender is required' },
+  },
+  {
+    name: 'placeOfBirth',
+    type: 'text',
+    required: true,
+    errorMessages: { required: 'Place of Birth is required' },
+  },
+  {
+    name: 'dateOfBirth',
+    type: 'date',
+    required: true,
+    noFuture: true,
+    minAge: 21,
+    maxAge: 150,
+    errorMessages: {
+      required: 'Date of Birth is required',
+      noFuture: 'Date of Birth cannot be a future date.',
+      minAge: 'Applicant must be at least 21 years old.',
+      maxAge: 'Applicant must not be older than 150 years.',
+    },
+  },
+  {
+    name: 'panNumber',
+    type: 'pan',
+    required: true,
+    errorMessages: { required: 'PAN is required' },
+  },
+  {
+    name: 'aadharNumber',
+    type: 'aadhaar',
+    required: true,
+    errorMessages: {
+      required: 'Aadhaar Number is required',
+      format: 'Aadhaar Number must contain exactly 12 digits.',
+    },
+  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Convert a Date to "Twenty-Fifth January Two Thousand Five" style string */
-function dateToDobInWords(dateStr: string): string {
+export function dateToDobInWords(dateStr: string): string {
   if (!dateStr) return '';
-  const date = new Date(dateStr + 'T00:00:00'); // avoid timezone shift
-  if (isNaN(date.getTime())) return '';
+  const cleanDateStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.trim();
+  const delimiter = cleanDateStr.includes('-') ? '-' : cleanDateStr.includes('/') ? '/' : '';
+  if (!delimiter) return '';
+
+  const parts = cleanDateStr.split(delimiter);
+  if (parts.length !== 3) return '';
+
+  let year: number;
+  let month: number; // 0-based
+  let day: number;
+
+  if (parts[0].length === 4) {
+    // YYYY-MM-DD
+    year = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10) - 1;
+    day = parseInt(parts[2], 10);
+  } else if (parts[2].length === 4) {
+    // DD-MM-YYYY
+    day = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10) - 1;
+    year = parseInt(parts[2], 10);
+  } else {
+    return '';
+  }
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+  if (month < 0 || month > 11 || day < 1 || day > 31) return '';
+
+  // Validate real calendar date (handles days in month & leap years)
+  const date = new Date(year, month, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month ||
+    date.getDate() !== day
+  ) {
+    return '';
+  }
+
+  const dayOrdinals: Record<number, string> = {
+    1: 'First',
+    2: 'Second',
+    3: 'Third',
+    4: 'Fourth',
+    5: 'Fifth',
+    6: 'Sixth',
+    7: 'Seventh',
+    8: 'Eighth',
+    9: 'Ninth',
+    10: 'Tenth',
+    11: 'Eleventh',
+    12: 'Twelfth',
+    13: 'Thirteenth',
+    14: 'Fourteenth',
+    15: 'Fifteenth',
+    16: 'Sixteenth',
+    17: 'Seventeenth',
+    18: 'Eighteenth',
+    19: 'Nineteenth',
+    20: 'Twentieth',
+    21: 'Twenty-First',
+    22: 'Twenty-Second',
+    23: 'Twenty-Third',
+    24: 'Twenty-Fourth',
+    25: 'Twenty-Fifth',
+    26: 'Twenty-Sixth',
+    27: 'Twenty-Seventh',
+    28: 'Twenty-Eighth',
+    29: 'Twenty-Ninth',
+    30: 'Thirtieth',
+    31: 'Thirty-First',
+  };
 
   const ones = [
     '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
@@ -65,18 +194,6 @@ function dateToDobInWords(dateStr: string): string {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
-  const ordinalSuffix = (n: number) => {
-    if (n === 1 || n === 21 || n === 31) return 'First';
-    if (n === 2 || n === 22) return 'Second';
-    if (n === 3 || n === 23) return 'Third';
-    if (n >= 4 && n <= 19) return ones[n] + 'th';
-    if (n === 20) return 'Twentieth';
-    if (n === 30) return 'Thirtieth';
-    // 21-31 (except above)
-    const t = Math.floor(n / 10);
-    const o = n % 10;
-    return tens[t] + '-' + ones[o] + 'th';
-  };
 
   const numberToWords = (n: number): string => {
     if (n === 0) return 'Zero';
@@ -99,11 +216,10 @@ function dateToDobInWords(dateStr: string): string {
     return String(n);
   };
 
-  const day = date.getDate();
-  const month = date.getMonth();
-  const year = date.getFullYear();
+  const dayStr = dayOrdinals[day];
+  if (!dayStr) return '';
 
-  return `${ordinalSuffix(day)} ${months[month]} ${numberToWords(year)}`;
+  return `${dayStr} ${months[month]} ${numberToWords(year)}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -151,7 +267,12 @@ const PersonalInformation: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     const { value: filtered, error } = validation.processChange(name, value, form);
-    setForm((prev: any) => ({ ...prev, [name]: filtered }));
+    if (name === 'dateOfBirth') {
+      const words = dateToDobInWords(filtered);
+      setForm((prev: any) => ({ ...prev, [name]: filtered, dobInWords: words }));
+    } else {
+      setForm((prev: any) => ({ ...prev, [name]: filtered }));
+    }
     setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
   };
 
@@ -367,7 +488,18 @@ const PersonalInformation: React.FC = () => {
               <IoMdFemaleFixed className='text-xl' />
             </label>
           </div>
-          {fieldErrors.sex && <p className="text-red-500 text-xs mt-1">{fieldErrors.sex}</p>}
+          {fieldErrors.sex && (
+            <div className="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-1.5 animate-fadeIn">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>{fieldErrors.sex}</span>
+            </div>
+          )}
         </div>
 
         {/* 4. Place of Birth (Nativity) (mandatory) */}

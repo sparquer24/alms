@@ -67,7 +67,7 @@ export const Select: React.FC<SelectProps> = ({
     }
   };
 
-  const displayError = error || (touched ? localError : '');
+  const displayError = error !== undefined ? error : (touched ? localError : '');
 
   return (
     <div className="w-full">
