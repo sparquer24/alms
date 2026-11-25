@@ -2,12 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BiometricController } from './biometric.controller';
 import { BiometricService } from './biometric.service';
 import { BiometricAuditService } from './biometric-audit.service';
+import { BiometricPhotoService } from './services/biometric-photo.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
 
 describe('BiometricController', () => {
     let controller: BiometricController;
     let mockBiometricService: any;
     let mockAuditService: any;
+    let mockPhotoService: any;
 
     beforeEach(async () => {
         mockBiometricService = {
@@ -37,11 +39,27 @@ describe('BiometricController', () => {
             getAuditLogs: jest.fn().mockResolvedValue([]),
         };
 
+        mockPhotoService = {
+            parseImageBuffer: jest.fn().mockReturnValue(Buffer.from('fake-image')),
+            validatePhotograph: jest.fn().mockResolvedValue({
+                success: true,
+                status: 'BIOMETRIC_ACCEPTED',
+                message: 'Validated',
+            }),
+            uploadPhotograph: jest.fn().mockResolvedValue({
+                success: true,
+                status: 'BIOMETRIC_ACCEPTED',
+                message: 'Saved',
+                filePath: 'uploads/accepted/BIOMETRIC/photo.jpg',
+            }),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             controllers: [BiometricController],
             providers: [
                 { provide: BiometricService, useValue: mockBiometricService },
                 { provide: BiometricAuditService, useValue: mockAuditService },
+                { provide: BiometricPhotoService, useValue: mockPhotoService },
             ],
         })
             .overrideGuard(AuthGuard)

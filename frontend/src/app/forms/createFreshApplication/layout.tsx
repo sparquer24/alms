@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { ApplicationService } from '../../../api/applicationService';
 import { StepHeader } from '../../../components/forms/elements/StepHeader';
+import { WarningAlertModal } from '../../../components/forms/elements/WarningAlertModal';
 
 
 const steps = [
@@ -78,14 +79,13 @@ const isStepComplete = (data: any, stepIndex: number): boolean => {
       );
       return hasFingerprints || hasPhoto;
     }
-    case 7: // Documents Upload
-      return Boolean(
-        Array.isArray(data.fileUploads) &&
-        data.fileUploads.some((f: any) => {
-          const ft = (f.fileType || '').toUpperCase();
-          return ft === 'AADHAR_CARD' || (!['PHOTOGRAPH', 'REJECTED_LICENSE', 'OTHER'].includes(ft) && ft.length > 0);
-        })
+    case 7: { // Documents Upload
+      if (!Array.isArray(data.fileUploads)) return false;
+      const uploadedTypes = new Set(
+        data.fileUploads.map((f: any) => (f.fileType || '').toUpperCase())
       );
+      return uploadedTypes.has('AADHAR_CARD') && uploadedTypes.has('PAN_CARD');
+    }
     default:
       return false;
   }
@@ -413,48 +413,23 @@ function FreshApplicationLayoutContent({
       </div>
 
       {/* Validation Error Modal */}
-      {validationError && (
-        <div
-          className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4'
-          onClick={() => setValidationError(null)}
-        >
-          <div
-            className='bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden'
-            onClick={e => e.stopPropagation()}
+      <WarningAlertModal
+        isOpen={Boolean(validationError)}
+        title='Incomplete Application'
+        subtitle='Please complete all required steps'
+        alertMessage={validationError}
+        description='You must complete all the required sections before proceeding to the Preview or Declaration & Submit step.'
+        onBackdropClick={() => setValidationError(null)}
+        actions={
+          <button
+            type='button'
+            onClick={() => setValidationError(null)}
+            className='px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors'
           >
-            <div className='bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-5'>
-              <div className='flex items-center gap-4'>
-                <div className='bg-white/20 rounded-full p-3'>
-                  <svg className='w-8 h-8 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className='text-xl font-bold text-white'>Incomplete Application</h2>
-                  <p className='text-amber-100 text-sm mt-1'>Please complete all required steps</p>
-                </div>
-              </div>
-            </div>
-            <div className='px-6 py-6'>
-              <div className='bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4'>
-                <div className='whitespace-pre-line text-amber-800 text-sm'>{validationError}</div>
-              </div>
-              <p className='text-gray-600 text-sm'>
-                You must complete all the required sections before proceeding to the Preview or Declaration & Submit step.
-              </p>
-            </div>
-            <div className='border-t border-gray-200 px-6 py-4 bg-gray-50 flex justify-end'>
-              <button
-                type='button'
-                onClick={() => setValidationError(null)}
-                className='px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors'
-              >
-                OK, I&apos;ll complete them
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            OK, I&apos;ll complete them
+          </button>
+        }
+      />
     </div>
   );
 }

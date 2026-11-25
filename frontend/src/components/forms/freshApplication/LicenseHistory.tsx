@@ -286,14 +286,14 @@ const LicenseHistory = () => {
 		if (!files || files.length === 0) return;
 		
 		const newFiles: File[] = [];
-		const maxSize = 5 * 1024 * 1024; // 5MB
+		const maxSize = 3 * 1024 * 1024; // 3MB
 		
 		for (let i = 0; i < files.length; i++) {
 			const file = files[i];
 			
 			// Check file size
 			if (file.size > maxSize) {
-				setFileError(`File "${file.name}" exceeds 5MB size limit`);
+				setFileError(`File "${file.name}" exceeds 3MB size limit`);
 				return;
 			}
 			
@@ -856,7 +856,7 @@ const LicenseHistory = () => {
 										/>
 									</label>
 									<span className="ml-3 text-sm text-gray-500">
-										Multiple files allowed (Max 5MB each)
+										Multiple files allowed (Max 3MB each)
 									</span>
 									{rejectedFiles.length > 0 && !applicantId && (
 										<div className="mt-2 text-sm text-orange-600">

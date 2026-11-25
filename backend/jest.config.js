@@ -9,6 +9,7 @@ module.exports = {
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
+  moduleDirectories: ['node_modules', '<rootDir>/../../node_modules'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },

@@ -16,6 +16,9 @@ import { ApplicationService } from '../../../api/applicationService';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import MantraSDKService from '../../../services/mantraSDKService';
 import BiometricAPIService from '../../../services/biometricAPIService';
+import { BiometricPhotoCaptureModal } from '../biometric/BiometricPhotoCaptureModal';
+import { useFaceDetection } from '../../../hooks/useFaceDetection';
+import { FaceDetectionBanner } from '../biometric/FaceDetectionBanner';
 
 type BiometricForm = {
   fingerprint: File | null;
@@ -111,6 +114,15 @@ const BiometricInformation = () => {
   const [uploadedPhotoId, setUploadedPhotoId] = useState<number | null>(null);
   const [showPhotoDeleteConfirm, setShowPhotoDeleteConfirm] = useState(false);
 
+  // Automatic Face Detection hook for uploaded photographs
+  const {
+    isDetecting: isDetectingFace,
+    result: faceDetectionResult,
+    detectFaces: analyzePhotograph,
+    resetDetection: clearFaceDetection,
+    setResult: setFaceDetectionResult,
+  } = useFaceDetection();
+
   // Duplicate fingerprint error modal state
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateMatchInfo, setDuplicateMatchInfo] = useState<{
@@ -193,6 +205,9 @@ const BiometricInformation = () => {
           return;
         }
 
+        // Always clear previous validation result when selecting a new photograph
+        clearFaceDetection();
+
         // 1. Supported File Types: .jpg, .jpeg, .png
         const allowedExtensions = ['jpg', 'jpeg', 'png'];
         const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
@@ -201,6 +216,7 @@ const BiometricInformation = () => {
           toast.error('Unsupported file format. Please upload a JPG, JPEG, or PNG image.');
           e.target.value = '';
           setUploadingFiles(false);
+          setForm(prev => ({ ...prev, [name]: null }));
           return;
         }
 
@@ -210,52 +226,61 @@ const BiometricInformation = () => {
           toast.error(sizeError);
           e.target.value = '';
           setUploadingFiles(false);
+          setForm(prev => ({ ...prev, [name]: null }));
           return;
         }
 
-        // 3. Image Validation (Corrupt / Unreadable check)
-        const isValidImg = await new Promise<boolean>((resolve) => {
-          const img = new Image();
-          const objectUrl = URL.createObjectURL(file);
-          img.src = objectUrl;
-          img.onload = () => {
-            URL.revokeObjectURL(objectUrl);
-            resolve(true);
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(objectUrl);
-            resolve(false);
-          };
-        });
-
-        if (!isValidImg) {
-          toast.error('The uploaded image file appears to be corrupted or unreadable. Please choose a valid image.');
-          e.target.value = '';
-          setUploadingFiles(false);
-          return;
+        // Revoke previous blob preview if exists
+        if (photoPreview && photoPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(photoPreview);
         }
 
         const url = URL.createObjectURL(file);
         setPhotoPreview(url);
-        setForm(prev => ({ ...prev, [name]: file }));
 
-        // Upload the new photograph immediately
-        try {
-          if (applicantId) {
+        // 3. Image Validation & Face Detection
+        const detection = await analyzePhotograph(file);
+
+        if (detection.status === 'success') {
+          // Exactly one person detected: auto-upload and save photograph
+          setForm(prev => ({ ...prev, [name]: file }));
+
+          try {
             setUploadingFiles(true);
-            const uploadResp = await FileUploadService.uploadFile(applicantId, file, 'PHOTOGRAPH', 'Photograph');
-            setUploadedPhotoId(uploadResp.data.id);
-            setPhotoSubmitted(true);
-            toast.success('Photograph replaced and uploaded successfully!');
-          } else {
+            if (applicantId) {
+              const uploadRes = await FileUploadService.uploadFile(applicantId, file, 'PHOTOGRAPH', 'Photograph');
+              const fileId = uploadRes?.data?.id || (uploadRes as any)?.id || null;
+              setUploadedPhotoId(fileId);
+              setPhotoSubmitted(true);
+              toast.success('Photograph uploaded successfully!');
+
+              if ((window as any)._loadBiometricExisting) {
+                await (window as any)._loadBiometricExisting();
+              }
+            } else {
+              toast.warning('Please create application first.');
+            }
+          } catch (err: any) {
             setPhotoSubmitted(false);
+            const errMsg = err?.response?.data?.error || err?.message || 'Failed to upload photograph';
+            toast.error(errMsg);
+          } finally {
+            setUploadingFiles(false);
           }
-        } catch (uploadErr: any) {
-          toast.error(uploadErr?.message || 'Failed to upload new photograph.');
+        } else {
+          // 0 persons, multiple persons, or unreadable: prevent upload
+          setForm(prev => ({ ...prev, [name]: null }));
           setPhotoSubmitted(false);
-        } finally {
-          setUploadingFiles(false);
+          setUploadedPhotoId(null);
+          if (detection.status === 'warning') {
+            toast.warning(detection.message);
+          } else if (detection.status === 'error') {
+            toast.error(detection.message);
+          }
         }
+
+        // Reset input value so selecting the same or different file fires onChange
+        e.target.value = '';
       } else {
         setForm(prev => ({ ...prev, [name]: file }));
       }
@@ -412,6 +437,7 @@ const BiometricInformation = () => {
         setPhotoPreview(null);
         setForm(prev => ({ ...prev, photograph: null }));
         setPhotoSubmitted(false);
+        clearFaceDetection();
         setShowPhotoDeleteConfirm(false);
         toast.success('Photograph deleted successfully!');
       } catch (err: any) {
@@ -421,17 +447,37 @@ const BiometricInformation = () => {
         setUploadingFiles(false);
       }
     } else {
+      if (photoPreview && photoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(photoPreview);
+      }
       setPhotoPreview(null);
       setForm(prev => ({ ...prev, photograph: null }));
       setPhotoSubmitted(false);
+      clearFaceDetection();
       setShowPhotoDeleteConfirm(false);
     }
   };
 
   /** 📤 Submit captured photograph */
   const submitPhoto = async () => {
+    if (isDetectingFace) {
+      toast.info('Please wait while face detection is in progress.');
+      return;
+    }
+
     if (!form.photograph || !photoPreview) {
       toast.warning('Please capture or upload a photograph first.');
+      return;
+    }
+
+    if (faceDetectionResult?.status !== 'success') {
+      if (faceDetectionResult?.status === 'warning') {
+        toast.warning(faceDetectionResult.message);
+      } else if (faceDetectionResult?.status === 'error') {
+        toast.error(faceDetectionResult.message);
+      } else {
+        toast.error('Only photographs with exactly one detected person can be uploaded.');
+      }
       return;
     }
 
@@ -446,7 +492,7 @@ const BiometricInformation = () => {
 
         setPhotoSubmitted(true);
         toast.success('Photograph submitted successfully!');
-        
+
         // Reload data to acquire the newly uploaded photo's server file ID
         if ((window as any)._loadBiometricExisting) {
           await (window as any)._loadBiometricExisting();
@@ -523,7 +569,7 @@ const BiometricInformation = () => {
 
   const handleNext = async () => {
     if (!applicantId) return toast.warning('Please save Personal Info first.');
-    
+
     // Ensure photograph is uploaded and submitted
     if (!photoSubmitted) {
       if (photoPreview || form.photograph) {
@@ -764,7 +810,7 @@ const BiometricInformation = () => {
     setPendingCaptureResult(null);
     // Do not reset position to default, keep user selection
     setPendingFingerPosition(selectedFinger);
-    
+
     // Automatically restart capture process
     handleCaptureFingerprintMantra(selectedFinger);
   };
@@ -781,6 +827,11 @@ const BiometricInformation = () => {
 
   /** Open webcam modal */
   const openWebcamModal = () => {
+    if (uploadedPhotoId || photoSubmitted) {
+      toast.error('Please delete the existing photograph first.');
+      return;
+    }
+    clearFaceDetection();
     setShowWebcamModal(true);
     setWebcamCapturedPhoto(null);
     setStreamActive(true);
@@ -788,7 +839,7 @@ const BiometricInformation = () => {
     setCameraPermissionDenied(false);
   };
 
-/** Capture photo in webcam modal */
+  /** Capture photo in webcam modal */
   const capturePhotoInModal = () => {
     if (!webcamRef.current) { toast.error('Webcam not ready. Please wait.'); return; }
     if (!webcamReady) { toast.error('Camera stream not ready. Please wait a moment.'); return; }
@@ -1202,8 +1253,8 @@ const BiometricInformation = () => {
           </div>
           <div className='space-y-2'>
             <div className='mb-4'>
-               <label className='block text-sm font-medium text-gray-700 mb-1'>Select Hand & Finger</label>
-               <select
+              <label className='block text-sm font-medium text-gray-700 mb-1'>Select Hand & Finger</label>
+              <select
                 value={selectedFinger}
                 onChange={(e) => setSelectedFinger(e.target.value)}
                 className='w-full md:w-64 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500'
@@ -1222,11 +1273,10 @@ const BiometricInformation = () => {
                   type='button'
                   onClick={() => handleCaptureFingerprintMantra(selectedFinger)}
                   disabled={fingerprintCapturing || uploadingFiles}
-                  className={`px-4 py-2 rounded text-white font-medium ${
-                    fingerprintCapturing || uploadingFiles
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700'
-                  }`}
+                  className={`px-4 py-2 rounded text-white font-medium ${fingerprintCapturing || uploadingFiles
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
                 >
                   {fingerprintCapturing ? 'Capturing...' : 'Scan Fingerprint'}
                 </button>
@@ -1311,13 +1361,12 @@ const BiometricInformation = () => {
                         <div className='flex items-center gap-2'>
                           <span className='text-sm text-gray-500'>Quality:</span>
                           <span
-                            className={`font-semibold px-2 py-0.5 rounded text-sm ${
-                              latestFp.quality >= 80
-                                ? 'bg-green-100 text-green-700'
-                                : latestFp.quality >= 60
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-red-100 text-red-700'
-                            }`}
+                            className={`font-semibold px-2 py-0.5 rounded text-sm ${latestFp.quality >= 80
+                              ? 'bg-green-100 text-green-700'
+                              : latestFp.quality >= 60
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                              }`}
                           >
                             {latestFp.quality}%
                           </span>
@@ -1362,7 +1411,7 @@ const BiometricInformation = () => {
           <span className='text-xl'>📸</span>
           <h3 className='text-lg font-bold text-gray-800'>Photograph Capture & Upload</h3>
         </div>
-        
+
         <p className='text-sm text-gray-500 mb-4 leading-relaxed'>
           Upload a recent passport-size photograph (JPG, JPEG, PNG, max 3 MB) or capture using your webcam.
         </p>
@@ -1375,44 +1424,55 @@ const BiometricInformation = () => {
                 type='button'
                 onClick={openWebcamModal}
                 disabled={Boolean(photoPreview || photoSubmitted)}
-                className={`w-full px-4 py-3 text-white rounded-lg font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm ${
-                  (photoPreview || photoSubmitted)
-                    ? 'bg-gray-300 cursor-not-allowed text-gray-500'
-                    : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
-                }`}
+                className={`w-full px-4 py-3 text-white rounded-lg font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm ${(photoPreview || photoSubmitted)
+                  ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                  : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
+                  }`}
               >
                 <span>📷</span>
                 <span>Capture with Webcam</span>
               </button>
-              
+
               <div className='relative flex items-center justify-center my-2'>
                 <div className='absolute inset-0 flex items-center'><span className='w-full border-t border-gray-200' /></div>
                 <span className='relative bg-slate-50 px-3 text-xs text-gray-400 font-medium uppercase'>or</span>
               </div>
 
-              <label
-                className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 text-center transition-all group ${
-                  (photoPreview || photoSubmitted)
-                    ? 'border-gray-200 bg-gray-100/50 text-gray-400 cursor-not-allowed'
-                    : 'border-gray-300 text-gray-600 cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'
-                }`}
-              >
-                <span className='text-2xl mb-1 transition-transform group-hover:scale-110'>📤</span>
-                <span className={`text-sm font-semibold transition-colors ${
-                  (photoPreview || photoSubmitted) ? 'text-gray-400' : 'text-gray-700 group-hover:text-blue-600'
-                }`}>
-                  Upload Photograph
-                </span>
-                <span className='text-xs text-gray-400 mt-1'>Supports JPG, JPEG, PNG (20 KB - 3 MB)</span>
-                <input
-                  type='file'
-                  name='photograph'
-                  accept='.jpg,.jpeg,.png'
-                  disabled={Boolean(photoPreview || photoSubmitted)}
-                  className='hidden'
-                  onChange={handleFileChange}
-                />
-              </label>
+              {!photoSubmitted ? (
+                <label
+                  className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 text-center transition-all group ${
+                    isDetectingFace || uploadingFiles
+                      ? 'border-blue-300 bg-blue-50/20 text-gray-400 cursor-wait'
+                      : 'border-gray-300 text-gray-600 cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'
+                  }`}
+                >
+                  <span className='text-2xl mb-1 transition-transform group-hover:scale-110'>📤</span>
+                  <span className='text-sm font-semibold transition-colors text-gray-700 group-hover:text-blue-600'>
+                    {photoPreview ? 'Choose Another Photograph' : 'Upload Photograph'}
+                  </span>
+                  <span className='text-xs text-gray-400 mt-1'>Supports JPG, JPEG, PNG (20 KB - 3 MB)</span>
+                  <input
+                    type='file'
+                    name='photograph'
+                    accept='.jpg,.jpeg,.png'
+                    disabled={Boolean(photoSubmitted || isDetectingFace || uploadingFiles)}
+                    className='hidden'
+                    onChange={handleFileChange}
+                  />
+                </label>
+              ) : (
+                <div className='border-2 border-dashed border-green-200 bg-green-50/40 rounded-xl p-5 text-center'>
+                  <span className='text-2xl mb-1 block'>✅</span>
+                  <span className='text-sm font-semibold text-green-700 block'>Photograph Uploaded & Saved</span>
+                  <span className='text-xs text-gray-500 mt-1 block'>To change it, delete the current photograph.</span>
+                </div>
+              )}
+
+              {/* Face Detection Status Banner near Upload Photograph field */}
+              <FaceDetectionBanner
+                isDetecting={isDetectingFace}
+                result={faceDetectionResult}
+              />
             </div>
           </div>
 
@@ -1426,64 +1486,84 @@ const BiometricInformation = () => {
                     alt='Captured Preview'
                     className='w-40 h-40 object-cover rounded-md'
                   />
-                  <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded shadow ${
-                    photoSubmitted ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-amber-100 text-amber-700 border border-amber-200'
-                  }`}>
-                    {photoSubmitted ? '✓ Submitted' : '⚠ Pending'}
+                  <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded shadow ${photoSubmitted
+                    ? 'bg-green-100 text-green-700 border border-green-200'
+                    : isDetectingFace
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : faceDetectionResult?.status === 'success'
+                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                        : faceDetectionResult?.status === 'warning'
+                          ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                          : faceDetectionResult?.status === 'error'
+                            ? 'bg-red-100 text-red-700 border border-red-200'
+                            : 'bg-amber-100 text-amber-700 border border-amber-200'
+                    }`}>
+                    {photoSubmitted
+                      ? '✓ Submitted'
+                      : isDetectingFace
+                        ? '⏳ Analyzing Face...'
+                        : faceDetectionResult?.status === 'success'
+                          ? '✓ 1 Person'
+                          : faceDetectionResult?.status === 'warning'
+                            ? '⚠️ No Person'
+                            : faceDetectionResult?.status === 'error'
+                              ? '❌ Invalid'
+                              : '⚠ Pending'}
                   </span>
                 </div>
-                
-                {showPhotoDeleteConfirm ? (
-                  <div className='mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-center w-full max-w-[260px] animate-fade-in'>
-                    <p className='text-xs font-semibold text-red-700 leading-normal mb-3'>
-                      Are you sure you want to delete the photograph? This action cannot be undone.
-                    </p>
-                    <div className='flex gap-2 justify-center'>
-                      <button
-                        type='button'
-                        onClick={confirmRemovePhoto}
-                        disabled={uploadingFiles}
-                        className='px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded transition-colors shadow-sm'
-                      >
-                        {uploadingFiles ? 'Deleting...' : 'Yes, Delete'}
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => setShowPhotoDeleteConfirm(false)}
-                        disabled={uploadingFiles}
-                        className='px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded transition-colors'
-                      >
-                        Cancel
-                      </button>
+
+                {photoSubmitted ? (
+                  showPhotoDeleteConfirm ? (
+                    <div className='mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-center w-full max-w-[260px] animate-fade-in'>
+                      <p className='text-xs font-semibold text-red-700 leading-normal mb-3'>
+                        Are you sure you want to delete the photograph? This action cannot be undone.
+                      </p>
+                      <div className='flex gap-2 justify-center'>
+                        <button
+                          type='button'
+                          onClick={confirmRemovePhoto}
+                          disabled={uploadingFiles}
+                          className='px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded transition-colors shadow-sm'
+                        >
+                          {uploadingFiles ? 'Deleting...' : 'Yes, Delete'}
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => setShowPhotoDeleteConfirm(false)}
+                          disabled={uploadingFiles}
+                          className='px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded transition-colors'
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className='flex gap-2 mt-4 w-full max-w-[240px]'>
-                    {!photoSubmitted ? (
-                      <button
-                        type='button'
-                        onClick={submitPhoto}
-                        disabled={uploadingFiles}
-                        className='flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm transition-all shadow-sm'
-                      >
-                        {uploadingFiles ? 'Uploading...' : 'Submit Photo'}
-                      </button>
-                    ) : (
+                  ) : (
+                    <div className='flex gap-2 mt-4 w-full max-w-[240px]'>
                       <div className='flex-1 text-center py-2 text-sm font-semibold text-green-600 bg-green-50 rounded-lg border border-green-200'>
                         ✓ Photo Saved
                       </div>
-                    )}
-                    <button
-                      type='button'
-                      onClick={() => setShowPhotoDeleteConfirm(true)}
-                      disabled={uploadingFiles}
-                      className='px-3 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold text-sm transition-all shadow-sm'
-                      title='Delete photograph'
-                    >
-                      🗑️ Delete
-                    </button>
+                      <button
+                        type='button'
+                        onClick={() => setShowPhotoDeleteConfirm(true)}
+                        disabled={uploadingFiles}
+                        className='px-3 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold text-sm transition-all shadow-sm'
+                        title='Delete photograph'
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  )
+                ) : uploadingFiles ? (
+                  <div className='flex items-center justify-center gap-2 mt-4 w-full max-w-[240px] py-2.5 px-4 bg-blue-50 text-blue-700 rounded-lg font-semibold text-sm border border-blue-200'>
+                    <div className='w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin' />
+                    <span>Saving photograph...</span>
                   </div>
-                )}
+                ) : isDetectingFace ? (
+                  <div className='flex items-center justify-center gap-2 mt-4 w-full max-w-[240px] py-2.5 px-4 bg-blue-50 text-blue-700 rounded-lg font-semibold text-sm border border-blue-200'>
+                    <div className='w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin' />
+                    <span>Analyzing face...</span>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className='flex flex-col items-center text-center text-gray-400 p-6'>
@@ -1603,9 +1683,9 @@ const BiometricInformation = () => {
                     className={`flex items-center gap-1 ${capturingStep.includes('Initializing') ? 'text-blue-600 font-medium' : capturingStep.includes('Place') || capturingStep.includes('Scanning') || capturingStep.includes('Processing') || capturingStep.includes('Generating') ? 'text-green-600' : 'text-gray-400'}`}
                   >
                     {capturingStep.includes('Place') ||
-                    capturingStep.includes('Scanning') ||
-                    capturingStep.includes('Processing') ||
-                    capturingStep.includes('Generating')
+                      capturingStep.includes('Scanning') ||
+                      capturingStep.includes('Processing') ||
+                      capturingStep.includes('Generating')
                       ? '✓'
                       : '1.'}{' '}
                     Initialize
@@ -1614,8 +1694,8 @@ const BiometricInformation = () => {
                     className={`flex items-center gap-1 ${capturingStep.includes('Place') ? 'text-blue-600 font-medium' : capturingStep.includes('Scanning') || capturingStep.includes('Processing') || capturingStep.includes('Generating') ? 'text-green-600' : 'text-gray-400'}`}
                   >
                     {capturingStep.includes('Scanning') ||
-                    capturingStep.includes('Processing') ||
-                    capturingStep.includes('Generating')
+                      capturingStep.includes('Processing') ||
+                      capturingStep.includes('Generating')
                       ? '✓'
                       : '2.'}{' '}
                     Place Finger
@@ -1760,13 +1840,12 @@ const BiometricInformation = () => {
               {/* Quality Score with Visual Indicator */}
               <div className='mb-6'>
                 <div
-                  className={`p-4 rounded-xl border-2 ${
-                    (pendingCaptureResult?.quality || 0) >= 80
-                      ? 'bg-green-50 border-green-300'
-                      : (pendingCaptureResult?.quality || 0) >= 60
-                        ? 'bg-yellow-50 border-yellow-300'
-                        : 'bg-red-50 border-red-300'
-                  }`}
+                  className={`p-4 rounded-xl border-2 ${(pendingCaptureResult?.quality || 0) >= 80
+                    ? 'bg-green-50 border-green-300'
+                    : (pendingCaptureResult?.quality || 0) >= 60
+                      ? 'bg-yellow-50 border-yellow-300'
+                      : 'bg-red-50 border-red-300'
+                    }`}
                 >
                   <div className='flex items-center justify-between mb-3'>
                     <div className='flex items-center gap-2'>
@@ -1808,13 +1887,12 @@ const BiometricInformation = () => {
                         </svg>
                       )}
                       <span
-                        className={`font-semibold ${
-                          (pendingCaptureResult?.quality || 0) >= 80
-                            ? 'text-green-700'
-                            : (pendingCaptureResult?.quality || 0) >= 60
-                              ? 'text-yellow-700'
-                              : 'text-red-700'
-                        }`}
+                        className={`font-semibold ${(pendingCaptureResult?.quality || 0) >= 80
+                          ? 'text-green-700'
+                          : (pendingCaptureResult?.quality || 0) >= 60
+                            ? 'text-yellow-700'
+                            : 'text-red-700'
+                          }`}
                       >
                         {(pendingCaptureResult?.quality || 0) >= 80
                           ? 'Excellent Quality'
@@ -1824,26 +1902,24 @@ const BiometricInformation = () => {
                       </span>
                     </div>
                     <span
-                      className={`text-3xl font-bold ${
-                        (pendingCaptureResult?.quality || 0) >= 80
-                          ? 'text-green-600'
-                          : (pendingCaptureResult?.quality || 0) >= 60
-                            ? 'text-yellow-600'
-                            : 'text-red-600'
-                      }`}
+                      className={`text-3xl font-bold ${(pendingCaptureResult?.quality || 0) >= 80
+                        ? 'text-green-600'
+                        : (pendingCaptureResult?.quality || 0) >= 60
+                          ? 'text-yellow-600'
+                          : 'text-red-600'
+                        }`}
                     >
                       {pendingCaptureResult?.quality || 0}%
                     </span>
                   </div>
                   <div className='w-full bg-gray-200 rounded-full h-3 overflow-hidden'>
                     <div
-                      className={`h-3 rounded-full transition-all duration-500 ${
-                        (pendingCaptureResult?.quality || 0) >= 80
-                          ? 'bg-green-500'
-                          : (pendingCaptureResult?.quality || 0) >= 60
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
-                      }`}
+                      className={`h-3 rounded-full transition-all duration-500 ${(pendingCaptureResult?.quality || 0) >= 80
+                        ? 'bg-green-500'
+                        : (pendingCaptureResult?.quality || 0) >= 60
+                          ? 'bg-yellow-500'
+                          : 'bg-red-500'
+                        }`}
                       style={{ width: `${pendingCaptureResult?.quality || 0}%` }}
                     ></div>
                   </div>
@@ -1953,11 +2029,10 @@ const BiometricInformation = () => {
                 <button
                   onClick={handleAcceptFingerprintPreview}
                   disabled={fingerprintCapturing}
-                  className={`flex-1 px-4 py-3.5 rounded-lg font-semibold text-white transition-all flex items-center justify-center gap-2 ${
-                    fingerprintCapturing
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-lg hover:shadow-xl'
-                  }`}
+                  className={`flex-1 px-4 py-3.5 rounded-lg font-semibold text-white transition-all flex items-center justify-center gap-2 ${fingerprintCapturing
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-lg hover:shadow-xl'
+                    }`}
                 >
                   {fingerprintCapturing ? (
                     <>
@@ -1994,11 +2069,10 @@ const BiometricInformation = () => {
                 <button
                   onClick={handleRejectFingerprintPreview}
                   disabled={fingerprintCapturing}
-                  className={`flex-1 px-4 py-3.5 rounded-lg font-semibold text-white transition-all flex items-center justify-center gap-2 ${
-                    fingerprintCapturing
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
-                  }`}
+                  className={`flex-1 px-4 py-3.5 rounded-lg font-semibold text-white transition-all flex items-center justify-center gap-2 ${fingerprintCapturing
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
+                    }`}
                 >
                   <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                     <path
@@ -2013,11 +2087,10 @@ const BiometricInformation = () => {
                 <button
                   onClick={handleCancelFingerprintPreview}
                   disabled={fingerprintCapturing}
-                  className={`px-4 py-3.5 rounded-lg font-semibold text-white transition-all flex items-center justify-center gap-2 ${
-                    fingerprintCapturing
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gray-500 hover:bg-gray-600 active:bg-gray-700'
-                  }`}
+                  className={`px-4 py-3.5 rounded-lg font-semibold text-white transition-all flex items-center justify-center gap-2 ${fingerprintCapturing
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-gray-500 hover:bg-gray-600 active:bg-gray-700'
+                    }`}
                 >
                   <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                     <path
@@ -2035,182 +2108,47 @@ const BiometricInformation = () => {
         </div>
       )}
 
-      {/* 📷 WEBCAM CAPTURE MODAL */}
-      {showWebcamModal && (
-        <div
-          className='fixed inset-0 bg-black/75 flex items-center justify-center z-[9999] p-4'
-          style={{ display: 'flex', visibility: 'visible' }}
-        >
-          <div className='bg-white rounded-lg shadow-2xl max-w-lg w-full max-h-[90vh] overflow-auto'>
-            <div className='border-b px-6 py-4 sticky top-0 bg-white flex justify-between items-center'>
-              <div>
-                <h2 className='text-2xl font-bold text-gray-800'>📷 Capture Photograph</h2>
-                <p className='text-sm text-gray-500 mt-1'>
-                  {webcamCapturedPhoto
-                    ? 'Review your photo before submitting'
-                    : 'Position yourself and capture'}
-                </p>
-              </div>
-              <button
-                onClick={cancelWebcamModal}
-                disabled={uploadingFiles}
-                className='text-gray-600 hover:text-gray-900 text-2xl font-bold'
-              >
-                ✕
-              </button>
-            </div>
+      {/* 📷 WEBCAM CAPTURE MODAL - MEDIAPIPE BIOMETRIC PHOTOGRAPH CAPTURE */}
+      <BiometricPhotoCaptureModal
+        isOpen={showWebcamModal}
+        onClose={() => {
+          setShowWebcamModal(false);
+          setStreamActive(false);
+        }}
+        applicationId={applicantId}
+        applicationType="Fresh"
+        onPhotoAccepted={async (file, previewUrl, resData) => {
+          setPhotoPreview(previewUrl);
+          setForm((prev) => ({ ...prev, photograph: file }));
+          setPhotoSubmitted(true);
+          setFaceDetectionResult({
+            faceCount: 1,
+            status: 'success',
+            message: 'One person detected. You can Upload photograph.',
+            canUpload: true,
+          });
 
-            <div className='px-6 py-6'>
-              {/* Camera / Preview Display */}
-              <div className='flex justify-center mb-6'>
-                <div className='relative'>
-                  {/* Camera Permission States: request | denied | loading | live | captured */}
-                  {!streamActive && !cameraPermissionDenied && !webcamCapturedPhoto ? (
-                    <div className='w-72 h-72 rounded-lg border-2 border-blue-300 bg-blue-50 flex flex-col items-center justify-center p-6'>
-                      <div className='w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mb-4'>
-                        <svg className='w-7 h-7 text-blue-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' />
-                        </svg>
-                      </div>
-                      <h3 className='text-lg font-bold text-gray-800 mb-2'>Camera Access Needed</h3>
-                      <p className='text-sm text-gray-600 text-center leading-relaxed mb-4'>
-                        This application needs access to your camera to capture a live photograph for the license application.
-                      </p>
-                      <button
-                        type='button'
-                        onClick={() => { setStreamActive(true); setWebcamReady(false); }}
-                        className='px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors shadow-md'
-                      >
-                        Grant Camera Access
-                      </button>
-                    </div>
-                  ) : cameraPermissionDenied ? (
-                    <div className='w-72 h-72 rounded-lg border-2 border-red-300 bg-gray-50 flex flex-col items-center justify-center p-6'>
-                      <div className='w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4'>
-                        <svg className='w-7 h-7 text-red-500' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' />
-                        </svg>
-                      </div>
-                      <h3 className='text-lg font-bold text-gray-800 mb-2'>Camera Access Denied</h3>
-                      <p className='text-sm text-gray-600 text-center leading-relaxed mb-6'>
-                        Camera access is required to capture a photograph.
-                      </p>
-                      <button
-                        type='button'
-                        onClick={() => { setCameraPermissionDenied(false); setStreamActive(true); setWebcamReady(false); }}
-                        className='px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors shadow-md'
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  ) : streamActive && !webcamCapturedPhoto ? (
-                    <div className='relative w-72 h-72'>
-                      {!webcamReady && (
-                        <div className='absolute inset-0 w-full h-full rounded-lg border-2 border-gray-300 bg-gray-50 flex flex-col items-center justify-center z-10'>
-                          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4'></div>
-                          <p className='text-sm text-gray-500'>Requesting camera access...</p>
-                          <p className='text-xs text-gray-400 mt-1'>Please allow camera when prompted by your browser</p>
-                        </div>
-                      )}
-                      <Webcam
-                        ref={webcamRef}
-                        audio={false}
-                        screenshotFormat='image/jpeg'
-                        className='w-full h-full object-cover rounded-lg border-2 border-gray-300 bg-gray-900'
-                        videoConstraints={{
-                          width: 480,
-                          height: 480,
-                          facingMode: 'user',
-                        }}
-                        onUserMedia={() => { setWebcamReady(true); setCameraPermissionDenied(false); }}
-                        onUserMediaError={(err: any) => {
-                          console.error('[Webcam] Camera access failure:', err);
-                          const errStr = typeof err === 'string' ? err : err?.message || err?.name || '';
-                          if (errStr.includes('NotAllowedError') || errStr.includes('Permission') || errStr.includes('denied')) {
-                            setStreamActive(false);
-                            setCameraPermissionDenied(true);
-                            toast.error('Camera permission was denied. Please allow camera access in browser settings.');
-                          } else {
-                            toast.error('Unable to access camera. Please check your camera connection.');
-                            setStreamActive(false);
-                          }
-                        }}
-                      />
-                    </div>
-                  ) : null}
+          const fileId = resData?.fileId || resData?.id;
+          if (fileId) {
+            setUploadedPhotoId(fileId);
+          } else if (applicantId) {
+            try {
+              setUploadingFiles(true);
+              const uploadResp = await FileUploadService.uploadFile(applicantId, file, 'PHOTOGRAPH', 'Photograph');
+              setUploadedPhotoId(uploadResp?.data?.id || null);
+            } catch (err: any) {
+              console.warn('Failed to upload photo via FileUploadService:', err);
+            } finally {
+              setUploadingFiles(false);
+            }
+          }
 
-                  {/* Captured photo preview */}
-                  {webcamCapturedPhoto && (
-                    <img
-                      src={webcamCapturedPhoto}
-                      alt='Captured Preview'
-                      className='w-72 h-72 object-cover rounded-lg border-2 border-green-400 shadow-lg'
-                    />
-                  )}
-
-                  {/* Status indicator */}
-                  <div className='absolute bottom-2 left-1/2 transform -translate-x-1/2'>
-                    <span
-                      className={`text-white text-xs px-2 py-1 rounded ${webcamCapturedPhoto ? 'bg-green-600' : 'bg-black/50'}`}
-                    >
-                      {webcamCapturedPhoto ? '✓ Photo Captured' : 'Live Preview'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Instructions */}
-              <div className='mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200'>
-                <p className='text-sm text-blue-700'>
-                  {!webcamCapturedPhoto
-                    ? '💡 Tip: Ensure good lighting and center your face in the frame. Click Capture when ready.'
-                    : '💡 Tip: Review the photo above. Click Submit if satisfied, or Recapture to try again.'}
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className='flex gap-3'>
-                <button
-                  type='button'
-                  onClick={submitPhotoFromModal}
-                  disabled={uploadingFiles || !webcamCapturedPhoto}
-                  className={`flex-1 px-4 py-3 rounded-lg font-semibold text-white transition-colors ${
-                    uploadingFiles || !webcamCapturedPhoto
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700 active:bg-green-800'
-                  }`}
-                >
-                  {uploadingFiles ? 'Submitting...' : '✓ Submit'}
-                </button>
-                <button
-                  type='button'
-                  onClick={webcamCapturedPhoto ? retakePhotoInModal : capturePhotoInModal}
-                  disabled={uploadingFiles || (!webcamCapturedPhoto && !webcamReady)}
-                  className={`flex-1 px-4 py-3 rounded-lg font-semibold text-white transition-colors ${
-                    uploadingFiles || (!webcamCapturedPhoto && !webcamReady)
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
-                  }`}
-                >
-                  {webcamCapturedPhoto ? '↻ Recapture' : '📸 Capture'}
-                </button>
-                <button
-                  type='button'
-                  onClick={cancelWebcamModal}
-                  disabled={uploadingFiles}
-                  className={`flex-1 px-4 py-3 rounded-lg font-semibold text-white transition-colors ${
-                    uploadingFiles
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gray-500 hover:bg-gray-600 active:bg-gray-700'
-                  }`}
-                >
-                  ✕ Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          setShowPhotoSuccessModal(true);
+          setTimeout(() => {
+            setShowPhotoSuccessModal(false);
+          }, 5000);
+        }}
+      />
 
       {/* ⚠️ DUPLICATE FINGERPRINT ERROR MODAL */}
       {showDuplicateModal && duplicateMatchInfo && (

@@ -12,6 +12,7 @@ import CancelService from '../../../api/cancelService';
 import RenewalHeader, { RENEWAL_SECTIONS } from '../../../components/forms/renewal/RenewalHeader';
 import { Card } from '../../../components/forms/elements/Card';
 import FormFooter from '../../../components/forms/elements/footer';
+import { WarningAlertModal } from '../../../components/forms/elements/WarningAlertModal';
 import {
   applyPrefilledDocumentUploads,
   commitStagedRenewalDocuments,
@@ -2677,6 +2678,18 @@ function RenewalFormPageContent() {
         });
         return changed ? copy : prevErrs;
       });
+      setError(prevError => {
+        if (!prevError) return prevError;
+        if (
+          prevError.toLowerCase().includes('document') ||
+          prevError.toLowerCase().includes('mismatch') ||
+          prevError.toLowerCase().includes('aadhar') ||
+          prevError.toLowerCase().includes('pan card')
+        ) {
+          return null;
+        }
+        return prevError;
+      });
     }
     if (patch.rejectionDocUploaded) {
       setLicenseHistoryErrors(prevErrs => {
@@ -2764,6 +2777,7 @@ function RenewalFormPageContent() {
   const [successMessage, setSuccessMessage] = useState('');
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
+  const [incompleteModalError, setIncompleteModalError] = useState<string | null>(null);
   const [personalErrors, setPersonalErrors] = useState<Record<string, string>>({});
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
   const [occupationErrors, setOccupationErrors] = useState<Record<string, string>>({});
@@ -3158,11 +3172,32 @@ function RenewalFormPageContent() {
     }
   }
 
-  function handleFileChange(name: string, file: File | null) {
+  function handleFileChange(name: string, file: File | any) {
     if (!file) {
       setFormData(prev => ({ ...prev, [name]: null }));
       if (name === 'photographUploaded') {
         setSectionCompleted(prev => ({ ...prev, biometric: false }));
+      }
+      return;
+    }
+
+    // If an already-uploaded file object is passed (e.g. from BiometricPhotoCaptureModal)
+    if (file && !(file instanceof File) && (file.id || file.fileId)) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: {
+          id: file.id || file.fileId,
+          fileName: file.fileName || 'biometric_photo.jpg',
+          fileUrl: file.fileUrl || file.filePath,
+          fileType: file.fileType || 'PHOTOGRAPH',
+        },
+      }));
+      if (name === 'photographUploaded') {
+        setBiometricErrors(prev => {
+          const next = { ...prev };
+          delete next['photograph'];
+          return next;
+        });
       }
       return;
     }
@@ -3185,6 +3220,13 @@ function RenewalFormPageContent() {
             fileType: uploaded.fileType,
           },
         }));
+        if (name === 'photographUploaded') {
+          setBiometricErrors(prev => {
+            const next = { ...prev };
+            delete next['photograph'];
+            return next;
+          });
+        }
         setStatusMessage('Document uploaded');
       } catch (uploadErr: any) {
         setError(uploadErr?.message || 'Failed to upload document.');
@@ -3511,6 +3553,11 @@ function RenewalFormPageContent() {
   });
 
   const sectionValidity = computeSectionValidity(formData);
+  const getMissingMandatorySections = (validity: Record<string, boolean>): string[] =>
+    SECTION_FLOW_ORDER.filter(key => !validity[key]).map(
+      key => RENEWAL_SECTIONS[STEP_KEYS.indexOf(key)]
+    );
+
   const isStepDone = (key: string): boolean => {
     if (key === 'declaration') return false;
     if (key === 'preview') return isStepDone('documents');
@@ -3540,6 +3587,21 @@ function RenewalFormPageContent() {
     });
     const requested = STEP_KEYS.indexOf(requestedStepRef.current as (typeof STEP_KEYS)[number]);
     if (requested > 0) {
+      const previewIndex = STEP_KEYS.indexOf('preview');
+      const declarationIndex = STEP_KEYS.indexOf('declaration');
+      if (requested === previewIndex || requested === declarationIndex) {
+        const missingSections = getMissingMandatorySections(sectionValidity);
+        if (missingSections.length > 0) {
+          const firstIncompleteKey = SECTION_FLOW_ORDER.find(key => !sectionValidity[key]);
+          const targetIdx = firstIncompleteKey ? STEP_KEYS.indexOf(firstIncompleteKey) : 0;
+          setCurrentStepIndex(targetIdx);
+          setIncompleteModalError(
+            `Please complete the following mandatory sections before accessing ${RENEWAL_SECTIONS[requested]}:\n• ${missingSections.join('\n• ')}`
+          );
+          setStepRestored(true);
+          return;
+        }
+      }
       let target = requested;
       while (target > 0 && lockedSteps.has(target)) target--;
       setCurrentStepIndex(target);
@@ -3570,6 +3632,17 @@ function RenewalFormPageContent() {
   }, [currentStepIndex, stepRestored]);
 
   const handleStepTabClick = (idx: number) => {
+    const previewIndex = STEP_KEYS.indexOf('preview');
+    const declarationIndex = STEP_KEYS.indexOf('declaration');
+    if (idx === previewIndex || idx === declarationIndex) {
+      const missingSections = getMissingMandatorySections(sectionValidity);
+      if (missingSections.length > 0) {
+        setIncompleteModalError(
+          `Please complete the following mandatory sections before proceeding to ${RENEWAL_SECTIONS[idx]}:\n• ${missingSections.join('\n• ')}`
+        );
+        return;
+      }
+    }
     if (lockedSteps.has(idx)) return;
     setCurrentStepIndex(idx);
   };
@@ -3624,6 +3697,33 @@ function RenewalFormPageContent() {
       setFormData(prev => ({ ...prev, ...patch }))
     );
     return { ...data, ...committed } as RenewalFormState;
+  };
+
+  const navigateAfterSectionSave = (sectionKey: string, dataToSave: RenewalFormState) => {
+    const startIdx = SECTION_FLOW_ORDER.indexOf(
+      sectionKey as (typeof SECTION_FLOW_ORDER)[number]
+    );
+    const nextIncomplete = SECTION_FLOW_ORDER.slice(startIdx + 1).find(
+      key => !sectionCompleted[key]
+    );
+    const target = nextIncomplete ?? 'preview';
+
+    if (target === 'preview') {
+      const latestValidity = computeSectionValidity(dataToSave);
+      const missingSections = getMissingMandatorySections(latestValidity);
+      if (missingSections.length > 0) {
+        const firstIncomplete = SECTION_FLOW_ORDER.find(key => !latestValidity[key]) ?? 'personal';
+        setCurrentStepIndex(STEP_KEYS.indexOf(firstIncomplete));
+        scrollToSectionTop(firstIncomplete);
+        setIncompleteModalError(
+          `Please complete the following mandatory sections before proceeding to ${RENEWAL_SECTIONS[STEP_KEYS.indexOf('preview')]}:\n• ${missingSections.join('\n• ')}`
+        );
+        return;
+      }
+    }
+
+    setCurrentStepIndex(STEP_KEYS.indexOf(target as (typeof STEP_KEYS)[number]));
+    scrollToSectionTop(target);
   };
 
   // Saves one section. Next moves on to the following section; Save to Draft
@@ -3717,18 +3817,7 @@ function RenewalFormPageContent() {
           return;
         }
         toast.success('Documents saved successfully.');
-
-        // Auto-navigate to the next incomplete section or preview
-        const startIdx = SECTION_FLOW_ORDER.indexOf(
-          sectionKey as (typeof SECTION_FLOW_ORDER)[number]
-        );
-        const nextIncomplete = SECTION_FLOW_ORDER.slice(startIdx + 1).find(
-          key => !sectionCompleted[key]
-        );
-        const target = nextIncomplete ?? 'preview';
-
-        setCurrentStepIndex(STEP_KEYS.indexOf(target as (typeof STEP_KEYS)[number]));
-        scrollToSectionTop(target);
+        navigateAfterSectionSave(sectionKey, dataToSave);
         return;
       }
 
@@ -3747,18 +3836,7 @@ function RenewalFormPageContent() {
       toast.success(
         `${sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)} section saved successfully.`
       );
-
-      // Auto-navigate to the next incomplete section
-      const startIdx = SECTION_FLOW_ORDER.indexOf(
-        sectionKey as (typeof SECTION_FLOW_ORDER)[number]
-      );
-      const nextIncomplete = SECTION_FLOW_ORDER.slice(startIdx + 1).find(
-        key => !sectionCompleted[key]
-      );
-      const target = nextIncomplete ?? 'preview';
-
-      setCurrentStepIndex(STEP_KEYS.indexOf(target as (typeof STEP_KEYS)[number]));
-      scrollToSectionTop(target);
+      navigateAfterSectionSave(sectionKey, dataToSave);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to save section. Please try again.');
       setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
@@ -5147,6 +5225,25 @@ function RenewalFormPageContent() {
           </div>
         </div>
       </div>
+
+      {/* Incomplete Application Modal */}
+      <WarningAlertModal
+        isOpen={Boolean(incompleteModalError)}
+        title='Incomplete Application'
+        subtitle='Please complete all required steps.'
+        alertMessage={incompleteModalError}
+        description='You must complete all the required sections before proceeding to the Preview or Declaration & Submit step.'
+        onBackdropClick={() => setIncompleteModalError(null)}
+        actions={
+          <button
+            type='button'
+            onClick={() => setIncompleteModalError(null)}
+            className='px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors'
+          >
+            OK, I&apos;ll complete them
+          </button>
+        }
+      />
     </div>
   );
 }

@@ -10,6 +10,9 @@ import {
   stageRenewalDocument,
 } from '../../../../utils/renewalFileUpload';
 import { usePrefilledDocumentSync } from '../../../../hooks/usePrefilledDocumentSync';
+import { DocumentValidationService, DocumentValidationResult } from '../../../../services/documentValidationService';
+import { DocumentValidationBadge } from '../../../forms/elements/DocumentValidationBadge';
+import { WarningAlertModal } from '../../../forms/elements/WarningAlertModal';
 
 type ErrorsMap = Record<string, string | undefined>;
 
@@ -73,7 +76,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
     formData: any;
     renewalId: string;
     onPatch: (patch: Record<string, unknown>) => void;
-    onError?: (message: string) => void;
+    onError?: (message: string | null) => void;
     onStatus?: (message: string | null) => void;
     errors?: ErrorsMap;
     isReadOnly?: boolean;
@@ -84,15 +87,27 @@ const DocumentsSection = forwardRef(function DocumentsSection(
   const { formData, renewalId, onPatch, onError, onStatus, errors = {}, isReadOnly = false, onReload } = props;
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
   const [fileSizeErrors, setFileSizeErrors] = useState<Record<string, string>>({});
+  const [docValidationErrors, setDocValidationErrors] = useState<Record<string, string>>({});
+  const [validatingFields, setValidatingFields] = useState<Record<string, boolean>>({});
+  const [validationResults, setValidationResults] = useState<Record<string, DocumentValidationResult | null>>({});
+  const [pendingReviewModal, setPendingReviewModal] = useState<{
+    fieldKey: string;
+    label: string;
+    file: File;
+    validationResult: DocumentValidationResult;
+  } | null>(null);
 
-  // Combined errors: parent errors + local file size errors
+  // Combined errors: parent errors + local file size errors + local document validation errors
   const combinedErrors = useMemo(() => {
     const merged: Record<string, string | undefined> = { ...errors };
     for (const [key, msg] of Object.entries(fileSizeErrors)) {
       if (msg) merged[key] = msg;
     }
+    for (const [key, msg] of Object.entries(docValidationErrors)) {
+      if (msg) merged[key] = msg;
+    }
     return merged;
-  }, [errors, fileSizeErrors]);
+  }, [errors, fileSizeErrors, docValidationErrors]);
 
   useImperativeHandle(ref, () => ({
     focusFirstInvalid: () => {
@@ -116,11 +131,66 @@ const DocumentsSection = forwardRef(function DocumentsSection(
     'documents',
   );
 
+  const stageValidatedFile = (fieldKey: string, file: File) => {
+    // --- Resolve file type: unsupported types saved as "Other" ---
+    const fileTypeLabel = resolveFileTypeLabel(file);
+
+    // Held in form state only; uploaded (and any replaced file deleted) on Save to Draft / Next.
+    onPatch({ [fieldKey]: stageRenewalDocument(file, formData?.[fieldKey], fileTypeLabel) });
+    onStatus?.('Document added. Click Save to Draft or Next to save it.');
+  };
+
+  const handleReviewReUpload = () => {
+    if (!pendingReviewModal) return;
+    const { fieldKey } = pendingReviewModal;
+    setPendingReviewModal(null);
+    setValidationResults((prev) => ({ ...prev, [fieldKey]: null }));
+    setDocValidationErrors((prev) => {
+      const next = { ...prev };
+      delete next[fieldKey];
+      return next;
+    });
+    setFileSizeErrors((prev) => {
+      const next = { ...prev };
+      delete next[fieldKey];
+      return next;
+    });
+    onError?.(null);
+
+    const inputEl = document.querySelector(`input[name="${fieldKey}"]`) as HTMLInputElement | null;
+    if (inputEl) {
+      inputEl.value = '';
+      inputEl.click();
+    }
+  };
+
+  const handleReviewProceed = () => {
+    if (!pendingReviewModal) return;
+    const { fieldKey, file, validationResult } = pendingReviewModal;
+    setPendingReviewModal(null);
+    setValidationResults((prev) => ({ ...prev, [fieldKey]: validationResult }));
+    stageValidatedFile(fieldKey, file);
+  };
+
   const handleSelect = (fieldKey: string) => async (file: File) => {
     if (!renewalId) {
       toast.error('Save the renewal draft first so a renewal ID is available for uploads.');
       return;
     }
+
+    // Clear previous validation errors for this field and top-level error on replacement
+    setFileSizeErrors((prev) => {
+      const next = { ...prev };
+      delete next[fieldKey];
+      return next;
+    });
+    setDocValidationErrors((prev) => {
+      const next = { ...prev };
+      delete next[fieldKey];
+      return next;
+    });
+    setValidationResults((prev) => ({ ...prev, [fieldKey]: null }));
+    onError?.(null);
 
     // --- File size validation ---
     if (file.size > MAX_FILE_SIZE) {
@@ -130,22 +200,70 @@ const DocumentsSection = forwardRef(function DocumentsSection(
       return;
     }
 
-    // Clear any previous file size error for this field
+    // Content-based Document Validation check (Only for Aadhaar and PAN Card)
+    const docConfig = DOCUMENT_FIELDS.find((f) => f.key === fieldKey);
+    const expectedLabel = docConfig?.label || fieldKey;
+
+    if (DocumentValidationService.isOcrEligible(fieldKey) || DocumentValidationService.isOcrEligible(expectedLabel)) {
+      setValidatingFields((prev) => ({ ...prev, [fieldKey]: true }));
+
+      try {
+        const valResult = await DocumentValidationService.validateDocument(file, expectedLabel);
+        setValidationResults((prev) => ({ ...prev, [fieldKey]: valResult }));
+
+        if (
+          valResult.status === 'DOCUMENT_MISMATCH' ||
+          valResult.status === 'INVALID_FILE' ||
+          valResult.status === 'UNREADABLE'
+        ) {
+          setDocValidationErrors((prev) => ({ ...prev, [fieldKey]: valResult.message }));
+          onError?.(valResult.message);
+          toast.error(valResult.message);
+          return;
+        }
+
+        // If document was accepted or review required, remove previous mismatch error immediately
+        setDocValidationErrors((prev) => {
+          const next = { ...prev };
+          delete next[fieldKey];
+          return next;
+        });
+        onError?.(null);
+
+        if (valResult.status === 'REVIEW_REQUIRED') {
+          setPendingReviewModal({
+            fieldKey,
+            label: expectedLabel,
+            file,
+            validationResult: valResult,
+          });
+          return;
+        }
+      } catch (err: any) {
+        console.warn('[DocumentsSection] Document validation check warning:', err);
+      } finally {
+        setValidatingFields((prev) => ({ ...prev, [fieldKey]: false }));
+      }
+    }
+
+    stageValidatedFile(fieldKey, file);
+  };
+
+  const handleDelete = (fieldKey: string, fileId?: number) => async () => {
+    // Clear validation states and top-level error for this field
+    setValidationResults((prev) => ({ ...prev, [fieldKey]: null }));
     setFileSizeErrors((prev) => {
       const next = { ...prev };
       delete next[fieldKey];
       return next;
     });
+    setDocValidationErrors((prev) => {
+      const next = { ...prev };
+      delete next[fieldKey];
+      return next;
+    });
+    onError?.(null);
 
-    // --- Resolve file type: unsupported types saved as "Other" ---
-    const fileTypeLabel = resolveFileTypeLabel(file);
-
-    // Held in form state only; uploaded (and any replaced file deleted) on Save to Draft / Next.
-    onPatch({ [fieldKey]: stageRenewalDocument(file, formData?.[fieldKey], fileTypeLabel) });
-    onStatus?.('Document added. Click Save to Draft or Next to save it.');
-  };
-
-  const handleDelete = (fieldKey: string, fileId?: number) => async () => {
     const current = formData?.[fieldKey];
     if (isStagedRenewalDocument(current)) {
       onPatch({ [fieldKey]: discardStagedRenewalDocument(current) });
@@ -257,7 +375,17 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                 }
                 disabled={!renewalId || isReadOnly || isUploading}
               />
-              {fieldError && !isUploading && (
+              {(DocumentValidationService.isOcrEligible(key) || DocumentValidationService.isOcrEligible(label)) && (
+                <DocumentValidationBadge
+                  isValidating={validatingFields[key]}
+                  status={validationResults[key]?.status}
+                  confidence={validationResults[key]?.confidence}
+                  detectedType={validationResults[key]?.detectedType}
+                  expectedType={label}
+                  message={validationResults[key]?.message}
+                />
+              )}
+              {fieldError && !isUploading && fieldError !== validationResults[key]?.message && (
                 <p className='text-red-500 text-xs mt-1'>{fieldError}</p>
               )}
               {/* Display uploaded files only after a successful upload */}
@@ -311,6 +439,33 @@ const DocumentsSection = forwardRef(function DocumentsSection(
           );
         })}
       </div>
+
+      <WarningAlertModal
+        isOpen={Boolean(pendingReviewModal)}
+        title='Document Review Required'
+        subtitle={pendingReviewModal ? `${pendingReviewModal.label} — Verification Notice` : undefined}
+        alertMessage={pendingReviewModal?.validationResult.message}
+        description='You can re-upload a clearer scan of the document, or proceed with the current document for manual review.'
+        onBackdropClick={handleReviewReUpload}
+        actions={
+          <>
+            <button
+              type='button'
+              onClick={handleReviewReUpload}
+              className='px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium text-sm transition-colors'
+            >
+              Re-Upload
+            </button>
+            <button
+              type='button'
+              onClick={handleReviewProceed}
+              className='px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors'
+            >
+              Proceed
+            </button>
+          </>
+        }
+      />
     </div>
   );
 });
