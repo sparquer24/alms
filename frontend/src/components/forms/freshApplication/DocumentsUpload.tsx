@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FormSkeleton } from '../elements/FormSkeleton';
 import { FormStepHeader } from '../elements/FormStepHeader';
@@ -8,6 +8,9 @@ import { FileUploadService } from '../../../api/fileUploadService';
 import { getFileTypeFromDisplayName, validateFileForDocumentType, DOCUMENT_TYPE_MAPPING } from '../../../config/documentTypes';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import { DocumentValidationService, DocumentValidationResult } from '../../../services/documentValidationService';
+import { DocumentValidationBadge } from '../elements/DocumentValidationBadge';
+import { WarningAlertModal } from '../elements/WarningAlertModal';
 
 type UploadedFile = {
 	file: File;
@@ -56,10 +59,18 @@ const DocumentsUpload = () => {
 	   'Safe custody'
    ];
    // Documents that are mandatory before proceeding
-   const requiredDocuments = ['Aadhar Card'];
+   const requiredDocuments = ['Aadhar Card', 'PAN Card'];
    const [files, setFiles] = useState<{ [key: string]: UploadedFile[] }>({});
    const [fileError, setFileError] = useState<{ [key: string]: string }>({});
    const [previewDocument, setPreviewDocument] = useState<{ url: string; name: string; type: string } | null>(null);
+   const [validatingDoc, setValidatingDoc] = useState<{ [key: string]: boolean }>({});
+   const [validationResults, setValidationResults] = useState<{ [key: string]: DocumentValidationResult | null }>({});
+   const [pendingReviewModal, setPendingReviewModal] = useState<{
+	   docType: string;
+	   file: File;
+	   validationResult: DocumentValidationResult;
+   } | null>(null);
+   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
 	 // Create reverse mapping from backend fileType -> display name
 	 const fileTypeToDisplay: Record<string, string> = {};
@@ -135,6 +146,90 @@ const DocumentsUpload = () => {
 	   setPreviewDocument(null);
    };
 
+   const uploadValidatedFile = async (docType: string, file: File) => {
+	   if (!applicationId) return;
+
+	   // Generate preview URL for the file
+	   let previewUrl: string | undefined;
+	   try {
+		   previewUrl = await generatePreviewUrl(file);
+	   } catch (error) {
+		   console.error('Failed to generate preview:', error);
+	   }
+
+	   // Create UploadedFile object with uploading state
+	   const uploadedFile: UploadedFile = {
+		   file,
+		   uploading: true,
+		   uploaded: false,
+		   previewUrl,
+	   };
+
+	   // Add to files state immediately to show uploading status
+	   setFiles((prev) => ({
+		   ...prev,
+		   [docType]: [...(prev[docType] || []), uploadedFile],
+	   }));
+
+	   try {
+		   // Get FileType enum value
+		   const fileType = getFileTypeFromDisplayName(docType);
+		   
+		   // Upload file
+		   const response = await FileUploadService.uploadFile(
+			   applicationId,
+			   file,
+			   fileType,
+			   `${docType} document`
+		   );
+
+		   // Update file state with success
+		   setFiles((prev) => ({
+			   ...prev,
+			   [docType]: prev[docType].map((f) =>
+				   f.file === file
+					   ? { ...f, uploading: false, uploaded: true, uploadId: response.data.id }
+					   : f
+			   ),
+		   }));
+	   } catch (error: any) {
+		   // Update file state with error
+		   setFiles((prev) => ({
+			   ...prev,
+			   [docType]: prev[docType].map((f) =>
+				   f.file === file
+					   ? { ...f, uploading: false, uploaded: false, error: error.message || 'Upload failed' }
+					   : f
+			   ),
+		   }));
+
+		   setFileError(prev => ({ 
+			   ...prev, 
+			   [docType]: error.message || 'Upload failed' 
+		   }));
+	   }
+   };
+
+   const handleReviewReUpload = () => {
+	   if (!pendingReviewModal) return;
+	   const { docType } = pendingReviewModal;
+	   setPendingReviewModal(null);
+	   setValidationResults(prev => ({ ...prev, [docType]: null }));
+	   setFileError(prev => ({ ...prev, [docType]: '' }));
+	   if (fileInputRefs.current[docType]) {
+		   fileInputRefs.current[docType]!.value = '';
+		   fileInputRefs.current[docType]!.click();
+	   }
+   };
+
+   const handleReviewProceed = async () => {
+	   if (!pendingReviewModal) return;
+	   const { docType, file, validationResult } = pendingReviewModal;
+	   setPendingReviewModal(null);
+	   setValidationResults(prev => ({ ...prev, [docType]: validationResult }));
+	   await uploadValidatedFile(docType, file);
+   };
+
    const handleFileChange = (docType: string) => async (e: React.ChangeEvent<HTMLInputElement>) => {
 	   if (e.target.files && applicationId) {
 		   const newFiles = Array.from(e.target.files as FileList);
@@ -152,68 +247,62 @@ const DocumentsUpload = () => {
 				   continue;
 			   }
 
-			   // Clear any previous errors
+			   // Clear any previous errors and validation results
 			   setFileError(prev => ({ ...prev, [docType]: '' }));
+			   setValidationResults(prev => ({ ...prev, [docType]: null }));
 
-			   // Generate preview URL for the file
-			   let previewUrl: string | undefined;
-			   try {
-				   previewUrl = await generatePreviewUrl(file);
-			   } catch (error) {
-				   console.error('Failed to generate preview:', error);
+			   // Trigger content-based document validation (Only for Aadhaar and PAN Card)
+			   if (DocumentValidationService.isOcrEligible(docType)) {
+				   setValidatingDoc(prev => ({ ...prev, [docType]: true }));
+
+				   try {
+					   const valResult = await DocumentValidationService.validateDocument(file, docType);
+					   setValidationResults(prev => ({ ...prev, [docType]: valResult }));
+
+					   if (valResult.status === 'DOCUMENT_MISMATCH') {
+						   setFileError(prev => ({
+							   ...prev,
+							   [docType]: valResult.message || `Document mismatch: Expected ${docType} but detected ${valResult.detectedType}.`
+						   }));
+						   setValidatingDoc(prev => ({ ...prev, [docType]: false }));
+						   continue;
+					   }
+
+					   if (valResult.status === 'UNREADABLE') {
+						   setFileError(prev => ({
+							   ...prev,
+							   [docType]: valResult.message || 'The uploaded document is unreadable or contains no text.'
+						   }));
+						   setValidatingDoc(prev => ({ ...prev, [docType]: false }));
+						   continue;
+					   }
+
+					   if (valResult.status === 'INVALID_FILE') {
+						   setFileError(prev => ({
+							   ...prev,
+							   [docType]: valResult.message || 'Invalid or unsupported file format.'
+						   }));
+						   setValidatingDoc(prev => ({ ...prev, [docType]: false }));
+						   continue;
+					   }
+
+					   if (valResult.status === 'REVIEW_REQUIRED') {
+						   setPendingReviewModal({
+							   docType,
+							   file,
+							   validationResult: valResult,
+						   });
+						   setValidatingDoc(prev => ({ ...prev, [docType]: false }));
+						   continue;
+					   }
+				   } catch (vErr: any) {
+					   console.warn('[DocumentsUpload] Document validation check warning:', vErr);
+				   } finally {
+					   setValidatingDoc(prev => ({ ...prev, [docType]: false }));
+				   }
 			   }
 
-			   // Create UploadedFile object with uploading state
-			   const uploadedFile: UploadedFile = {
-				   file,
-				   uploading: true,
-				   uploaded: false,
-				   previewUrl,
-			   };
-
-			   // Add to files state immediately to show uploading status
-			   setFiles((prev) => ({
-				   ...prev,
-				   [docType]: [...(prev[docType] || []), uploadedFile],
-			   }));
-
-			   try {
-				   // Get FileType enum value
-				   const fileType = getFileTypeFromDisplayName(docType);
-				   
-				   // Upload file
-				   const response = await FileUploadService.uploadFile(
-					   applicationId,
-					   file,
-					   fileType,
-					   `${docType} document`
-				   );
-
-				   // Update file state with success
-				   setFiles((prev) => ({
-					   ...prev,
-					   [docType]: prev[docType].map((f) =>
-						   f.file === file
-							   ? { ...f, uploading: false, uploaded: true, uploadId: response.data.id }
-							   : f
-					   ),
-				   }));
-			   } catch (error: any) {
-				   // Update file state with error
-				   setFiles((prev) => ({
-					   ...prev,
-					   [docType]: prev[docType].map((f) =>
-						   f.file === file
-							   ? { ...f, uploading: false, uploaded: false, error: error.message || 'Upload failed' }
-							   : f
-					   ),
-				   }));
-
-				   setFileError(prev => ({ 
-					   ...prev, 
-					   [docType]: error.message || 'Upload failed' 
-				   }));
-			   }
+			   await uploadValidatedFile(docType, file);
 		   }
 		   e.target.value = '';
 	   } else if (!applicationId) {
@@ -254,6 +343,7 @@ const DocumentsUpload = () => {
 		   ...prev,
 		   [docType]: prev[docType].filter((_, i) => i !== idx),
 	   }));
+	   setValidationResults((prev) => ({ ...prev, [docType]: null }));
    };
 
 	// Navigation handlers
@@ -263,14 +353,17 @@ const DocumentsUpload = () => {
 
 	const handleNext = async () => {
 		// Ensure required documents are uploaded (uploaded === true)
+		let hasMissingRequired = false;
 		for (const req of requiredDocuments) {
 			const docFiles = files[req] || [];
 			const uploadedCount = docFiles.filter(f => f.uploaded).length;
 			if (uploadedCount === 0) {
 				setFileError(prev => ({ ...prev, [req]: 'This document is required before proceeding.' }));
-				// Focus is optional: user will see the error under the doc
-				return;
+				hasMissingRequired = true;
 			}
+		}
+		if (hasMissingRequired) {
+			return;
 		}
 
 		const savedApplicantId = await saveFormData();
@@ -387,6 +480,9 @@ const DocumentsUpload = () => {
 											<label className="text-blue-700 underline cursor-pointer hover:text-blue-950 transition-colors">
 												Browse
 												<input
+													ref={(el) => {
+														fileInputRefs.current[docType] = el;
+													}}
 													type="file"
 													className="hidden"
 													accept=".jpg,.jpeg,.png,.pdf"
@@ -400,6 +496,16 @@ const DocumentsUpload = () => {
 										</span>
 										{fileError[docType] && (
 											<span className="text-xs text-red-500 mt-1">{fileError[docType]}</span>
+										)}
+										{DocumentValidationService.isOcrEligible(docType) && (
+											<DocumentValidationBadge
+												isValidating={validatingDoc[docType]}
+												status={validationResults[docType]?.status}
+												confidence={validationResults[docType]?.confidence}
+												detectedType={validationResults[docType]?.detectedType}
+												expectedType={docType}
+												message={validationResults[docType]?.message}
+											/>
 										)}
 									</div>
 								);
@@ -553,6 +659,32 @@ const DocumentsUpload = () => {
 					</div>
 				</div>
 			)}
+			<WarningAlertModal
+				isOpen={Boolean(pendingReviewModal)}
+				title="Document Review Required"
+				subtitle={pendingReviewModal ? `${pendingReviewModal.docType} — Verification Notice` : undefined}
+				alertMessage={pendingReviewModal?.validationResult.message}
+				description="You can re-upload a clearer scan of the document, or proceed with the current document for manual review."
+				onBackdropClick={handleReviewReUpload}
+				actions={
+					<>
+						<button
+							type="button"
+							onClick={handleReviewReUpload}
+							className="px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium text-sm transition-colors"
+						>
+							Re-Upload
+						</button>
+						<button
+							type="button"
+							onClick={handleReviewProceed}
+							className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors"
+						>
+							Proceed
+						</button>
+					</>
+				}
+			/>
 		</form>
 	);
 };

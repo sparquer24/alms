@@ -48,6 +48,7 @@
     "@types/jest": "^30.0.0",
     "@types/json-schema": "^7.0.15",
     "@types/mime": "^3.0.4",
+    "@types/multer": "^2.1.0",
     "@types/node": "^24.2.0",
     "@types/puppeteer": "^5.4.7",
     "@types/qrcode": "^1.5.6",
@@ -73,13 +74,18 @@
     "class-validator": "^0.14.4",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.0",
+    "file-type": "^21.3.4",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
+    "pdf-parse": "^1.1.1",
     "puppeteer": "^25.2.1",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sharp": "^0.35.5",
     "swagger-ui-express": "^5.0.1",
+    "tesseract.js": "^5.0.4",
     "uuid": "^13.0.0"
   }
 }

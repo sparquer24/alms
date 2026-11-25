@@ -1868,10 +1868,14 @@ export class ApplicationFormService {
         return ['Application not found', null];
       }
 
-      // File size validation (10MB limit)
-      const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
+      // File size validation (3MB limit for REJECTED_LICENSE, 10MB limit for other file types)
+      const isRejectedLicense = dto.fileType === 'REJECTED_LICENSE';
+      const maxFileSize = isRejectedLicense ? 3 * 1024 * 1024 : 10 * 1024 * 1024;
       if (dto.fileSize > maxFileSize) {
-        return ['File size too large. Maximum allowed size is 10MB', null];
+        return [
+          `File size too large. Maximum allowed size is ${isRejectedLicense ? '3MB' : '10MB'}`,
+          null,
+        ];
       }
 
       // For PHOTOGRAPH and SIGNATURE_THUMB types, delete existing files to keep only the latest

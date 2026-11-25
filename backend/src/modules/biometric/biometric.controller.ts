@@ -10,12 +10,18 @@ import {
     Request,
     HttpException,
     HttpStatus,
+    UseInterceptors,
+    UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery, ApiConsumes } from '@nestjs/swagger';
 import { BiometricService } from './biometric.service';
 import { BiometricAuditService } from './biometric-audit.service';
+import { BiometricPhotoService } from './services/biometric-photo.service';
 import { BiometricEnrollmentDto, BiometricVerificationDto } from './dto/biometric.dto';
+import { ValidateBiometricPhotoDto, BiometricPhotoResponseDto } from './dto/biometric-photo.dto';
 import { AuthGuard } from '../../middleware/auth.middleware';
+import { MulterFile } from '../../types/multer-file.type';
 
 @ApiTags('Biometric')
 @Controller('biometric')
@@ -25,7 +31,52 @@ export class BiometricController {
     constructor(
         private readonly biometricService: BiometricService,
         private readonly auditService: BiometricAuditService,
+        private readonly biometricPhotoService: BiometricPhotoService,
     ) { }
+
+    /**
+     * Validate Biometric Photograph (dry run)
+     */
+    @Post('validate')
+    @ApiOperation({ summary: 'Validate biometric photograph format, dimensions, and face count' })
+    @ApiConsumes('multipart/form-data', 'application/json')
+    @ApiResponse({
+        status: 200,
+        description: 'Biometric photograph validated successfully',
+        type: BiometricPhotoResponseDto,
+    })
+    @ApiResponse({ status: 400, description: 'Validation failed (format, resolution, or face count)' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 10 * 1024 * 1024 } }))
+    async validatePhotograph(
+        @UploadedFile() file: MulterFile,
+        @Body() body: ValidateBiometricPhotoDto,
+    ): Promise<BiometricPhotoResponseDto> {
+        const buffer = this.biometricPhotoService.parseImageBuffer(file?.buffer, body?.image);
+        return await this.biometricPhotoService.validatePhotograph(buffer, body);
+    }
+
+    /**
+     * Upload and Validate Biometric Photograph
+     */
+    @Post('upload')
+    @ApiOperation({ summary: 'Validate and permanently save accepted biometric photograph' })
+    @ApiConsumes('multipart/form-data', 'application/json')
+    @ApiResponse({
+        status: 201,
+        description: 'Biometric photograph captured, validated, and saved successfully',
+        type: BiometricPhotoResponseDto,
+    })
+    @ApiResponse({ status: 400, description: 'Validation failed' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 10 * 1024 * 1024 } }))
+    async uploadPhotograph(
+        @UploadedFile() file: MulterFile,
+        @Body() body: ValidateBiometricPhotoDto,
+    ): Promise<BiometricPhotoResponseDto> {
+        const buffer = this.biometricPhotoService.parseImageBuffer(file?.buffer, body?.image);
+        return await this.biometricPhotoService.uploadPhotograph(buffer, body, file?.originalname);
+    }
 
     /**
      * Device Status Check
